@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { ActiveTenantContext, UserSchoolOption } from "@/types/tenancy";
 import { School, UserProfile, Role, Permission } from "@/types/database";
 
-const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
+export const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
 
 /**
  * Retrieves the currently active tenant context for the authenticated user.

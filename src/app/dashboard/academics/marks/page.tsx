@@ -12,7 +12,7 @@ import {
   getDepartmentalApproval,
 } from "@/lib/academic/marks-service";
 import { MarksGridClient } from "./MarksGridClient";
-import { ArrowLeft, ClipboardList, Layers, BookOpen, Calendar } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -103,22 +103,22 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
               className="inline-flex items-center gap-1 text-[#525E4B] hover:text-[#142010] transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Academics Hub</span>
+              <span>Classes &amp; Subjects</span>
             </Link>
             <span className="text-[#E8DFC9]">/</span>
-            <span className="font-semibold text-[#2A7C13]">Sequence Marks</span>
+            <span className="font-semibold text-[#2A7C13]">Enter Marks</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#142010] tracking-tight">
-            Class Mark Sheet &amp; Evaluations
+            Enter Student Marks
           </h1>
           <p className="text-xs text-[#525E4B]">
-            Keyboard-first mark entry for official Cameroonian secondary 6-sequence assessments.
+            Choose a class, subject and test, then enter each student&apos;s mark. Marks are shown on a scale of 20.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-[4px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-xs font-bold">
-            {activeYear?.name || "2026/2027 Academic Year"}
+            {activeYear?.name || "Academic year not set"}
           </span>
         </div>
       </div>
@@ -126,45 +126,44 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
       {/* Filter / Selector Controls */}
       <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
         <div className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">
-          Select Class, Sequence &amp; Subject
+          Choose a Class, Test &amp; Subject
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {/* 1. Sequence Selector */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
-              Evaluation Sequence
+              Test / Sequence
             </label>
-            <form method="GET">
+            <form method="GET" className="flex gap-2">
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
               <input type="hidden" name="subjectId" value={selectedSubject?.id || ""} />
               <select
                 name="sequenceId"
                 defaultValue={selectedSequence?.id}
-                onChange={(e) => e.target.form?.submit()}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
                 {sequences.map((seq) => (
                   <option key={seq.id} value={seq.id}>
-                    {seq.name} (Sequence {seq.sequence_number})
+                    {seq.name} (Test {seq.sequence_number} of 6)
                   </option>
                 ))}
               </select>
+              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
 
           {/* 2. Class Stream Selector */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
-              Class &amp; Stream
+              Class Group
             </label>
-            <form method="GET">
+            <form method="GET" className="flex gap-2">
               <input type="hidden" name="sequenceId" value={selectedSequence?.id || ""} />
               <input type="hidden" name="subjectId" value={selectedSubject?.id || ""} />
               <select
                 name="classStreamId"
                 defaultValue={selectedStream?.id}
-                onChange={(e) => e.target.form?.submit()}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
                 {allStreams.map((stream) => (
@@ -173,29 +172,30 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
                   </option>
                 ))}
               </select>
+              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
 
           {/* 3. Subject Selector */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
-              Teaching Subject
+              Subject
             </label>
-            <form method="GET">
+            <form method="GET" className="flex gap-2">
               <input type="hidden" name="sequenceId" value={selectedSequence?.id || ""} />
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
               <select
                 name="subjectId"
                 defaultValue={selectedSubject?.id}
-                onChange={(e) => e.target.form?.submit()}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
                 {subjects.map((sub) => (
                   <option key={sub.id} value={sub.id}>
-                    {sub.name} ({sub.code}) · Coef {sub.default_coefficient}
+                    {sub.name}
                   </option>
                 ))}
               </select>
+              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
         </div>
@@ -204,7 +204,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
       {/* Interactive Mark Entry Table or Missing Configuration State */}
       {!selectedSequence || !selectedStream || !selectedSubject ? (
         <div className="p-8 text-center rounded-[8px] bg-white border border-[#E8DFC9] text-xs text-[#788470]">
-          Please configure academic sequences, class streams, and subjects to begin entering marks.
+          Set up a current school year, class groups and subjects before entering marks.
         </div>
       ) : (
         <MarksGridClient

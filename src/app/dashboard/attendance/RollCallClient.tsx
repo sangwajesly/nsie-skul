@@ -6,8 +6,6 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  Users,
-  Clock,
   Check,
 } from "lucide-react";
 
@@ -93,7 +91,7 @@ export function RollCallClient({
       } else {
         setMessage({
           type: "success",
-          text: `Roll call for ${sessionDate} saved successfully. Absence hours synced to report cards.`,
+          text: `Attendance for ${sessionDate} has been saved.`,
         });
       }
     });
@@ -119,10 +117,9 @@ export function RollCallClient({
           </button>
           <div className="h-4 w-px bg-[#E8DFC9] hidden sm:block" />
           <div className="text-[#525E4B]">
-            Present: <strong className="text-[#2A7C13]">{presentCount}</strong> · Unjustified:{" "}
-            <strong className="text-red-700">{unjustifiedCount}</strong> · Justified:{" "}
-            <strong className="text-[#92400E]">{justifiedCount}</strong> · Late:{" "}
-            <strong>{lateCount}</strong>
+            Present: <strong className="text-[#2A7C13">{presentCount}</strong> · No reason given:{" "}
+            <strong className="text-red-700">{unjustifiedCount}</strong> · Reason provided:{" "}
+            <strong className="text-[#92400E">{justifiedCount}</strong> · Late: <strong>{lateCount}</strong>
           </div>
         </div>
 
@@ -132,7 +129,7 @@ export function RollCallClient({
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
         >
           <Save className="w-3.5 h-3.5" />
-          <span>{isPending ? "Saving Roll Call..." : "Save Roll Call Sheet"}</span>
+          <span>{isPending ? "Saving Attendance..." : "Save Attendance"}</span>
         </button>
       </div>
 
@@ -161,12 +158,12 @@ export function RollCallClient({
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                 <th className="py-2.5 px-3 w-12 text-center">#</th>
-                <th className="py-2.5 px-3">Matricule</th>
+                <th className="py-2.5 px-3">Admission No.</th>
                 <th className="py-2.5 px-3">Student Name</th>
                 <th className="py-2.5 px-3 text-center">Gender</th>
-                <th className="py-2.5 px-3 w-64">Attendance Status</th>
+                <th className="py-2.5 px-3 w-64">Attendance</th>
                 <th className="py-2.5 px-3 w-28 text-center">Hours Missed</th>
-                <th className="py-2.5 px-3">Justification Note</th>
+                <th className="py-2.5 px-3">Reason for Absence</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5EFE0]">
@@ -192,58 +189,23 @@ export function RollCallClient({
                       {student.gender}
                     </td>
                     <td className="py-2 px-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(idx, "present")}
-                          className={`px-2 py-1 rounded text-[11px] font-bold transition-colors ${
-                            student.status === "present"
-                              ? "bg-[#2A7C13] text-white"
-                              : "bg-zinc-100 text-[#525E4B] hover:bg-zinc-200"
-                          }`}
-                        >
-                          P
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(idx, "unjustified_absent")}
-                          title="Unjustified Absence"
-                          className={`px-2 py-1 rounded text-[11px] font-bold transition-colors ${
-                            student.status === "unjustified_absent"
-                              ? "bg-red-700 text-white"
-                              : "bg-zinc-100 text-[#525E4B] hover:bg-zinc-200"
-                          }`}
-                        >
-                          UA
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(idx, "justified_absent")}
-                          title="Justified Absence"
-                          className={`px-2 py-1 rounded text-[11px] font-bold transition-colors ${
-                            student.status === "justified_absent"
-                              ? "bg-amber-600 text-white"
-                              : "bg-zinc-100 text-[#525E4B] hover:bg-zinc-200"
-                          }`}
-                        >
-                          JA
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleStatusChange(idx, "late")}
-                          title="Late"
-                          className={`px-2 py-1 rounded text-[11px] font-bold transition-colors ${
-                            student.status === "late"
-                              ? "bg-blue-600 text-white"
-                              : "bg-zinc-100 text-[#525E4B] hover:bg-zinc-200"
-                          }`}
-                        >
-                          L
-                        </button>
-                        <span className="text-[10px] text-[#788470] capitalize ml-1">
-                          {student.status.replace("_", " ")}
-                        </span>
-                      </div>
+                      <select
+                        value={student.status}
+                        onChange={(event) =>
+                          handleStatusChange(
+                            idx,
+                            event.target.value as StudentRollItem["status"]
+                          )
+                        }
+                        aria-label={`Attendance for ${student.fullName}`}
+                        className="w-full rounded-[5px] border border-[#E8DFC9] bg-white px-2 py-1.5 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
+                      >
+                        <option value="present">Present</option>
+                        <option value="unjustified_absent">Absent (no reason given)</option>
+                        <option value="justified_absent">Absent (reason provided)</option>
+                        <option value="late">Late</option>
+                        <option value="excused">Excused</option>
+                      </select>
                     </td>
                     <td className="py-2 px-3 text-center">
                       <input
@@ -260,7 +222,7 @@ export function RollCallClient({
                     <td className="py-2 px-3">
                       <input
                         type="text"
-                        placeholder="e.g. Medical slip, transport..."
+                        placeholder="Why was the student absent?"
                         value={student.justificationNote}
                         onChange={(e) => {
                           const updated = [...students];

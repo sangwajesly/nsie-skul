@@ -1,6 +1,8 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { ACTIVE_SCHOOL_COOKIE } from "@/lib/tenancy/context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
@@ -47,24 +49,43 @@ export async function loginAction(
     return { error: error.message };
   }
 
-  // Check if user has at least one active school membership
-  const { data: memberships } = await supabase
+  const { data: memberships, error: membershipsError } = await supabase
     .from("school_memberships")
-    .select("id")
+    .select("id, school_id")
     .eq("user_id", data.user.id)
-    .eq("status", "active")
-    .limit(1);
+    .eq("status", "active");
+
+  if (membershipsError) {
+    return { error: "Could not load your school access. Please try again." };
+  }
 
   if (!memberships || memberships.length === 0) {
     // Authenticated but not linked to any school yet
     return { redirectTo: "/onboarding" };
   }
 
-  // Honour the returnUrl if it's a safe internal path
+  // Honour only known internal destinations after authentication.
   const safePath =
-    returnUrl.startsWith("/dashboard") || returnUrl.startsWith("/onboarding")
+    returnUrl === "/dashboard" ||
+    returnUrl.startsWith("/dashboard/") ||
+    returnUrl === "/onboarding"
       ? returnUrl
       : "/dashboard";
+
+  if (memberships.length > 1) {
+    return {
+      redirectTo: `/select-school?returnTo=${encodeURIComponent(safePath)}`,
+    };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
 
   return { redirectTo: safePath };
 }

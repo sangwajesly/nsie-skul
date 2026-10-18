@@ -56,7 +56,7 @@ export function DisciplineModalClient({
       } else {
         setMessage({
           type: "success",
-          text: "Sanction formally logged and synchronized to student's MINESEC report card profile.",
+          text: "Conduct record saved.",
         });
         setInfractionReason("");
         setTimeout(() => setIsOpen(false), 1500);
@@ -74,7 +74,7 @@ export function DisciplineModalClient({
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#92400E] hover:bg-[#78350F] text-white font-semibold text-xs transition-colors shadow-xs"
       >
         <Plus className="w-3.5 h-3.5" />
-        <span>Log Disciplinary Sanction</span>
+        <span>Record a Conduct Issue</span>
       </button>
 
       {isOpen && (
@@ -83,7 +83,7 @@ export function DisciplineModalClient({
             <div className="flex items-center justify-between border-b border-[#E8DFC9] pb-3">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-[#92400E]" />
-                <h3 className="font-bold text-sm text-[#142010]">Record Disciplinary Action</h3>
+                <h3 className="font-bold text-sm text-[#142010]">Record a Conduct Issue</h3>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -112,7 +112,7 @@ export function DisciplineModalClient({
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-medium text-[#525E4B] mb-1">Student Candidate *</label>
+                <label className="block font-medium text-[#525E4B] mb-1">Student *</label>
                 <select
                   value={selectedStudentId}
                   onChange={(e) => setSelectedStudentId(e.target.value)}
@@ -129,25 +129,29 @@ export function DisciplineModalClient({
 
               <div>
                 <label className="block font-medium text-[#525E4B] mb-1">
-                  MINESEC Sanction Type *
+                  Action Taken *
                 </label>
                 <select
                   value={sanctionType}
-                  onChange={(e) => setSanctionType(e.target.value as any)}
+                  onChange={(e) =>
+                    setSanctionType(
+                      e.target.value as "warning" | "reprimand" | "suspension" | "punishment" | "dismissed"
+                    )
+                  }
                   className="w-full px-2.5 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-white text-xs font-medium focus:outline-none focus:border-[#2A7C13]"
                 >
-                  <option value="warning">Conduct Warning (Avertissement de conduite)</option>
-                  <option value="reprimand">Reprimand (Blâme)</option>
-                  <option value="punishment">Manual Labour / Punishment (Corvée en heures)</option>
-                  <option value="suspension">Temporary Suspension (Exclusion temporaire)</option>
-                  <option value="dismissed">Definitive Dismissal (Exclusion définitive)</option>
+                  <option value="warning">Warning</option>
+                  <option value="reprimand">Reprimand</option>
+                  <option value="punishment">School service</option>
+                  <option value="suspension">Suspension</option>
+                  <option value="dismissed">Dismissal</option>
                 </select>
               </div>
 
               {sanctionType === "punishment" && (
                 <div>
                   <label className="block font-medium text-[#525E4B] mb-1">
-                    Punishment Duration (Hours) *
+                    School Service Hours *
                   </label>
                   <input
                     type="number"
@@ -163,7 +167,7 @@ export function DisciplineModalClient({
               {sanctionType === "suspension" && (
                 <div>
                   <label className="block font-medium text-[#525E4B] mb-1">
-                    Suspension Duration (Days) *
+                    Suspension Days *
                   </label>
                   <input
                     type="number"
@@ -178,12 +182,12 @@ export function DisciplineModalClient({
 
               <div>
                 <label className="block font-medium text-[#525E4B] mb-1">
-                  Infraction Reason / Disciplinary Motif *
+                  What happened? *
                 </label>
                 <textarea
                   rows={2}
                   required
-                  placeholder="Describe the student infraction..."
+                  placeholder="Describe what happened."
                   value={infractionReason}
                   onChange={(e) => setInfractionReason(e.target.value)}
                   className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] text-xs focus:outline-none focus:border-[#2A7C13]"
@@ -203,7 +207,7 @@ export function DisciplineModalClient({
                   disabled={isPending || !infractionReason}
                   className="px-4 py-1.5 rounded-[5px] bg-[#92400E] hover:bg-[#78350F] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
                 >
-                  {isPending ? "Logging Sanction..." : "Confirm & Save Sanction"}
+                  {isPending ? "Saving Record..." : "Save Conduct Record"}
                 </button>
               </div>
             </form>

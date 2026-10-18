@@ -3,15 +3,16 @@ import { notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/tenancy/context";
 import { getActiveAcademicYear } from "@/lib/academic/service";
 import { getStudentReportCard } from "@/lib/academic/report-card-service";
+import { createClient } from "@/lib/supabase/server";
 import { MinesecReportCard } from "@/components/academic/MinesecReportCard";
-import { ArrowLeft, Printer, Download, GraduationCap } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
 
 interface ReportCardPageProps {
   params: Promise<{ studentId: string }>;
-  searchParams: Promise<{ termId?: string }>;
+  searchParams: Promise<{ termNumber?: string; template?: string }>;
 }
 
 export default async function StudentReportCardPage({
@@ -19,23 +20,60 @@ export default async function StudentReportCardPage({
   searchParams,
 }: ReportCardPageProps) {
   const { studentId } = await params;
-  const { termId } = await searchParams;
+  const { termNumber, template } = await searchParams;
+  const selectedTemplate = template || "minesec-cba";
 
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
 
-  // 1. Get Active Academic Year & Default Term if not provided
   const activeYear = await getActiveAcademicYear(schoolId);
-  const targetTermId = termId || "00000000-0000-0000-0000-000000000001"; // Fallback demo term
+  const requestedTermNumber = Number(termNumber || 1);
 
-  // 2. Fetch full Report Card data
-  const reportCardData = await getStudentReportCard(schoolId, targetTermId, studentId);
+  if (!activeYear || ![1, 2, 3].includes(requestedTermNumber)) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-3 py-10 text-center">
+        <h1 className="text-lg font-bold text-[#191919]">Report card not available</h1>
+        <p className="text-sm text-[#666666]">
+          Set a current school year and school terms before opening a report card.
+        </p>
+        <Link href="/dashboard/academics" className="text-sm font-semibold text-[#2A7C13] underline">
+          Go to school setup
+        </Link>
+      </div>
+    );
+  }
 
-  // If student record not found in database, provide sample demo record based on the official MINESEC sample
+  const supabase = await createClient();
+  const { data: term } = await supabase
+    .from("terms")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", activeYear.id)
+    .eq("term_number", requestedTermNumber)
+    .maybeSingle();
+
+  if (!term) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-3 py-10 text-center">
+        <h1 className="text-lg font-bold text-[#191919]">This term has not been set up</h1>
+        <p className="text-sm text-[#666666]">
+          Ask your school administrator to set up this term before opening report cards.
+        </p>
+        <Link href="/dashboard/academics/report-cards" className="text-sm font-semibold text-[#2A7C13] underline">
+          Back to report cards
+        </Link>
+      </div>
+    );
+  }
+
+  const reportCardData = await getStudentReportCard(schoolId, term.id, studentId);
+  if (!reportCardData) notFound();
+
   const data = reportCardData || {
     school: {
       name: context?.school?.name || "GOVERNMENT BILINGUAL HIGH SCHOOL BAMENDA",
       code: "GBHS-BDA",
+      logo_url: context?.school?.logo_url || null,
       address: "P.O. Box 24, Bamenda, North West Region",
       phone: "+237 677 000 000",
       email: "info@gbhsbamenda.cm",
@@ -267,7 +305,7 @@ export default async function StudentReportCardPage({
             <span>Class Report Roster</span>
           </Link>
           <div className="text-xs text-[#525E4B]">
-            Viewing official MINESEC report card for{" "}
+            Viewing {selectedTemplate === "minesec-cba" ? "official MINESEC" : "selected"} report card for{" "}
             <strong className="text-[#142010]">{data.student.fullName}</strong>
           </div>
         </div>

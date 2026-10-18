@@ -128,10 +128,10 @@ export function PaymentModalClient({
                 <div className="p-3 rounded-[6px] bg-[#FFFDF5] border border-[#E8DFC9] flex justify-between items-center">
                   <div>
                     <div className="font-bold text-[#142010]">{studentName}</div>
-                    <div className="text-[11px] font-mono text-[#525E4B]">{matricule}</div>
+                    <div className="text-[11px] font-mono text-[#525E4B]">Admission No. {matricule}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[10px] text-[#788470]">Outstanding Due</div>
+                    <div className="text-[10px] text-[#788470]">Balance Still Owed</div>
                     <div className="font-mono font-bold text-sm text-[#142010]">{formatFCFA(balance)}</div>
                   </div>
                 </div>
@@ -145,7 +145,7 @@ export function PaymentModalClient({
 
                 <div>
                   <label className="block font-medium text-[#525E4B] mb-1">
-                    Amount Paid (CFA Francs / FCFA) *
+                    Amount Received (FCFA) *
                   </label>
                   <input
                     type="number"
@@ -163,7 +163,11 @@ export function PaymentModalClient({
                     <label className="block font-medium text-[#525E4B] mb-1">Payment Method</label>
                     <select
                       value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value as any)}
+                      onChange={(e) =>
+                        setPaymentMethod(
+                          e.target.value as "cash" | "momo" | "orange_money" | "bank_deposit"
+                        )
+                      }
                       className="w-full px-2.5 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-white text-xs font-medium focus:outline-none focus:border-[#2A7C13]"
                     >
                       <option value="cash">Cash (Bursary Desk)</option>
@@ -174,7 +178,7 @@ export function PaymentModalClient({
                   </div>
 
                   <div>
-                    <label className="block font-medium text-[#525E4B] mb-1">Term Applicable</label>
+                    <label className="block font-medium text-[#525E4B] mb-1">School Term</label>
                     <select
                       value={termNumber}
                       onChange={(e) => setTermNumber(parseInt(e.target.value, 10))}
@@ -189,7 +193,7 @@ export function PaymentModalClient({
 
                 <div>
                   <label className="block font-medium text-[#525E4B] mb-1">
-                    Transaction / Deposit Reference (Optional)
+                    Payment Reference (Optional)
                   </label>
                   <input
                     type="text"
@@ -213,7 +217,7 @@ export function PaymentModalClient({
                     disabled={isPending || amount <= 0}
                     className="px-4 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
                   >
-                    {isPending ? "Issuing Receipt..." : "Confirm & Issue Receipt"}
+                    {isPending ? "Saving Payment..." : "Save Payment"}
                   </button>
                 </div>
               </form>

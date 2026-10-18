@@ -30,6 +30,7 @@ export interface ReportCardFullData {
   school: {
     name: string;
     code: string | null;
+    logo_url: string | null;
     address: string | null;
     phone: string | null;
     email: string | null;
@@ -170,12 +171,14 @@ export async function getStudentReportCard(
 ): Promise<ReportCardFullData | null> {
   const supabase = await createClient();
 
+  if (!schoolId || !termId || !studentId) return null;
+
   // 1. Fetch School
   const { data: schoolData } = await supabase
     .from("schools")
     .select("*")
     .eq("id", schoolId)
-    .single();
+    .maybeSingle();
 
   if (!schoolData) return null;
   const school = schoolData as School;
@@ -185,7 +188,7 @@ export async function getStudentReportCard(
     .from("terms")
     .select("*, academic_year:academic_years (*)")
     .eq("id", termId)
-    .single();
+    .maybeSingle();
 
   if (!termData) return null;
   const term = termData as Term & { academic_year: { name: string } };
@@ -420,6 +423,7 @@ export async function getStudentReportCard(
     school: {
       name: school.name || "GOVERNMENT BILINGUAL HIGH SCHOOL",
       code: school.code || "GBHS",
+      logo_url: school.logo_url || null,
       address: school.address || "P.O. Box 144, Bamenda, NW Region",
       phone: school.phone || "+237 670 000 000",
       email: school.email || "info@school.cm",

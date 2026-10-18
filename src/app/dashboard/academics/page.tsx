@@ -4,7 +4,9 @@ import {
   getSchoolSubjects,
   getSchoolClasses,
   getActiveAcademicYear,
+  getSchoolHodAssignments,
 } from "@/lib/academic/service";
+import { getSchoolStaffMemberships } from "@/lib/admin/service";
 import {
   createDepartmentAction,
   createSubjectAction,
@@ -17,6 +19,8 @@ import {
   Award,
   Layers,
 } from "lucide-react";
+import HodAssignmentForm from "./HodAssignmentForm";
+import TeacherAssignmentForm from "./TeacherAssignmentForm";
 
 export default async function AcademicsPage() {
   const context = await getTenantContext();
@@ -26,6 +30,26 @@ export default async function AcademicsPage() {
   const departments = await getSchoolDepartments(schoolId);
   const subjects = await getSchoolSubjects(schoolId);
   const classesWithStreams = await getSchoolClasses(schoolId, activeYear?.id);
+  const hodAssignments = activeYear ? await getSchoolHodAssignments(schoolId, activeYear.id) : [];
+  const staff = await getSchoolStaffMemberships(schoolId);
+
+  const headsOfDepartment = staff
+    .filter((member) => member.status === "active" && member.role?.code === "hod")
+    .map((member) => ({
+      id: member.user_id,
+      name: member.user?.full_name || "Staff member",
+      email: member.user?.email || "",
+    }));
+  const teachers = staff
+    .filter((member) => member.status === "active" && member.role?.code === "teacher")
+    .map((member) => ({
+      id: member.user_id,
+      name: member.user?.full_name || "Staff member",
+      email: member.user?.email || "",
+    }));
+  const classGroups = classesWithStreams.flatMap((classItem) =>
+    classItem.streams.map((stream) => ({ id: stream.id, name: stream.name }))
+  );
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -33,29 +57,46 @@ export default async function AcademicsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#E5E5DF]">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#191919] tracking-tight">
-            Academics &amp; Departments
+            Classes, Subjects &amp; Departments
           </h1>
           <p className="text-[13px] text-[#666666] mt-0.5">
-            Configure classes, subjects, coefficients, and assign Heads of Department (HODs).
+            Set up the classes students join, the subjects they study, and the departments that group those subjects.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="px-2.5 py-1 text-[11px] font-semibold rounded-[4px] bg-[#F1F1ED] text-[#555555] border border-[#E0E0DB]">
-            Session: {activeYear?.name || "2026/2027 (Active)"}
+            Academic year: {activeYear?.name || "Not set"}
           </span>
         </div>
       </div>
 
+      {context?.hasPermission("assignments.manage") && (
+        <section className="space-y-3 rounded-[8px] border border-[#E5E5DF] bg-white p-5">
+          <div>
+            <h2 className="text-sm font-bold text-[#191919]">Assign Teachers to Classes and Subjects</h2>
+            <p className="mt-1 text-xs text-[#666666]">
+              Choose who teaches each subject in a class group. One teacher is assigned to each subject in each group.
+            </p>
+          </div>
+          <TeacherAssignmentForm
+            academicYearId={activeYear?.id || ""}
+            teachers={teachers}
+            classGroups={classGroups}
+            subjects={subjects.map(({ id, name }) => ({ id, name }))}
+          />
+        </section>
+      )}
+
       {/* Grid of Sections: Departments & Subjects */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Section 1: Departments & HOD Scope */}
+        {/* Section 1: Departments */}
         <div className="bg-white p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
             <Building2 className="w-4 h-4 text-[#555555]" />
             <div>
-              <h2 className="text-[14px] font-bold text-[#191919]">Departments &amp; HOD Scope</h2>
-              <p className="text-[11px] text-[#777777]">Department-wide or subject-specific oversight</p>
+              <h2 className="text-[14px] font-bold text-[#191919]">Departments &amp; Heads</h2>
+              <p className="text-[11px] text-[#777777]">Group related subjects and assign a department head.</p>
             </div>
           </div>
 
@@ -68,7 +109,7 @@ export default async function AcademicsPage() {
             className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 text-[12px]"
           >
             <div className="text-[11px] font-bold uppercase tracking-wider text-[#777777]">
-              Add New Department
+              Add a Department
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <input
@@ -81,7 +122,8 @@ export default async function AcademicsPage() {
               <input
                 type="text"
                 name="code"
-                placeholder="CODE"
+                aria-label="Short department code"
+                placeholder="Short code (SCI)"
                 required
                 className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] uppercase font-mono focus:outline-none focus:border-[#191919]"
               />
@@ -91,9 +133,25 @@ export default async function AcademicsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Create Department</span>
+              <span>Add Department</span>
             </button>
           </form>
+
+          {context?.hasPermission("assignments.manage") && (
+            <div className="space-y-2.5 rounded-[6px] border border-[#E5E5DF] bg-[#FAFAF8] p-3.5">
+              <div>
+                <h3 className="text-xs font-bold text-[#191919]">Assign a Head of Department</h3>
+                <p className="mt-0.5 text-[11px] text-[#777777]">
+                  The staff member must already have the Head of Department role.
+                </p>
+              </div>
+              <HodAssignmentForm
+                academicYearId={activeYear?.id || ""}
+                departments={departments.map(({ id, name }) => ({ id, name }))}
+                headsOfDepartment={headsOfDepartment}
+              />
+            </div>
+          )}
 
           {/* Departments List */}
           <div className="space-y-2 text-[12px]">
@@ -115,18 +173,17 @@ export default async function AcademicsPage() {
                       </span>
                     </div>
                     <span className="text-[11px] text-[#888888]">
-                      {dept.subjects?.length || 0} Subjects
+                      {dept.subjects?.length || 0} subjects
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2 pt-1 border-t border-[#EBEBE8] text-[11px] text-[#666666]">
                     <Award className="w-3.5 h-3.5 text-[#C2410C]" />
                     <span>
-                      HOD:{" "}
-                      {dept.hod_assignments?.[0]?.hod_user?.full_name ? (
+                      Head of Department:{" "}
+                      {hodAssignments.find((assignment) => assignment.department_id === dept.id && assignment.scope_type === "department")?.hod_user?.full_name ? (
                         <strong className="text-[#191919]">
-                          {dept.hod_assignments[0].hod_user.full_name}{" "}
-                          ({dept.hod_assignments[0].scope_type === "department" ? "Full Department" : "Subject Scope"})
+                          {hodAssignments.find((assignment) => assignment.department_id === dept.id && assignment.scope_type === "department")?.hod_user?.full_name}
                         </strong>
                       ) : (
                         <span className="italic text-[#888888]">Unassigned</span>
@@ -144,8 +201,8 @@ export default async function AcademicsPage() {
           <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
             <BookOpen className="w-4 h-4 text-[#555555]" />
             <div>
-              <h2 className="text-[14px] font-bold text-[#191919]">Subjects &amp; Coefficients</h2>
-              <p className="text-[11px] text-[#777777]">Subject definitions &amp; default evaluation maximums</p>
+              <h2 className="text-[14px] font-bold text-[#191919]">Subjects</h2>
+              <p className="text-[11px] text-[#777777]">Set each subject&apos;s department, mark weight and maximum mark.</p>
             </div>
           </div>
 
@@ -171,7 +228,7 @@ export default async function AcademicsPage() {
               <input
                 type="text"
                 name="code"
-                placeholder="Code (PHY)"
+                placeholder="Short code (PHY)"
                 required
                 className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] uppercase font-mono focus:outline-none focus:border-[#191919]"
               />
@@ -191,7 +248,8 @@ export default async function AcademicsPage() {
                 <input
                   type="number"
                   name="defaultCoefficient"
-                  placeholder="Coef (2)"
+                  aria-label="Subject weight"
+                  placeholder="Weight (2)"
                   step="0.5"
                   defaultValue="2"
                   className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] font-mono focus:outline-none focus:border-[#191919]"
@@ -199,7 +257,8 @@ export default async function AcademicsPage() {
                 <input
                   type="number"
                   name="defaultMaxMarks"
-                  placeholder="Max (/20 or /40)"
+                  aria-label="Maximum mark"
+                  placeholder="Max mark (20)"
                   defaultValue="20"
                   className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] font-mono focus:outline-none focus:border-[#191919]"
                 />
@@ -210,7 +269,7 @@ export default async function AcademicsPage() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Create Subject</span>
+              <span>Add Subject</span>
             </button>
           </form>
 
@@ -233,8 +292,8 @@ export default async function AcademicsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-[#666666]">
-                    <span>Coef: <strong className="font-mono text-[#191919]">{sub.default_coefficient}</strong></span>
-                    <span>Max: <strong className="font-mono text-[#191919]">/{sub.default_max_marks}</strong></span>
+                    <span>Weight: <strong className="font-mono text-[#191919]">{sub.default_coefficient}</strong></span>
+                    <span>Max mark: <strong className="font-mono text-[#191919]">/{sub.default_max_marks}</strong></span>
                   </div>
                 </div>
               ))
@@ -243,20 +302,20 @@ export default async function AcademicsPage() {
         </div>
       </div>
 
-      {/* Classes & Streams Management */}
+      {/* Class groups */}
       <div className="bg-white p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4">
         <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
           <Layers className="w-4 h-4 text-[#555555]" />
           <div>
-            <h2 className="text-[14px] font-bold text-[#191919]">Classes &amp; Streams</h2>
-            <p className="text-[11px] text-[#777777]">Form 1 through Upper Sixth class streams</p>
+            <h2 className="text-[14px] font-bold text-[#191919]">Classes &amp; Class Groups</h2>
+            <p className="text-[11px] text-[#777777]">Create groups such as Form 1 A or Form 5 Science for this school year.</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {classesWithStreams.length === 0 ? (
             <div className="col-span-full text-center py-6 text-[12px] text-[#888888]">
-              Standard classes will appear here once loaded.
+              No classes are available yet. Contact your school administrator to set up classes.
             </div>
           ) : (
             classesWithStreams.map((cls) => (
@@ -274,7 +333,7 @@ export default async function AcademicsPage() {
                 {/* Streams */}
                 <div className="space-y-1">
                   {cls.streams.length === 0 ? (
-                    <div className="text-[11px] italic text-[#888888]">No streams active</div>
+                    <div className="text-[11px] italic text-[#888888]">No class groups added yet</div>
                   ) : (
                     cls.streams.map((st) => (
                       <div
@@ -283,7 +342,7 @@ export default async function AcademicsPage() {
                       >
                         <span className="font-semibold text-[#191919]">{st.name}</span>
                         <span className="text-[10px] text-[#777777]">
-                          Master: {st.class_master?.full_name || "Unassigned"}
+                          Class teacher: {st.class_master?.full_name || "Not assigned"}
                         </span>
                       </div>
                     ))
@@ -302,7 +361,8 @@ export default async function AcademicsPage() {
                   <input
                     type="text"
                     name="name"
-                    placeholder={`e.g. ${cls.name} A`}
+                    aria-label={`Name for a class group in ${cls.name}`}
+                    placeholder={`Group name (e.g. ${cls.name} A)`}
                     required
                     className="flex-1 px-2.5 py-1 text-[11px] rounded-[4px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
                   />
@@ -310,7 +370,7 @@ export default async function AcademicsPage() {
                     type="submit"
                     className="px-2.5 py-1 bg-[#191919] hover:bg-[#333333] text-white rounded-[4px] text-[11px] font-semibold transition-colors"
                   >
-                    Add
+                    Add Group
                   </button>
                 </form>
               </div>

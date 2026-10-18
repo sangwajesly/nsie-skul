@@ -141,7 +141,7 @@ export async function createClassStreamAction(formData: FormData) {
   return { success: true };
 }
 
-export async function assignHodAction(formData: FormData) {
+export async function assignHodAction(_previousState: unknown, formData: FormData) {
   const context = await requirePermission("assignments.manage");
   const parsed = HodAssignmentSchema.safeParse({
     academicYearId: formData.get("academicYearId"),
@@ -156,23 +156,116 @@ export async function assignHodAction(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("hod_assignments").insert({
-    school_id: context.school.id,
-    academic_year_id: parsed.data.academicYearId,
-    hod_user_id: parsed.data.hodUserId,
-    department_id: parsed.data.departmentId,
-    subject_id: parsed.data.scopeType === "subject" ? parsed.data.subjectId : null,
-    scope_type: parsed.data.scopeType,
-    status: "active",
-  });
+  const [membershipResult, departmentResult, yearResult] = await Promise.all([
+    supabase
+      .from("school_memberships")
+      .select("id, role_id")
+      .eq("school_id", context.school.id)
+      .eq("user_id", parsed.data.hodUserId)
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("departments")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("id", parsed.data.departmentId)
+      .maybeSingle(),
+    supabase
+      .from("academic_years")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("id", parsed.data.academicYearId)
+      .maybeSingle(),
+  ]);
 
-  if (error) return { error: error.message };
+  if (membershipResult.error || departmentResult.error || yearResult.error) {
+    return { error: "Could not verify the staff member and school details. Please try again." };
+  }
+
+  if (!membershipResult.data) {
+    return { error: "Choose an active Head of Department from this school." };
+  }
+
+  const { data: hodRole, error: roleError } = await supabase
+    .from("roles")
+    .select("id")
+    .eq("id", membershipResult.data.role_id)
+    .eq("code", "hod")
+    .maybeSingle();
+
+  if (roleError || !hodRole) {
+    return { error: "This staff member must have the Head of Department role first." };
+  }
+
+  if (!departmentResult.data || !yearResult.data) {
+    return { error: "Choose a department and academic year belonging to this school." };
+  }
+
+  if (parsed.data.scopeType === "subject") {
+    const { data: subject, error: subjectError } = await supabase
+      .from("subjects")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("department_id", parsed.data.departmentId)
+      .eq("id", parsed.data.subjectId || "")
+      .maybeSingle();
+
+    if (subjectError || !subject) {
+      return { error: "Choose a subject from the selected department." };
+    }
+  }
+
+  const assignmentQuery = supabase
+    .from("hod_assignments")
+    .select("id")
+    .eq("school_id", context.school.id)
+    .eq("academic_year_id", parsed.data.academicYearId)
+    .eq("department_id", parsed.data.departmentId)
+    .eq("scope_type", parsed.data.scopeType)
+    .eq("status", "active");
+
+  if (parsed.data.scopeType === "subject" && parsed.data.subjectId) {
+    assignmentQuery.eq("subject_id", parsed.data.subjectId);
+  } else {
+    assignmentQuery.is("subject_id", null);
+  }
+
+  const { data: existingAssignment, error: assignmentLookupError } = await assignmentQuery
+    .limit(1)
+    .maybeSingle();
+
+  if (assignmentLookupError) {
+    return { error: "Could not check the current department assignment. Please try again." };
+  }
+
+  const assignmentData = {
+    hod_user_id: parsed.data.hodUserId,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = existingAssignment
+    ? await supabase
+        .from("hod_assignments")
+        .update(assignmentData)
+        .eq("id", existingAssignment.id)
+        .eq("school_id", context.school.id)
+    : await supabase.from("hod_assignments").insert({
+        school_id: context.school.id,
+        academic_year_id: parsed.data.academicYearId,
+        hod_user_id: parsed.data.hodUserId,
+        department_id: parsed.data.departmentId,
+        subject_id: parsed.data.scopeType === "subject" ? parsed.data.subjectId : null,
+        scope_type: parsed.data.scopeType,
+        status: "active",
+      });
+
+  if (error) return { error: "Could not save the department assignment. Please try again." };
 
   revalidatePath("/dashboard/academics");
-  return { success: true };
+  return { success: true, message: existingAssignment ? "Head of Department updated." : "Head of Department assigned." };
 }
 
-export async function assignTeacherAction(formData: FormData) {
+export async function assignTeacherAction(_previousState: unknown, formData: FormData) {
   const context = await requirePermission("assignments.manage");
   const parsed = TeacherAssignmentSchema.safeParse({
     academicYearId: formData.get("academicYearId"),
@@ -186,6 +279,54 @@ export async function assignTeacherAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const [membershipResult, streamResult, subjectResult, yearResult] = await Promise.all([
+    supabase
+      .from("school_memberships")
+      .select("id, role_id")
+      .eq("school_id", context.school.id)
+      .eq("user_id", parsed.data.teacherUserId)
+      .eq("status", "active")
+      .maybeSingle(),
+    supabase
+      .from("class_streams")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("academic_year_id", parsed.data.academicYearId)
+      .eq("id", parsed.data.classStreamId)
+      .maybeSingle(),
+    supabase
+      .from("subjects")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("id", parsed.data.subjectId)
+      .maybeSingle(),
+    supabase
+      .from("academic_years")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("id", parsed.data.academicYearId)
+      .maybeSingle(),
+  ]);
+
+  if (membershipResult.error || streamResult.error || subjectResult.error || yearResult.error) {
+    return { error: "Could not verify the teacher and class details. Please try again." };
+  }
+
+  if (!membershipResult.data || !streamResult.data || !subjectResult.data || !yearResult.data) {
+    return { error: "Choose a teacher, class group, subject, and school year from this school." };
+  }
+
+  const { data: teacherRole, error: roleError } = await supabase
+    .from("roles")
+    .select("id")
+    .eq("id", membershipResult.data.role_id)
+    .eq("code", "teacher")
+    .maybeSingle();
+
+  if (roleError || !teacherRole) {
+    return { error: "This staff member must have the Teacher role first." };
+  }
+
   const { error } = await supabase.from("teacher_assignments").upsert(
     {
       school_id: context.school.id,
@@ -197,10 +338,10 @@ export async function assignTeacherAction(formData: FormData) {
     { onConflict: "academic_year_id,class_stream_id,subject_id" }
   );
 
-  if (error) return { error: error.message };
+  if (error) return { error: "Could not save the teacher assignment. Please try again." };
 
   revalidatePath("/dashboard/academics");
-  return { success: true };
+  return { success: true, message: "Teacher assignment saved." };
 }
 
 export async function configureClassSubjectAction(formData: FormData) {

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTenantContext } from "@/lib/tenancy/context";
 import {
   getActiveAcademicYear,
@@ -14,11 +13,6 @@ import { DisciplineModalClient } from "./DisciplineModalClient";
 import {
   Clock,
   ShieldAlert,
-  Users,
-  Calendar,
-  AlertTriangle,
-  CheckCircle2,
-  FileSpreadsheet,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -83,6 +77,23 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
     matricule: e.student?.matricule || "",
   }));
 
+  const hasAttendance = Boolean(session && records.length > 0);
+  const presentCount = hasAttendance
+    ? records.filter((record) => record.status === "present").length
+    : null;
+  const presentRate =
+    presentCount !== null
+      ? Math.round((presentCount / records.length) * 100)
+      : null;
+  const unexplainedHours = hasAttendance
+    ? records.reduce(
+        (total, student) =>
+          total +
+          (student.status === "unjustified_absent" ? student.hours_missed : 0),
+        0
+      )
+    : null;
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Page Header */}
@@ -97,13 +108,13 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             Class Roll Call &amp; Conduct Ledger
           </h1>
           <p className="text-xs text-[#525E4B]">
-            Daily roll call, justified/unjustified absence tracking, and official MINESEC conduct sanctions.
+            Record who is present, note absences, and review recent conduct records.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 rounded-[4px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-xs font-bold">
-            Session: {activeYear?.name || "2026/2027 (Active)"}
+            Academic year: {activeYear?.name || "Not set"}
           </span>
         </div>
       </div>
@@ -112,43 +123,48 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
-            Present Rate Today
+            Present in This Class
           </div>
           <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#2A7C13]">
-            94.2%
+            {presentRate === null ? "Not recorded" : `${presentRate}%`}
           </div>
-          <div className="text-[10px] text-[#2A7C13] font-medium">Daily school attendance</div>
+          <div className="text-[10px] text-[#2A7C13] font-medium">
+            {presentCount === null
+              ? "Save roll call to see the rate"
+              : `${presentCount} of ${records.length} students marked · ${selectedDate}`}
+          </div>
         </div>
 
         <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
-            Unjustified Absences
+            Unexplained Missed Hours
           </div>
           <div className="text-xl sm:text-2xl font-extrabold font-mono text-red-700">
-            18 hrs
+            {unexplainedHours === null ? "Not recorded" : `${unexplainedHours} hrs`}
           </div>
-          <div className="text-[10px] text-[#525E4B]">Synced to report cards</div>
+          <div className="text-[10px] text-[#525E4B]">
+            {hasAttendance ? "For this class and date" : "Save roll call to see the total"}
+          </div>
         </div>
 
         <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
-            Conduct Sanctions Active
+            Recent Conduct Records
           </div>
           <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#92400E]">
-            {recentIncidents.length > 0 ? recentIncidents.length : 4}
+            {recentIncidents.length}
           </div>
-          <div className="text-[10px] text-[#92400E] font-medium">Warnings &amp; suspensions</div>
+          <div className="text-[10px] text-[#92400E] font-medium">Latest records across the school</div>
         </div>
 
         <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
-            Disciplinary Council
+            Students in This Class
           </div>
           <div className="text-xs font-mono font-bold text-[#142010] space-y-0.5">
-            <div className="text-[#2A7C13]">0 Dismissals</div>
-            <div className="text-[#92400E]">2 Temporary Suspensions</div>
+            {studentChoices.length}
           </div>
-          <div className="text-[10px] text-[#788470]">Dean of Discipline log</div>
+          <div className="text-[10px] text-[#788470]">Enrolled for the selected class</div>
         </div>
       </div>
 
@@ -156,7 +172,7 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">
-            Select Cohort &amp; Date
+            Choose a Class and Date
           </span>
           <span className="text-xs text-[#525E4B]">
             Stream: <strong className="text-[#142010]">{selectedStream?.name || "None"}</strong>
@@ -168,12 +184,11 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Class Stream
             </label>
-            <form method="GET">
+            <form method="GET" className="flex gap-2">
               <input type="hidden" name="date" value={selectedDate} />
               <select
                 name="classStreamId"
                 defaultValue={selectedStream?.id}
-                onChange={(e) => e.target.form?.submit()}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
                 {allStreams.map((stream) => (
@@ -182,22 +197,23 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
                   </option>
                 ))}
               </select>
+              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
 
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
-              Session Date
+              Attendance Date
             </label>
-            <form method="GET">
+            <form method="GET" className="flex gap-2">
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
               <input
                 type="date"
                 name="date"
                 defaultValue={selectedDate}
-                onChange={(e) => e.target.form?.submit()}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-mono font-bold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               />
+              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
         </div>
@@ -213,53 +229,23 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             </h2>
           </div>
           <span className="text-xs text-[#525E4B]">
-            {studentRoll.length} Candidates Enrolled
+            {studentRoll.length} Students
           </span>
         </div>
 
-        {selectedStream ? (
+        {selectedStream && studentRoll.length > 0 ? (
           <RollCallClient
             academicYearId={academicYearId}
             termId={termId}
             classStreamId={selectedStream.id}
             sessionDate={selectedDate}
-            students={
-              studentRoll.length > 0
-                ? studentRoll
-                : [
-                    {
-                      studentId: "s-1",
-                      matricule: "GBHS-2024-041",
-                      fullName: "Nkwenti Brian Ngwa",
-                      gender: "M",
-                      status: "present" as const,
-                      hoursMissed: 0,
-                      justificationNote: "",
-                    },
-                    {
-                      studentId: "s-2",
-                      matricule: "GBHS-2024-082",
-                      fullName: "Bih Cynthia Lum",
-                      gender: "F",
-                      status: "present" as const,
-                      hoursMissed: 0,
-                      justificationNote: "",
-                    },
-                    {
-                      studentId: "s-3",
-                      matricule: "GBHS-2024-119",
-                      fullName: "Fru Vanessa Siri",
-                      gender: "F",
-                      status: "justified_absent" as const,
-                      hoursMissed: 2,
-                      justificationNote: "Infirmary medical slip",
-                    },
-                  ]
-            }
+            students={studentRoll}
           />
         ) : (
           <div className="p-8 text-center rounded-[8px] bg-white border border-[#E8DFC9] text-xs text-[#788470]">
-            Please select a class stream to take attendance.
+            {selectedStream
+              ? "No students are enrolled in this class yet. Admit students before taking attendance."
+              : "Set up a class and stream before taking attendance."}
           </div>
         )}
       </div>
@@ -270,27 +256,25 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-[#92400E]" />
             <h3 className="font-bold text-sm text-[#142010]">
-              Official MINESEC Disciplinary Sanctions
+              Recent Conduct Records
             </h3>
           </div>
 
-          {selectedStream && (
+          {selectedStream && studentChoices.length > 0 && (
             <DisciplineModalClient
               academicYearId={academicYearId}
               termId={termId}
               classStreamId={selectedStream.id}
-              students={
-                studentChoices.length > 0
-                  ? studentChoices
-                  : [
-                      { id: "s-1", fullName: "Nkwenti Brian", matricule: "GBHS-2024-041" },
-                      { id: "s-2", fullName: "Bih Cynthia Lum", matricule: "GBHS-2024-082" },
-                      { id: "s-3", fullName: "Fru Vanessa Siri", matricule: "GBHS-2024-119" },
-                    ]
-              }
+              students={studentChoices}
             />
           )}
         </div>
+
+        {selectedStream && studentChoices.length === 0 && (
+          <p className="text-xs text-[#777777]">
+            Enroll students in this class before recording a conduct issue.
+          </p>
+        )}
 
         {/* Incidents Table */}
         <div className="overflow-x-auto">
@@ -298,75 +282,21 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                 <th className="py-2.5 px-3">Date</th>
-                <th className="py-2.5 px-3">Student Candidate</th>
+                <th className="py-2.5 px-3">Student</th>
                 <th className="py-2.5 px-3">Class Stream</th>
-                <th className="py-2.5 px-3">MINESEC Sanction</th>
-                <th className="py-2.5 px-3">Details / Duration</th>
-                <th className="py-2.5 px-3">Infraction Reason</th>
+                <th className="py-2.5 px-3">Action Taken</th>
+                <th className="py-2.5 px-3">Duration</th>
+                <th className="py-2.5 px-3">Reason</th>
                 <th className="py-2.5 px-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5EFE0]">
               {recentIncidents.length === 0 ? (
-                // Illustrative sample incidents
-                [
-                  {
-                    id: "inc-1",
-                    date: "16/10/2026",
-                    student: "Che Denis Ambe",
-                    stream: "Form 2 Science B",
-                    type: "warning",
-                    details: "Conduct Warning",
-                    reason: "Repeated disturbance during Physics lesson",
-                    status: "active",
-                  },
-                  {
-                    id: "inc-2",
-                    date: "14/10/2026",
-                    student: "Fru Vanessa Siri",
-                    stream: "Form 2 Science A",
-                    type: "punishment",
-                    details: "2 Hours Manual Labour",
-                    reason: "Late arrival for 3 consecutive days",
-                    status: "served",
-                  },
-                  {
-                    id: "inc-3",
-                    date: "09/10/2026",
-                    student: "Taku Divine",
-                    stream: "Form 4 Arts",
-                    type: "suspension",
-                    details: "3 Days Temporary Suspension",
-                    reason: "Fighting in school courtyard",
-                    status: "served",
-                  },
-                ].map((row) => (
-                  <tr key={row.id} className="hover:bg-[#FFFDF5] transition-colors">
-                    <td className="py-2.5 px-3 font-mono text-[#525E4B]">{row.date}</td>
-                    <td className="py-2.5 px-3 font-bold text-[#142010]">{row.student}</td>
-                    <td className="py-2.5 px-3 text-[#525E4B]">{row.stream}</td>
-                    <td className="py-2.5 px-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                        row.type === "warning" ? "bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]" :
-                        row.type === "punishment" ? "bg-amber-100 text-amber-900 border border-amber-300" :
-                        "bg-red-50 text-red-800 border border-red-200"
-                      }`}>
-                        {row.type.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-medium text-[#142010]">
-                      {row.details}
-                    </td>
-                    <td className="py-2.5 px-3 text-[#525E4B] italic">
-                      &quot;{row.reason}&quot;
-                    </td>
-                    <td className="py-2.5 px-3 text-center">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF7E4] text-[#2A7C13]">
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-[#777777]">
+                    No conduct records have been added yet.
+                  </td>
+                </tr>
               ) : (
                 recentIncidents.map((inc) => (
                   <tr key={inc.id} className="hover:bg-[#FFFDF5] transition-colors">

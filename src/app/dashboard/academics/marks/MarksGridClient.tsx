@@ -8,7 +8,6 @@ import {
   Lock,
   CheckCircle2,
   AlertCircle,
-  HelpCircle,
   ShieldCheck,
 } from "lucide-react";
 
@@ -199,20 +198,20 @@ export function MarksGridClient({
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                 <th className="py-2.5 px-3 w-12 text-center">#</th>
-                <th className="py-2.5 px-3">Matricule</th>
+                <th className="py-2.5 px-3">Admission No.</th>
                 <th className="py-2.5 px-3">Student Name</th>
                 <th className="py-2.5 px-3 w-32">Status</th>
                 <th className="py-2.5 px-3 w-28 text-center">Score (/{maxMarks})</th>
                 <th className="py-2.5 px-3 w-24 text-center">Score (/20)</th>
-                <th className="py-2.5 px-3 w-32 text-center">CBA Grade</th>
-                <th className="py-2.5 px-3">Teacher Remarks</th>
+                <th className="py-2.5 px-3 w-40 text-center">Grade</th>
+                <th className="py-2.5 px-3">Teacher&apos;s Note</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5EFE0]">
               {students.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-8 text-center text-[#788470]">
-                    No students currently enrolled in this class stream.
+                    No students are enrolled in this class group yet.
                   </td>
                 </tr>
               ) : (
@@ -285,7 +284,7 @@ export function MarksGridClient({
                                 : "bg-red-50 text-red-700 border border-red-200"
                             }`}
                           >
-                            {gradeInfo.letter} · {gradeInfo.cba}
+                            {gradeInfo.letter} · {gradeInfo.label.split("/")[0].trim()}
                           </span>
                         ) : (
                           <span className="text-[10px] text-[#788470] font-mono">
@@ -318,13 +317,13 @@ export function MarksGridClient({
         {/* Mark Sheet Summary Footer */}
         <div className="p-3 border-t border-[#E8DFC9] bg-[#FFFDF5] flex flex-wrap items-center justify-between text-xs text-[#525E4B]">
           <div>
-            Total Candidates: <strong className="text-[#142010]">{students.length}</strong> · Present:{" "}
+            Students: <strong className="text-[#142010]">{students.length}</strong> · Present:{" "}
             <strong className="text-[#2A7C13]">{presentStudents.length}</strong> · Absent:{" "}
             <strong>{students.filter((s) => s.status === "absent").length}</strong>
           </div>
           {avgOutOf20 && (
             <div className="font-mono text-xs">
-              Class Average: <strong className="text-[#142010] font-bold">{avgOutOf20} / 20.00</strong>
+              Class Average: <strong className="text-[#142010] font-bold">{avgOutOf20} / 20</strong>
             </div>
           )}
         </div>
@@ -336,12 +335,11 @@ export function MarksGridClient({
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[#2A7C13]" />
             <h3 className="font-bold text-sm text-[#142010]">
-              Head of Department (HOD) Approval Gate
+              Head of Department Approval
             </h3>
           </div>
           <p className="text-xs text-[#525E4B]">
-            Once approved by the Department Head, marks for this sequence and class stream are formally
-            locked and cannot be modified by teachers without an authorized correction log.
+            Once approved, these marks are locked. A school administrator must authorize any later correction.
           </p>
 
           {isApproved ? (
@@ -361,7 +359,7 @@ export function MarksGridClient({
                 } else {
                   setMessage({
                     type: "success",
-                    text: "Department sequence marks formally approved and locked.",
+                    text: "Marks approved and locked.",
                   });
                 }
               }}
@@ -384,7 +382,7 @@ export function MarksGridClient({
                   type="submit"
                   className="w-full sm:w-auto px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors shrink-0"
                 >
-                  Formally Approve &amp; Lock Sequence Marks
+                  Approve and Lock Marks
                 </button>
               </div>
             </form>

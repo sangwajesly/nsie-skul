@@ -39,8 +39,16 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
 
         {/* School Logo & Center Seal */}
         <div className="col-span-2 flex flex-col items-center justify-center text-center p-1">
-          <div className="w-14 h-14 border border-black rounded-full flex items-center justify-center font-bold text-xs bg-zinc-50 mb-1">
-            {school.code || "SEAL"}
+          <div className="w-14 h-14 border border-black rounded-full flex items-center justify-center overflow-hidden bg-zinc-50 mb-1">
+            {school.logo_url ? (
+              <img
+                src={school.logo_url}
+                alt={`${school.name} logo`}
+                className="w-full h-full object-cover rounded-full"
+              />
+            ) : (
+              <span className="font-bold text-[10px] text-black">{school.code || "SEAL"}</span>
+            )}
           </div>
           <div className="text-[8px] font-mono">REG: {school.code || "MINESEC/2026"}</div>
         </div>

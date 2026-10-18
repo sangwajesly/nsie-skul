@@ -27,19 +27,19 @@ export default async function StudentsPage() {
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-[#E5E5DF]">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-5 border-b border-[#E5E5DF]">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#191919] tracking-tight">
-            Student Roster &amp; Admissions
+            Student Register &amp; Admissions
           </h1>
-          <p className="text-[13px] text-[#666666] mt-0.5">
-            Manage student records, matricules, boarding status, and class enrolments.
+          <p className="text-[13px] text-[#666666] mt-1 max-w-xl">
+            Add a student to the school year and find their class, admission number, and guardian contact here.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="px-2.5 py-1 text-[11px] font-semibold rounded-[4px] bg-[#F1F1ED] text-[#555555] border border-[#E0E0DB]">
-            Total Enrolled: {enrolledStudents.length}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="px-3 py-1.5 text-[12px] font-semibold rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]">
+            {enrolledStudents.length} enrolled
           </span>
         </div>
       </div>
@@ -67,14 +67,14 @@ export default async function StudentsPage() {
 
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
-                Class Stream *
+                Class Group *
               </label>
               <select
                 name="classStreamId"
                 required
                 className="w-full px-3 py-1.5 text-[12px] rounded-[5px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
               >
-                <option value="">Select Class Stream</option>
+                <option value="">Choose a class group</option>
                 {allStreams.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
@@ -85,7 +85,7 @@ export default async function StudentsPage() {
 
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
-                Matricule (Admission No.) *
+                Student Admission Number (Matricule) *
               </label>
               <input
                 type="text"
@@ -191,8 +191,8 @@ export default async function StudentsPage() {
           <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
             <Users className="w-4 h-4 text-[#555555]" />
             <div>
-              <h2 className="text-[14px] font-bold text-[#191919]">Active Roster</h2>
-              <p className="text-[11px] text-[#777777]">Enrolled students for current academic year</p>
+              <h2 className="text-[14px] font-bold text-[#191919]">Enrolled Students</h2>
+              <p className="text-[11px] text-[#777777]">Students registered for {activeYear?.name || "the current school year"}</p>
             </div>
           </div>
 
@@ -201,17 +201,17 @@ export default async function StudentsPage() {
             {enrolledStudents.length === 0 ? (
               <div className="text-center py-12 text-[#888888] space-y-1.5">
                 <GraduationCap className="w-7 h-7 mx-auto text-[#BBBBBB]" />
-                <p className="font-medium text-[13px] text-[#191919]">No students registered yet.</p>
-                <p className="text-[11px] text-[#777777]">Use the form on the left to admit students.</p>
+                <p className="font-medium text-[13px] text-[#191919]">No students enrolled for this school year yet.</p>
+                <p className="text-[11px] text-[#777777]">Use the form to add the first student.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-[#E5E5DF] text-[11px] font-bold uppercase tracking-wider text-[#777777]">
-                    <th className="py-2 px-2.5">Matricule</th>
+                    <th className="py-2 px-2.5">Admission No.</th>
                     <th className="py-2 px-2.5">Student Name</th>
-                    <th className="py-2 px-2.5">Stream</th>
-                    <th className="py-2 px-2.5">Sex</th>
+                    <th className="py-2 px-2.5">Class Group</th>
+                    <th className="py-2 px-2.5">Gender</th>
                     <th className="py-2 px-2.5">Residence</th>
                     <th className="py-2 px-2.5">Guardian Contact</th>
                   </tr>

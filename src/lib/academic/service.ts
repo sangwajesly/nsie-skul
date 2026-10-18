@@ -17,15 +17,17 @@ import {
  * Retrieves the currently active academic year for a school.
  */
 export async function getActiveAcademicYear(schoolId: string): Promise<AcademicYear | null> {
+  if (!schoolId) return null;
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("academic_years")
     .select("*")
     .eq("school_id", schoolId)
     .eq("is_current", true)
-    .single();
+    .maybeSingle();
 
-  return data as AcademicYear | null;
+  return (data as AcademicYear | null) || null;
 }
 
 /**

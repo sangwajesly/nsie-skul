@@ -99,14 +99,18 @@ export async function recordDisciplinarySanctionAction(formData: FormData) {
   const classStreamId = formData.get("classStreamId") as string;
   const academicYearId = formData.get("academicYearId") as string;
   const termId = formData.get("termId") as string;
-  const sanctionType = formData.get("sanctionType") as any;
+  const sanctionTypeResult = z
+    .enum(["warning", "reprimand", "suspension", "punishment", "dismissed"])
+    .safeParse(formData.get("sanctionType"));
   const infractionReason = formData.get("infractionReason") as string;
   const punishmentHours = parseInt((formData.get("punishmentHours") as string) || "0", 10);
   const suspensionDays = parseInt((formData.get("suspensionDays") as string) || "0", 10);
 
-  if (!studentId || !infractionReason || !sanctionType) {
+  if (!studentId || !infractionReason || !sanctionTypeResult.success) {
     return { error: "Missing required disciplinary sanction fields." };
   }
+
+  const sanctionType = sanctionTypeResult.data;
 
   const supabase = await createClient();
 
