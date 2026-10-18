@@ -19,6 +19,8 @@ import {
   Clock,
 } from "lucide-react";
 
+import { redirect } from "next/navigation";
+
 interface DashboardLayoutProps {
   children: ReactNode;
 }
@@ -26,9 +28,13 @@ interface DashboardLayoutProps {
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const tenantContext = await getTenantContext();
 
-  const schoolName = tenantContext?.school?.name || "Demo Academy Bamenda";
-  const userFullName = tenantContext?.user?.full_name || "School Administrator";
-  const userRole = tenantContext?.role?.name || "Administrator";
+  if (!tenantContext) {
+    redirect("/onboarding");
+  }
+
+  const schoolName = tenantContext.school.name;
+  const userFullName = tenantContext.user.full_name;
+  const userRole = tenantContext.role.name;
 
   return (
     <div className="min-h-screen flex bg-[#FAFAF8] text-[#191919] font-sans">
