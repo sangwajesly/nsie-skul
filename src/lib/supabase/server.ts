@@ -4,12 +4,13 @@ import { cookies } from "next/headers";
 export async function createClient() {
   const cookieStore = await cookies();
 
-  // NEXT_PUBLIC_ vars are available in both server and client contexts on Vercel.
-  // Plain SUPABASE_URL / SUPABASE_ANON_KEY are kept as fallbacks for local overrides.
+  // On Vercel: use plain names (SUPABASE_URL / SUPABASE_ANON_KEY) — Vercel blocks
+  // NEXT_PUBLIC_ for secret-looking values. Plain names stay server-only (safe).
+  // Locally: .env.local can use either name; NEXT_PUBLIC_ is kept as a fallback.
   const supabaseUrl =
-    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
