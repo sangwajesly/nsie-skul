@@ -15,10 +15,12 @@ const RegisterSchema = z.object({
   password: z.string().min(8, "Password must be at least 8 characters."),
 });
 
+type ActionResult = { error: string } | { redirectTo: string };
+
 export async function loginAction(
   prevState: unknown,
   formData: FormData
-): Promise<{ error: string } | void> {
+): Promise<ActionResult> {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const returnUrl = (formData.get("returnUrl") as string) || "/dashboard";
@@ -28,7 +30,14 @@ export async function loginAction(
     return { error: validation.error.issues[0].message };
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server configuration error.";
+    return { error: msg };
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -48,7 +57,7 @@ export async function loginAction(
 
   if (!memberships || memberships.length === 0) {
     // Authenticated but not linked to any school yet
-    redirect("/onboarding");
+    return { redirectTo: "/onboarding" };
   }
 
   // Honour the returnUrl if it's a safe internal path
@@ -57,13 +66,13 @@ export async function loginAction(
       ? returnUrl
       : "/dashboard";
 
-  redirect(safePath);
+  return { redirectTo: safePath };
 }
 
 export async function registerAction(
   prevState: unknown,
   formData: FormData
-): Promise<{ error: string } | void> {
+): Promise<ActionResult> {
   const fullName = formData.get("fullName") as string;
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -73,7 +82,14 @@ export async function registerAction(
     return { error: validation.error.issues[0].message };
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server configuration error.";
+    return { error: msg };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -96,10 +112,11 @@ export async function registerAction(
   }
 
   // New users always go to onboarding first (no school membership yet)
-  redirect("/onboarding");
+  return { redirectTo: "/onboarding" };
 }
 
 export async function signOutAction() {
+  // Called from a plain <form action={}> — redirect() is safe here (not inside useActionState)
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");

@@ -1,12 +1,23 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerAction } from "@/app/auth/actions";
 import { GraduationCap, ArrowRight, Lock, Mail, User } from "lucide-react";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(registerAction, null);
+
+  // Navigate client-side when the action returns a redirectTo path
+  useEffect(() => {
+    if (state && "redirectTo" in state) {
+      router.push(state.redirectTo);
+    }
+  }, [state, router]);
+
+  const errorMsg = state && "error" in state ? state.error : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
@@ -25,9 +36,9 @@ export default function RegisterPage() {
         </div>
 
         <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-5">
-          {state?.error && (
+          {errorMsg && (
             <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
-              {state.error}
+              {errorMsg}
             </div>
           )}
 
@@ -108,7 +119,7 @@ export default function RegisterPage() {
               disabled={isPending}
               className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2A7C13] hover:bg-[#236810] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50"
             >
-              {isPending ? "Creating account..." : "Create Account"}
+              {isPending ? "Creating account…" : "Create Account"}
               {!isPending && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>

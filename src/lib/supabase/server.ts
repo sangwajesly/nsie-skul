@@ -4,14 +4,16 @@ import { cookies } from "next/headers";
 export async function createClient() {
   const cookieStore = await cookies();
 
+  // NEXT_PUBLIC_ vars are available in both server and client contexts on Vercel.
+  // Plain SUPABASE_URL / SUPABASE_ANON_KEY are kept as fallbacks for local overrides.
   const supabaseUrl =
-    process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
   const supabaseKey =
-    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
-      "Missing Supabase environment variables: SUPABASE_URL / NEXT_PUBLIC_SUPABASE_URL or SUPABASE_ANON_KEY / NEXT_PUBLIC_SUPABASE_ANON_KEY. Please configure them in your Vercel Project Settings > Environment Variables."
+      "[Nsei Skul] Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel Project > Settings > Environment Variables."
     );
   }
 

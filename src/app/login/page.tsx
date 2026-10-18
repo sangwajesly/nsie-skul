@@ -1,16 +1,27 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { loginAction } from "@/app/auth/actions";
 import { GraduationCap, ArrowRight, Lock, Mail } from "lucide-react";
 
 function LoginForm() {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/dashboard";
+
+  // When the action returns a redirectTo, navigate client-side.
+  // This avoids redirect() inside a Server Action throwing React error #441.
+  useEffect(() => {
+    if (state && "redirectTo" in state) {
+      router.push(state.redirectTo);
+    }
+  }, [state, router]);
+
+  const errorMsg = state && "error" in state ? state.error : null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
@@ -29,9 +40,9 @@ function LoginForm() {
         </div>
 
         <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-5">
-          {state?.error && (
+          {errorMsg && (
             <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
-              {state.error}
+              {errorMsg}
             </div>
           )}
 
@@ -98,7 +109,7 @@ function LoginForm() {
               disabled={isPending}
               className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50"
             >
-              {isPending ? "Signing in..." : "Sign in to Dashboard"}
+              {isPending ? "Signing in…" : "Sign in to Dashboard"}
               {!isPending && <ArrowRight className="w-4 h-4" />}
             </button>
           </form>
