@@ -342,7 +342,7 @@ export default async function StudentReportCardPage({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 max-w-5xl mx-auto print:space-y-0 print:max-w-none print:m-0 print:p-0">
       {/* Top Controls Bar (Hidden during actual print) */}
       <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
         <div className="flex items-center gap-3">
@@ -354,7 +354,7 @@ export default async function StudentReportCardPage({
             <span>Class Report Roster</span>
           </Link>
           <div className="text-xs text-[#525E4B]">
-            Viewing official MINESEC report card for{" "}
+            Viewing report card for{" "}
             <strong className="text-[#142010]">{data.student.fullName}</strong>
           </div>
         </div>
@@ -365,7 +365,7 @@ export default async function StudentReportCardPage({
       </div>
 
       {/* Official MINESEC Report Card Component */}
-      <div className="bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-4 print:p-0 print:border-none print:shadow-none">
+      <div className="report-card-print-sheet bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-4 print:p-0 print:border-none print:shadow-none">
         <MinesecReportCard data={data} />
       </div>
     </div>

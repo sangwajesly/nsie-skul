@@ -48,6 +48,7 @@ interface MarksGridClientProps {
   sequenceName?: string;
   coefficient: number;
   initialMaxMarks: number;
+  initialCompetency?: string;
   isApproved: boolean;
   approvalStatus?: string;
   approvalNotes?: string;
@@ -70,6 +71,7 @@ export function MarksGridClient({
   sequenceName = "Test Sequence",
   coefficient,
   initialMaxMarks,
+  initialCompetency,
   isApproved,
   approvalStatus = "draft",
   approvalNotes,
@@ -81,6 +83,7 @@ export function MarksGridClient({
 }: MarksGridClientProps) {
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
   const [maxMarks, setMaxMarks] = useState<number>(initialMaxMarks);
+  const [competency, setCompetency] = useState<string>(initialCompetency || "");
   const [currentStatus, setCurrentStatus] = useState<string>(approvalStatus || (isApproved ? "approved" : "draft"));
   const [currentNotes, setCurrentNotes] = useState<string | undefined>(approvalNotes);
   const [currentApprover, setCurrentApprover] = useState<string | undefined>(approverName);
@@ -245,6 +248,7 @@ export function MarksGridClient({
           classStreamId,
           subjectId,
           maxMarks,
+          competencyDescription: competency,
           marks: students.map((s) => ({
             studentId: s.studentId,
             score: s.score,
@@ -542,6 +546,39 @@ export function MarksGridClient({
           <span>{message.text}</span>
         </div>
       )}
+
+      {/* CBA Competence Evaluated for this Class Stream */}
+      <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EBF5E9] text-[#2A7C13] text-xs font-bold">
+              ✓
+            </span>
+            <label className="text-xs font-bold text-[#142010]">
+              CBA Competence Tested / Evaluated <span className="text-[#888888] font-normal">(Compétence Évaluée)</span>
+            </label>
+          </div>
+          <span className="text-[11px] text-[#777777]">
+            Applies to all students in <strong>{streamName}</strong>
+          </span>
+        </div>
+        <p className="text-[11px] text-[#666666]">
+          Set the pedagogical competence tested in this evaluation. This competence will be automatically printed on the official report cards of all students in this class.
+        </p>
+        <div className="pt-1">
+          <input
+            type="text"
+            disabled={!canEdit}
+            value={competency}
+            onChange={(e) => {
+              setCompetency(e.target.value);
+              setIsDirty(true);
+            }}
+            placeholder="e.g. Résoudre un système de deux équations à deux inconnues / Express opinions on environmental preservation..."
+            className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60 disabled:bg-[#F9F9F7]"
+          />
+        </div>
+      </div>
 
       {/* Bulk Action Toolbar */}
       {selectedIds.size > 0 && canEdit && (

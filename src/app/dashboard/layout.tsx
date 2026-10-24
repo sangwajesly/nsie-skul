@@ -24,9 +24,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const academicYearLabel = activeYear?.name || "Academic year not set";
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans print:min-h-0 print:bg-white print:block">
       {/* ── Sidebar ── */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-[#E5E5DF] bg-white flex-shrink-0 min-h-screen sticky top-0 h-screen">
+      <aside className="hidden md:flex flex-col w-64 border-r border-[#E5E5DF] bg-white flex-shrink-0 min-h-screen sticky top-0 h-screen print:hidden">
         {/* School brand */}
         <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[#EBEBE6]">
           <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden">
@@ -90,9 +90,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       </aside>
 
       {/* Main content wrapper */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 print:block print:w-full">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20">
+        <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20 print:hidden">
           <div className="flex items-center gap-2.5 overflow-hidden">
             <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
               {tenantContext.school.logo_url ? (
@@ -125,7 +125,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         </div>
 
         {/* Main content area with consistent gutters and breathing room */}
-        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
+        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
           {children}
         </main>
       </div>

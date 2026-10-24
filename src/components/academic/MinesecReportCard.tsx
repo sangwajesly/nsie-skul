@@ -5,6 +5,20 @@ interface MinesecReportCardProps {
   data: ReportCardFullData;
 }
 
+function formatOrdinalRank(rank: number, total: number, subsystem?: string): string {
+  if (subsystem === "francophone") {
+    const suffix = rank === 1 ? "er" : "e";
+    return `${rank}${suffix} / ${total}`;
+  }
+  const j = rank % 10;
+  const k = rank % 100;
+  let suffix = "th";
+  if (j === 1 && k !== 11) suffix = "st";
+  else if (j === 2 && k !== 12) suffix = "nd";
+  else if (j === 3 && k !== 13) suffix = "rd";
+  return `${rank}${suffix} / ${total}`;
+}
+
 export function MinesecReportCard({ data }: MinesecReportCardProps) {
   const {
     school,
@@ -215,14 +229,18 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
               <td className="py-1 px-1 font-mono">{summary.totalCoef}</td>
               <td className="py-1 px-1 font-mono">{summary.totalWeightedScore.toFixed(2)}</td>
               <td colSpan={3} className="py-1 px-2 text-left bg-zinc-200/80">
-                STUDENT AVERAGE:{" "}
-                <span className="font-extrabold text-[12px] font-mono text-black">
-                  {summary.studentAverage.toFixed(2)} / 20.00
-                </span>
-                {summary.rankingEnabled && summary.rank && (
-                  <span className="ml-2 px-1.5 py-0.5 rounded bg-black text-white text-[9px] font-mono font-bold">
-                    RANK: {summary.rank}e
+                <div className="leading-tight">
+                  <span className="font-bold">STUDENT AVERAGE:</span>{" "}
+                  <span className="font-extrabold text-[11px] font-mono text-black">
+                    {summary.studentAverage.toFixed(2)} / 20.00
                   </span>
+                </div>
+                {summary.rankingEnabled && summary.rank && (
+                  <div className="mt-1">
+                    <span className="inline-block px-1.5 py-0.5 rounded bg-black text-white text-[9px] font-mono font-bold whitespace-nowrap">
+                      RANK: {formatOrdinalRank(summary.rank, classInfo.classEnrolment, school.subsystem)}
+                    </span>
+                  </div>
                 )}
               </td>
             </tr>
@@ -340,9 +358,9 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
         </div>
       </div>
 
-      {/* Discrete independent software attribution */}
+      {/* Software attribution */}
       <div className="pt-1 text-right text-[7px] text-zinc-400 font-mono">
-        Generated via Nsei Skul Management System · Independent software provider to educational institutions
+        Generated via Nsei Skul Management System
       </div>
     </div>
   );

@@ -525,6 +525,7 @@ export async function saveSequenceMarksAction(payload: {
   classStreamId: string;
   subjectId: string;
   maxMarks: number;
+  competencyDescription?: string;
   marks: Array<{
     studentId: string;
     score: number | null;
@@ -637,8 +638,60 @@ export async function saveSequenceMarksAction(payload: {
     return { error: error.message };
   }
 
+  // Persist class-wide CBA Competency Evaluated if provided
+  if (payload.competencyDescription !== undefined) {
+    const trimmedComp = payload.competencyDescription.trim();
+    if (trimmedComp) {
+      const { data: termData } = await supabase
+        .from("terms")
+        .select("term_number")
+        .eq("id", payload.termId)
+        .maybeSingle();
+
+      const { data: streamData } = await supabase
+        .from("class_streams")
+        .select("class_id")
+        .eq("id", payload.classStreamId)
+        .maybeSingle();
+
+      const termNumber = termData?.term_number || 1;
+      const classId = streamData?.class_id || null;
+
+      const { data: existingComp } = await supabase
+        .from("subject_competencies")
+        .select("id")
+        .eq("school_id", context.school.id)
+        .eq("subject_id", payload.subjectId)
+        .eq("term_number", termNumber)
+        .eq("class_id", classId)
+        .maybeSingle();
+
+      if (existingComp) {
+        await supabase
+          .from("subject_competencies")
+          .update({
+            description: trimmedComp,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingComp.id);
+      } else {
+        await supabase
+          .from("subject_competencies")
+          .insert({
+            school_id: context.school.id,
+            subject_id: payload.subjectId,
+            class_id: classId,
+            term_number: termNumber,
+            description: trimmedComp,
+            order_index: 1,
+          });
+      }
+    }
+  }
+
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
   return { success: true };
 }
 

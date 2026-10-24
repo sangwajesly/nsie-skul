@@ -164,7 +164,7 @@ export default async function BulkReportCardsPage({
   const reportCards = await getClassStreamReportCards(schoolId, term.id, selectedStream.id);
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6 print:space-y-0 print:max-w-none print:m-0 print:p-0">
       {/* Print Specific CSS Rules for Seamless Multi-Page A4 Break */}
       <style
         dangerouslySetInnerHTML={{
@@ -172,7 +172,7 @@ export default async function BulkReportCardsPage({
             @media print {
               @page {
                 size: A4 portrait;
-                margin: 8mm 6mm;
+                margin: 5mm 6mm;
               }
               body {
                 background-color: white !important;

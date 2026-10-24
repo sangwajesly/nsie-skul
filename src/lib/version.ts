@@ -17,7 +17,6 @@ export const APP_CONFIG = {
     termsPerYear: 3,
     subsystems: ["anglophone", "francophone", "bilingual"],
     accountingCurrency: "XAF (FCFA)",
-    disclaimer: "Independent school management software. Not affiliated with or operated by MINESEC.",
   },
   supportedApiVersions: ["v1"],
 } as const;

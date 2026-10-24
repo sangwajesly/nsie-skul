@@ -13,6 +13,7 @@ import {
   getMarksForSequence,
   getDepartmentalApproval,
 } from "@/lib/academic/marks-service";
+import { createClient } from "@/lib/supabase/server";
 import { MarksGridClient } from "./MarksGridClient";
 import { AlertCircle, ArrowLeft, BookOpen, GraduationCap, Sparkles, UserCheck } from "lucide-react";
 
@@ -126,6 +127,38 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           selectedSubject.id
         )
       : null;
+
+  // 5. Load existing CBA competence evaluated for this class & subject
+  let initialCompetency = "";
+  if (selectedSubject && selectedStream) {
+    const supabase = await createClient();
+    const { data: comp } = await supabase
+      .from("subject_competencies")
+      .select("description")
+      .eq("school_id", schoolId)
+      .eq("subject_id", selectedSubject.id)
+      .eq("class_id", selectedStream.class_id)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (comp?.description) {
+      initialCompetency = comp.description;
+    } else {
+      const { data: generalComp } = await supabase
+        .from("subject_competencies")
+        .select("description")
+        .eq("school_id", schoolId)
+        .eq("subject_id", selectedSubject.id)
+        .is("class_id", null)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (generalComp?.description) {
+        initialCompetency = generalComp.description;
+      }
+    }
+  }
 
   // Merge enrolled students with their existing marks
   const studentRows = enrolments.map((e) => {
@@ -314,6 +347,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           sequenceName={selectedSequence.name}
           coefficient={selectedSubject.default_coefficient}
           initialMaxMarks={selectedSubject.default_max_marks || 20}
+          initialCompetency={initialCompetency}
           isApproved={departmentalApproval?.status === "approved"}
           approvalStatus={departmentalApproval?.status || "draft"}
           approvalNotes={departmentalApproval?.notes || undefined}

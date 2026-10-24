@@ -322,10 +322,16 @@ export async function getStudentReportCard(
     const maxClassScore =
       subjectScoresInClass.length > 0 ? Math.max(...subjectScoresInClass) : 18.5;
 
-    // Get competencies
-    const customComps = dbCompetencies
-      ?.filter((c) => c.subject_id === sub.id)
-      .map((c) => c.description);
+    // Get competencies (prioritize class-specific competency set by teacher)
+    const classSpecificComps = dbCompetencies?.filter(
+      (c) => c.subject_id === sub.id && c.class_id === classStream.class_id
+    );
+    const generalComps = dbCompetencies?.filter(
+      (c) => c.subject_id === sub.id && !c.class_id
+    );
+    const matchedComps =
+      classSpecificComps && classSpecificComps.length > 0 ? classSpecificComps : generalComps;
+    const customComps = matchedComps?.map((c) => c.description);
 
     const competencies =
       customComps && customComps.length > 0
@@ -419,6 +425,75 @@ export async function getStudentReportCard(
     dismissed: termResultData?.conduct_status === "dismissed" || liveDismissed,
   };
 
+  // 11. Compute Real Dynamic Class Ranking & Statistical Profile
+  const { data: allStreamEnrolments } = await supabase
+    .from("enrolments")
+    .select("student_id")
+    .eq("school_id", schoolId)
+    .eq("class_stream_id", classStream.id)
+    .eq("status", "active");
+
+  const enrolledStudentIds = allStreamEnrolments?.map((e) => e.student_id) || [student.id];
+  const actualClassSize = Math.max(enrolledStudentIds.length, classEnrolmentCount || 1);
+
+  const studentAverages: Array<{ studentId: string; average: number }> = [];
+
+  for (const sId of enrolledStudentIds) {
+    let sCoef = 0;
+    let sWeighted = 0;
+
+    for (const sub of allSubjects) {
+      const markA = streamMarks.find(
+        (m) => m.student_id === sId && m.subject_id === sub.id && m.sequence_id === seqA?.id
+      );
+      const markB = streamMarks.find(
+        (m) => m.student_id === sId && m.subject_id === sub.id && m.sequence_id === seqB?.id
+      );
+
+      const sScoreA = markA?.status === "present" ? markA.normalized_score_20 : null;
+      const sScoreB = markB?.status === "present" ? markB.normalized_score_20 : null;
+
+      let sTermAvg: number | null = null;
+      if (sScoreA !== null && sScoreB !== null) {
+        sTermAvg = (sScoreA + sScoreB) / 2;
+      } else if (sScoreA !== null) {
+        sTermAvg = sScoreA;
+      } else if (sScoreB !== null) {
+        sTermAvg = sScoreB;
+      }
+
+      if (sTermAvg !== null) {
+        const coef = Number(sub.default_coefficient) || 2;
+        sCoef += coef;
+        sWeighted += sTermAvg * coef;
+      }
+    }
+
+    const avg = sCoef > 0 ? parseFloat((sWeighted / sCoef).toFixed(2)) : 0.0;
+    studentAverages.push({ studentId: sId, average: avg });
+  }
+
+  // Sort descending by term average
+  studentAverages.sort((a, b) => b.average - a.average);
+
+  // Determine this student's 1-based rank
+  const studentIndex = studentAverages.findIndex((s) => s.studentId === student.id);
+  const calculatedRank = studentIndex >= 0 ? studentIndex + 1 : 1;
+
+  // Real class statistical profile
+  const validAverages = studentAverages.map((s) => s.average).filter((avg) => avg > 0);
+  const classAvg =
+    validAverages.length > 0
+      ? parseFloat((validAverages.reduce((sum, val) => sum + val, 0) / validAverages.length).toFixed(2))
+      : studentAverage;
+  const minAvg = validAverages.length > 0 ? Math.min(...validAverages) : studentAverage;
+  const maxAvg = validAverages.length > 0 ? Math.max(...validAverages) : studentAverage;
+  const numPassed = studentAverages.filter((s) => s.average >= 10.0).length;
+  const passRate =
+    studentAverages.length > 0
+      ? parseFloat(((numPassed / studentAverages.length) * 100).toFixed(1))
+      : 0.0;
+
   return {
     school: {
       name: school.name || "GOVERNMENT BILINGUAL HIGH SCHOOL",
@@ -452,7 +527,7 @@ export async function getStudentReportCard(
     classInfo: {
       className: classStream.class?.name || "Form 2",
       streamName: classStream.name || "Form 2 A",
-      classEnrolment: classEnrolmentCount || 45,
+      classEnrolment: actualClassSize,
       classMasterName: classStream.class_master?.full_name || "M. Class Master",
     },
     subjects: subjectRows,
@@ -464,15 +539,15 @@ export async function getStudentReportCard(
       totalSubjects: allSubjects.length,
       letterGrade: overallGrade.letter,
       cbaAppreciation: overallGrade.cba,
-      rank: 4, // Rank in class
+      rank: calculatedRank,
       rankingEnabled: school.ranking_mode === "enabled",
     },
     classProfile: {
-      classAverage: 12.85,
-      minAverage: 7.4,
-      maxAverage: 17.65,
-      numberPassed: 38,
-      successRate: 84.4,
+      classAverage: classAvg,
+      minAverage: minAvg,
+      maxAverage: maxAvg,
+      numberPassed: numPassed,
+      successRate: passRate,
     },
     discipline,
     remarks: {

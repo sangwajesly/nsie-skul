@@ -112,7 +112,7 @@ export default async function DashboardPage() {
             </div>
             <div className="text-[11px] text-[#999999] text-left sm:text-right">
               <div className="font-mono font-bold text-[#142010]">{school?.code || "GBHS-BDA"}</div>
-              <div>MINESEC CBA Competency System</div>
+              <div>Secondary School System</div>
             </div>
           </div>
         </div>
@@ -338,7 +338,7 @@ export default async function DashboardPage() {
           </div>
           <div className="text-[11px] text-[#999999] text-right">
             <div className="font-mono">Nsei Skul Platform</div>
-            <div>Independent · Not affiliated with MINESEC</div>
+            <div>School Management System</div>
           </div>
         </div>
       </div>

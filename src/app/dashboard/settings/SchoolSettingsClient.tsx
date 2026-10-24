@@ -120,7 +120,7 @@ export default function SchoolSettingsClient({ school }: Props) {
               <div>
                 <h4 className="font-bold text-[13px] text-[#142010]">School Official Seal / Logo</h4>
                 <p className="text-[11px] text-[#666666]">
-                  This logo automatically appears on MINESEC report cards, official fee payment receipts, and the top navigation.
+                  This logo automatically appears on student report cards, official fee payment receipts, and the top navigation.
                 </p>
               </div>
 

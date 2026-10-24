@@ -163,9 +163,9 @@ export function OfficialReceipt({
         </div>
       </div>
 
-      {/* ── Legal Disclaimer Footer ────────────────────────────────────────── */}
+      {/* ── Document Footer ────────────────────────────────────────────────── */}
       <div className="mt-4 pt-2 border-t border-black text-center text-[8px] text-zinc-500">
-        Nsei Skul Automated Financial Engine · Official Bursary Document · Fees once paid are non-refundable.
+        Nsei Skul Bursary Engine · Official Receipt Document · Fees once paid are non-refundable.
       </div>
     </div>
   );
