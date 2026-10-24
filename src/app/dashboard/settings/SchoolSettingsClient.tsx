@@ -9,7 +9,10 @@ import {
   Receipt, 
   ShieldCheck, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from "lucide-react";
 
 interface Props {
@@ -21,8 +24,30 @@ export default function SchoolSettingsClient({ school }: Props) {
   const [approvalWorkflow, setApprovalWorkflow] = useState<string>(
     school.result_approval_workflow || "hod"
   );
+  const [logoUrl, setLogoUrl] = useState<string>(school.logo_url || "");
+  const [logoError, setLogoError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError("Please choose an image under 2 MB.");
+      return;
+    }
+
+    setLogoError(null);
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      const result = loadEvt.target?.result as string;
+      if (result) {
+        setLogoUrl(result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,6 +57,7 @@ export default function SchoolSettingsClient({ school }: Props) {
     const formData = new FormData(e.currentTarget);
     formData.set("ranking_mode", rankingMode);
     formData.set("result_approval_workflow", approvalWorkflow);
+    formData.set("logo_url", logoUrl);
 
     try {
       await updateSchoolSettingsAction(formData);
@@ -65,12 +91,67 @@ export default function SchoolSettingsClient({ school }: Props) {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Section 1: Institution Profile */}
-        <div className="bg-[#FFFDF5] border border-[#E8DFC9] rounded-[8px] p-5 shadow-sm space-y-4">
+        <div className="bg-[#FFFDF5] border border-[#E8DFC9] rounded-[8px] p-5 shadow-sm space-y-5">
           <div className="flex items-center gap-2.5 pb-3 border-b border-[#E8DFC9]">
             <Building2 className="w-4 h-4 text-[#2A7C13]" />
             <h3 className="font-bold text-[14px] text-[#142010]">
               School Details
             </h3>
+          </div>
+
+          {/* School Emblem / Logo Uploader */}
+          <div className="p-4 rounded-[6px] border border-[#E8DFC9] bg-white flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="w-20 h-20 rounded-full border-2 border-dashed border-[#D5CBB2] flex items-center justify-center overflow-hidden bg-[#FAF7EE] shrink-0">
+              {logoUrl ? (
+                <img
+                  src={logoUrl}
+                  alt="School Logo"
+                  className="w-full h-full object-contain p-1"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center p-1 text-[#888888]">
+                  <ImageIcon className="w-6 h-6 mb-0.5 text-[#B8A882]" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider">No Logo</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <div>
+                <h4 className="font-bold text-[13px] text-[#142010]">School Official Seal / Logo</h4>
+                <p className="text-[11px] text-[#666666]">
+                  This logo automatically appears on MINESEC report cards, official fee payment receipts, and the top navigation.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#142010] hover:bg-[#2A7C13] text-white text-xs font-semibold cursor-pointer transition-colors shadow-2xs">
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{logoUrl ? "Change School Logo" : "Upload School Logo"}</span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    className="hidden"
+                    onChange={handleLogoFileChange}
+                  />
+                </label>
+
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl("")}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[5px] border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove Logo</span>
+                  </button>
+                )}
+              </div>
+
+              {logoError && (
+                <p className="text-[11px] text-red-600 font-semibold">{logoError}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">

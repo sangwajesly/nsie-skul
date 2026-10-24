@@ -116,6 +116,7 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   const ranking_mode = (formData.get("ranking_mode") as string) || "enabled";
   const result_approval_workflow = (formData.get("result_approval_workflow") as string) || "hod";
   const receipt_prefix = (formData.get("receipt_prefix") as string) || "REC";
+  const logo_url = (formData.get("logo_url") as string) || null;
 
   const supabase = await createClient();
 
@@ -131,6 +132,7 @@ export async function updateSchoolSettingsAction(formData: FormData) {
       ranking_mode,
       result_approval_workflow,
       receipt_prefix,
+      logo_url,
       updated_at: new Date().toISOString(),
     })
     .eq("id", schoolId);
@@ -151,12 +153,14 @@ export async function updateSchoolSettingsAction(formData: FormData) {
       ranking_mode,
       result_approval_workflow,
       receipt_prefix,
+      has_logo: Boolean(logo_url),
     },
   });
 
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/finance");
 }
 
 export async function updateStaffRoleAction(formData: FormData) {

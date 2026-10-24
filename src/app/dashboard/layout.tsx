@@ -29,8 +29,16 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       <aside className="hidden md:flex flex-col w-64 border-r border-[#E5E5DF] bg-white flex-shrink-0 min-h-screen sticky top-0 h-screen">
         {/* School brand */}
         <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[#EBEBE6]">
-          <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0">
-            {schoolName.charAt(0)}
+          <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden">
+            {tenantContext.school.logo_url ? (
+              <img
+                src={tenantContext.school.logo_url}
+                alt={schoolName}
+                className="w-full h-full object-contain p-0.5 bg-white"
+              />
+            ) : (
+              schoolName.charAt(0)
+            )}
           </div>
           <div className="overflow-hidden">
             <div className="font-bold text-[13px] tracking-tight text-[#191919] truncate leading-tight">
@@ -86,8 +94,16 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20">
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
-              {schoolName.charAt(0)}
+            <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
+              {tenantContext.school.logo_url ? (
+                <img
+                  src={tenantContext.school.logo_url}
+                  alt={schoolName}
+                  className="w-full h-full object-contain p-0.5 bg-white"
+                />
+              ) : (
+                schoolName.charAt(0)
+              )}
             </div>
             <div className="overflow-hidden">
               <span className="font-bold text-xs text-[#191919] truncate block">{schoolName}</span>
