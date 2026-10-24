@@ -1,6 +1,4 @@
 import { getTenantContext } from "@/lib/tenancy/context";
-import { createClient } from "@/lib/supabase/server";
-import { AcademicYear } from "@/types/database";
 import { 
   getSchoolSettings, 
   getSchoolStaffMemberships, 
@@ -22,23 +20,11 @@ export default async function SettingsPage() {
     );
   }
 
-  const getAcademicYears = async (): Promise<AcademicYear[]> => {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("academic_years")
-      .select("*")
-      .eq("school_id", context.school.id)
-      .order("start_date", { ascending: false });
-
-    return (data as AcademicYear[]) || [];
-  };
-
-  const [school, staff, roles, recentLogs, academicYears] = await Promise.all([
+  const [school, staff, roles, recentLogs] = await Promise.all([
     getSchoolSettings(context.school.id),
     getSchoolStaffMemberships(context.school.id),
     getSystemRoles(),
     getSchoolAuditLogs(context.school.id, 10),
-    getAcademicYears(),
   ]);
 
   if (!school) {
@@ -50,7 +36,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8DFC9]">
         <div>
@@ -83,12 +69,13 @@ export default async function SettingsPage() {
 
       {/* Main Settings Tabs / Sections */}
       <div className="space-y-8">
-        <SchoolSettingsClient school={school} academicYears={academicYears} />
+        <SchoolSettingsClient school={school} />
 
         <StaffRolesClient
           memberships={staff}
           roles={roles}
           canManageStaff={context.hasPermission("staff.manage")}
+          currentUserId={context.user.id}
         />
 
         {/* Recent Audit Summary Preview */}

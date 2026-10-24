@@ -3,28 +3,52 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SchoolMembership, Role } from "@/types/database";
-import { addStaffMemberAction, updateStaffRoleAction } from "./actions";
-import { UserPlus, Users, CheckCircle2, AlertCircle } from "lucide-react";
+import {
+  addStaffMemberAction,
+  updateStaffRoleAction,
+  toggleStaffStatusAction,
+  removeStaffMembershipAction,
+} from "./actions";
+import {
+  UserPlus,
+  Users,
+  CheckCircle2,
+  AlertCircle,
+  UserX,
+  RotateCcw,
+  Trash2,
+  ShieldAlert,
+} from "lucide-react";
 
 interface Props {
   memberships: SchoolMembership[];
   roles: Role[];
   canManageStaff: boolean;
+  currentUserId?: string;
 }
 
 const roleLabels: Record<string, string> = {
   school_admin: "School Administrator",
-  principal: "Principal",
-  hod: "Head of Department",
-  teacher: "Teacher",
-  class_master: "Class Teacher",
-  bursar: "Finance Officer",
+  principal: "Principal / Academic Dean",
+  teacher: "Teacher / Academic Faculty",
+  bursar: "Finance Officer / Bursar",
+  class_master: "Teacher (Class Master)",
+  hod: "Teacher (Head of Department)",
 };
 
-export default function StaffRolesClient({ memberships, roles, canManageStaff }: Props) {
+// Base account access roles when registering new staff
+const primaryRoleCodes = ["teacher", "principal", "school_admin", "bursar"];
+
+export default function StaffRolesClient({
+  memberships,
+  roles,
+  canManageStaff,
+  currentUserId,
+}: Props) {
   const router = useRouter();
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [confirmRemoveMember, setConfirmRemoveMember] = useState<{ id: string; name: string } | null>(null);
   const schoolRoles = roles.filter((role) => role.code !== "superadmin");
 
   async function handleAddStaff(event: React.FormEvent<HTMLFormElement>) {
@@ -60,6 +84,55 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
       setStatusMessage({ type: "success", text: "Staff authorization updated successfully!" });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update staff role";
+      setStatusMessage({ type: "error", text: msg });
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleToggleStatus(membershipId: string, currentStatus: string) {
+    const newStatus = currentStatus === "active" ? "suspended" : "active";
+    setUpdatingId(membershipId);
+    setStatusMessage(null);
+
+    const formData = new FormData();
+    formData.set("membershipId", membershipId);
+    formData.set("status", newStatus);
+
+    try {
+      await toggleStaffStatusAction(formData);
+      setStatusMessage({
+        type: "success",
+        text: newStatus === "suspended" ? "Staff platform access suspended." : "Staff access reactivated.",
+      });
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to change staff status";
+      setStatusMessage({ type: "error", text: msg });
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  async function handleConfirmRemove() {
+    if (!confirmRemoveMember) return;
+    const { id: membershipId, name } = confirmRemoveMember;
+    setUpdatingId(membershipId);
+    setStatusMessage(null);
+    setConfirmRemoveMember(null);
+
+    const formData = new FormData();
+    formData.set("membershipId", membershipId);
+
+    try {
+      await removeStaffMembershipAction(formData);
+      setStatusMessage({
+        type: "success",
+        text: `${name} has been removed from this school. Any teaching duties have been unassigned.`,
+      });
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to remove staff member";
       setStatusMessage({ type: "error", text: msg });
     } finally {
       setUpdatingId(null);
@@ -109,6 +182,9 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
             <p className="mt-1 text-xs text-[#666666]">
               They must create a Nsei Skul account first. Enter the same email address they used to register.
             </p>
+            <p className="mt-1 text-[11px] text-[#2A7C13] font-medium">
+              💡 Tip: Register all teaching faculty as &ldquo;Teacher / Academic Faculty&rdquo;. Class Master appointments, subjects taught, and department heads are assigned under Classes &amp; Subjects.
+            </p>
           </div>
           <div>
             <label htmlFor="staff-email" className="mb-1 block text-xs font-semibold text-[#444444]">
@@ -135,11 +211,18 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
               className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
             >
               <option value="" disabled>Select a role</option>
-              {schoolRoles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {roleLabels[role.code] || role.name}
-                </option>
-              ))}
+              {schoolRoles
+                .slice()
+                .sort((a, b) => {
+                  const aIdx = primaryRoleCodes.indexOf(a.code);
+                  const bIdx = primaryRoleCodes.indexOf(b.code);
+                  return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+                })
+                .map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {roleLabels[role.code] || role.name}
+                  </option>
+                ))}
             </select>
           </div>
           <div>
@@ -175,13 +258,14 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
               <th className="py-2.5 px-3">Email Address</th>
               <th className="py-2.5 px-3">Job Title</th>
               <th className="py-2.5 px-3">School Role</th>
-              <th className="py-2.5 px-3 text-right">Status</th>
+              <th className="py-2.5 px-3 text-center">Status</th>
+              {canManageStaff && <th className="py-2.5 px-3 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#EFE7D5]">
             {memberships.length === 0 ? (
               <tr>
-                <td colSpan={5} className="py-8 text-center text-[#777777]">
+                <td colSpan={canManageStaff ? 6 : 5} className="py-8 text-center text-[#777777]">
                   No staff memberships registered for this institution yet.
                 </td>
               </tr>
@@ -201,7 +285,7 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
                     <div className="flex items-center gap-2">
                       <select
                         defaultValue={m.role_id}
-                        disabled={!canManageStaff || updatingId === m.id}
+                        disabled={!canManageStaff || updatingId === m.id || m.status === "suspended"}
                         onChange={(e) =>
                           handleRoleChange(m.id, e.target.value, m.title)
                         }
@@ -220,7 +304,7 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
                       )}
                     </div>
                   </td>
-                  <td className="py-2.5 px-3 text-right">
+                  <td className="py-2.5 px-3 text-center">
                     <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                       m.status === "active"
                         ? "border-[#C3E4BC] bg-[#EBF5E9] text-[#1F5C0E]"
@@ -231,15 +315,92 @@ export default function StaffRolesClient({ memberships, roles, canManageStaff }:
                       <span className={`h-1.5 w-1.5 rounded-full ${
                         m.status === "active" ? "bg-[#2A7C13]" : m.status === "invited" ? "bg-[#B45309]" : "bg-red-600"
                       }`} />
-                      {m.status === "active" ? "Active" : m.status === "invited" ? "Access pending" : "Access paused"}
+                      {m.status === "active" ? "Active" : m.status === "invited" ? "Pending" : "Suspended"}
                     </span>
                   </td>
+                  {canManageStaff && (
+                    <td className="py-2.5 px-3 text-right">
+                      {m.user_id === currentUserId ? (
+                        <span className="text-[10px] text-[#888888] font-medium italic">You</span>
+                      ) : (
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            disabled={updatingId === m.id}
+                            onClick={() => handleToggleStatus(m.id, m.status)}
+                            title={m.status === "active" ? "Suspend platform access" : "Restore active access"}
+                            className={`px-2 py-1 rounded-[4px] text-[10px] font-semibold border transition-colors ${
+                              m.status === "active"
+                                ? "border-[#D5CBB2] bg-white text-[#555555] hover:bg-[#FFF8CF] hover:text-[#7A5B00] hover:border-[#FBE6C2]"
+                                : "border-[#C3E4BC] bg-[#EBF5E9] text-[#1F5C0E] hover:bg-[#DCFCE7]"
+                            }`}
+                          >
+                            {m.status === "active" ? "Suspend" : "Reactivate"}
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={updatingId === m.id}
+                            onClick={() => setConfirmRemoveMember({ id: m.id, name: m.user?.full_name || "Staff Member" })}
+                            title="Remove staff member from school"
+                            className="p-1 rounded-[4px] text-[#888888] hover:text-red-700 hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Confirmation Modal for Staff Removal */}
+      {confirmRemoveMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-[8px] bg-white p-6 shadow-xl space-y-4 border border-[#E8DFC9]">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-red-100 text-red-700 shrink-0">
+                <ShieldAlert className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#142010]">
+                  Remove Staff Member from School?
+                </h4>
+                <p className="mt-1 text-xs text-[#555555] leading-relaxed">
+                  Are you sure you want to remove <strong className="text-[#142010]">{confirmRemoveMember.name}</strong> from this school?
+                </p>
+                <div className="mt-2 text-[11px] text-[#777777] bg-[#F7F3E8] p-2.5 rounded-[5px] space-y-1">
+                  <p>• Any Class Master appointment will be unassigned.</p>
+                  <p>• Any subject teaching allocations will be unassigned.</p>
+                  <p>• Their platform access to this institution will be revoked immediately.</p>
+                  <p>• Historical assessment marks and payments previously recorded will remain safely audited.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8DFC9]">
+              <button
+                type="button"
+                onClick={() => setConfirmRemoveMember(null)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] border border-[#D5CBB2] text-[#444444] hover:bg-[#F7F3E8] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemove}
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] bg-red-600 hover:bg-red-700 text-white transition-colors shadow-xs"
+              >
+                Confirm Removal
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

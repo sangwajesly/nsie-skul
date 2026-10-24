@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { getTenantContext } from "@/lib/tenancy/context";
 import {
   getActiveAcademicYear,
@@ -6,13 +7,14 @@ import {
   getSchoolClasses,
   getSchoolSubjects,
   getEnrolledStudents,
+  getSchoolTeacherAssignments,
 } from "@/lib/academic/service";
 import {
   getMarksForSequence,
   getDepartmentalApproval,
 } from "@/lib/academic/marks-service";
 import { MarksGridClient } from "./MarksGridClient";
-import { ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, BookOpen, GraduationCap, Sparkles, UserCheck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -28,21 +30,73 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
   const params = await searchParams;
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
+  const roleCode = context?.role?.code || "teacher";
+  const isTeacher = roleCode === "teacher" || roleCode === "class_master";
 
   // 1. Load active academic year, terms & sequences
   const activeYear = await getActiveAcademicYear(schoolId);
-  const sequences = await getSchoolSequences(schoolId);
-  const classesWithStreams = await getSchoolClasses(schoolId, activeYear?.id);
-  const allStreams = classesWithStreams.flatMap((c) => c.streams);
-  const subjects = await getSchoolSubjects(schoolId);
+  const [sequences, classesWithStreams, subjects, teacherAssignments] = await Promise.all([
+    getSchoolSequences(schoolId),
+    getSchoolClasses(schoolId, activeYear?.id),
+    getSchoolSubjects(schoolId),
+    isTeacher && activeYear && context?.user?.id
+      ? getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id)
+      : Promise.resolve([]),
+  ]);
 
-  // Default selections if not in query
+  const allStreams = classesWithStreams.flatMap((c) => c.streams);
+
+  // Set of assigned stream IDs and subject IDs for the teacher
+  const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
+  const assignedSubjectIds = new Set(teacherAssignments.map((a) => a.subject_id));
+
+  // Build a map of class_stream_id -> Set<subject_id> for cross-filtering
+  const streamToSubjects = new Map<string, Set<string>>();
+  for (const a of teacherAssignments) {
+    if (!streamToSubjects.has(a.class_stream_id)) {
+      streamToSubjects.set(a.class_stream_id, new Set());
+    }
+    streamToSubjects.get(a.class_stream_id)!.add(a.subject_id);
+  }
+
+  // For teachers: only show assigned streams; for admins: show all
+  const visibleStreams = isTeacher && teacherAssignments.length > 0
+    ? allStreams.filter((s) => assignedStreamIds.has(s.id))
+    : allStreams;
+
+  // Default selections: if teacher has assignments and no param specified, pick teacher's first assigned class and subject
+  const defaultStreamId =
+    params.classStreamId ||
+    (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].class_stream_id : undefined);
+  const defaultSubjectId =
+    params.subjectId ||
+    (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].subject_id : undefined);
+
   const selectedSequence =
-    sequences.find((s) => s.id === params.sequenceId) || sequences[0] || null;
+    sequences.find((s) => s.id === params.sequenceId) ||
+    sequences.find((s) => s.is_open_for_marks) ||
+    sequences[0] ||
+    null;
+
   const selectedStream =
-    allStreams.find((s) => s.id === params.classStreamId) || allStreams[0] || null;
+    visibleStreams.find((s) => s.id === defaultStreamId) || visibleStreams[0] || null;
+
+  // For teachers: cross-filter subjects by the selected class stream
+  const subjectsForSelectedStream = isTeacher && teacherAssignments.length > 0
+    ? subjects.filter((s) => {
+        const allowedSubjects = selectedStream ? streamToSubjects.get(selectedStream.id) : null;
+        return allowedSubjects ? allowedSubjects.has(s.id) : assignedSubjectIds.has(s.id);
+      })
+    : subjects;
+
   const selectedSubject =
-    subjects.find((s) => s.id === params.subjectId) || subjects[0] || null;
+    subjectsForSelectedStream.find((s) => s.id === defaultSubjectId) || subjectsForSelectedStream[0] || null;
+
+  // For teachers: verify the selected class+subject is an actual assignment
+  const isAuthorizedForSelection = !isTeacher || teacherAssignments.length === 0 ||
+    teacherAssignments.some(
+      (a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id
+    );
 
   // 2. Load enrolled students for stream
   const enrolments =
@@ -68,7 +122,8 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           schoolId,
           selectedSequence.id,
           selectedStream.id,
-          selectedSubject.department_id
+          selectedSubject.department_id,
+          selectedSubject.id
         )
       : null;
 
@@ -123,10 +178,38 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         </div>
       </div>
 
-      {/* Filter / Selector Controls */}
+      {/* Teacher Assignment Status Banner */}
+      {isTeacher && teacherAssignments.length === 0 && (
+        <div className="p-6 rounded-[8px] bg-[#FFF8CF] border border-[#FBE6C2] space-y-3">
+          <div className="flex items-start gap-3">
+            <BookOpen className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
+            <div className="text-xs text-[#7A4A00] space-y-1">
+              <p className="font-bold text-sm text-[#4A3D00]">You have not been assigned to any classes or subjects yet.</p>
+              <p>
+                Your school administrator or Head of Department assigns teachers to their classes.
+                Once assigned, your classes and subjects will appear here automatically.
+              </p>
+              <p className="text-[11px] text-[#92400E]">
+                If you believe this is an error, please contact your school administrator.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter / Selector Controls — hidden for unassigned teachers */}
+      {(!isTeacher || teacherAssignments.length > 0) && (
       <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">
-          Choose a Class, Test &amp; Subject
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">
+            Choose a Class, Test &amp; Subject
+          </div>
+          {isTeacher && teacherAssignments.length > 0 && (
+            <span className="text-[11px] text-[#2A7C13] font-semibold flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5" />
+              <span>{teacherAssignments.length} assignment{teacherAssignments.length === 1 ? "" : "s"} · {visibleStreams.length} class{visibleStreams.length === 1 ? "" : "es"}</span>
+            </span>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -135,76 +218,88 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Test / Sequence
             </label>
-            <form method="GET" className="flex gap-2">
+            <form method="GET">
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
               <input type="hidden" name="subjectId" value={selectedSubject?.id || ""} />
-              <select
+              <AutoSubmitSelect
                 name="sequenceId"
                 defaultValue={selectedSequence?.id}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
                 {sequences.map((seq) => (
                   <option key={seq.id} value={seq.id}>
-                    {seq.name} (Test {seq.sequence_number} of 6)
+                    {seq.name} (Test {seq.sequence_number} of 6) {seq.is_open_for_marks ? "★ Active" : ""}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
           </div>
 
-          {/* 2. Class Stream Selector */}
+          {/* 2. Class Stream Selector — teachers see only assigned classes */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Class Group
             </label>
-            <form method="GET" className="flex gap-2">
+            <form method="GET">
               <input type="hidden" name="sequenceId" value={selectedSequence?.id || ""} />
               <input type="hidden" name="subjectId" value={selectedSubject?.id || ""} />
-              <select
+              <AutoSubmitSelect
                 name="classStreamId"
                 defaultValue={selectedStream?.id}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
-                {allStreams.map((stream) => (
+                {visibleStreams.map((stream) => (
                   <option key={stream.id} value={stream.id}>
                     {stream.name}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
           </div>
 
-          {/* 3. Subject Selector */}
+          {/* 3. Subject Selector — teachers see only subjects assigned for the selected class */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Subject
             </label>
-            <form method="GET" className="flex gap-2">
+            <form method="GET">
               <input type="hidden" name="sequenceId" value={selectedSequence?.id || ""} />
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
-              <select
+              <AutoSubmitSelect
                 name="subjectId"
                 defaultValue={selectedSubject?.id}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
-                {subjects.map((sub) => (
+                {subjectsForSelectedStream.map((sub) => (
                   <option key={sub.id} value={sub.id}>
                     {sub.name}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
           </div>
         </div>
       </div>
+      )}
 
       {/* Interactive Mark Entry Table or Missing Configuration State */}
-      {!selectedSequence || !selectedStream || !selectedSubject ? (
+      {isTeacher && teacherAssignments.length === 0 ? (
+        /* Unassigned teacher: no grid at all */
+        null
+      ) : !selectedSequence || !selectedStream || !selectedSubject ? (
         <div className="p-8 text-center rounded-[8px] bg-white border border-[#E8DFC9] text-xs text-[#788470]">
           Set up a current school year, class groups and subjects before entering marks.
+        </div>
+      ) : isTeacher && !isAuthorizedForSelection ? (
+        <div className="p-6 rounded-[8px] bg-red-50 border border-red-200 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="text-xs text-red-700 space-y-1">
+            <p className="font-bold text-sm">Access Denied</p>
+            <p>
+              You are not assigned to teach <strong>{selectedSubject.name}</strong> in <strong>{selectedStream.name}</strong>.
+              Please select a class and subject from your assignments above.
+            </p>
+          </div>
         </div>
       ) : (
         <MarksGridClient
@@ -215,12 +310,17 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           subjectId={selectedSubject.id}
           departmentId={selectedSubject.department_id || undefined}
           subjectName={selectedSubject.name}
+          streamName={selectedStream.name}
+          sequenceName={selectedSequence.name}
           coefficient={selectedSubject.default_coefficient}
           initialMaxMarks={selectedSubject.default_max_marks || 20}
           isApproved={departmentalApproval?.status === "approved"}
+          approvalStatus={departmentalApproval?.status || "draft"}
+          approvalNotes={departmentalApproval?.notes || undefined}
           approverName={departmentalApproval?.approver?.full_name}
           approvedAt={departmentalApproval?.approved_at || undefined}
           canApprove={canApprove}
+          isTeacher={isTeacher}
           students={studentRows}
         />
       )}

@@ -377,9 +377,12 @@ SELECT r.id, p.id
 FROM public.roles r, public.permissions p
 WHERE r.code = 'principal'
   AND p.code IN (
-    'staff.view', 'students.view_all', 'marks.view_all', 'marks.review_hod',
-    'results.approve_school', 'results.publish', 'report_cards.view',
-    'report_cards.generate', 'attendance.view_all', 'audit.view'
+    'staff.view', 'school.settings.manage', 'staff.manage',
+    'students.view_all', 'students.manage', 'students.import_export',
+    'academics.manage', 'schemes.manage', 'assignments.manage',
+    'marks.view_all', 'marks.review_hod', 'results.approve_school',
+    'results.publish', 'report_cards.view', 'report_cards.generate',
+    'attendance.view_all', 'audit.view'
   )
 ON CONFLICT DO NOTHING;
 

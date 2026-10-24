@@ -1,8 +1,11 @@
 import { getTenantContext } from "@/lib/tenancy/context";
+import { AutoSubmitSelect, AutoSubmitDateInput } from "@/components/AutoSubmitSelect";
 import {
   getActiveAcademicYear,
   getSchoolClasses,
   getEnrolledStudents,
+  getSchoolSequences,
+  getSchoolTeacherAssignments,
 } from "@/lib/academic/service";
 import {
   getAttendanceSessionWithRecords,
@@ -28,19 +31,41 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
   const params = await searchParams;
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
+  const roleCode = context?.role?.code || "teacher";
+  const isTeacher = roleCode === "teacher" || roleCode === "class_master";
 
   const activeYear = await getActiveAcademicYear(schoolId);
   const academicYearId = activeYear?.id || "00000000-0000-0000-0000-000000000001";
-  const termId = "00000000-0000-0000-0000-000000000001"; // Fallback demo term
+  
+  const [sequences, classesWithStreams, teacherAssignments] = await Promise.all([
+    getSchoolSequences(schoolId),
+    getSchoolClasses(schoolId, academicYearId),
+    isTeacher && activeYear && context?.user?.id
+      ? getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id)
+      : Promise.resolve([]),
+  ]);
+
+  const activeSequence = sequences.find((s) => s.is_open_for_marks) || sequences[0] || null;
+  const termId = activeSequence?.term_id || "00000000-0000-0000-0000-000000000001";
 
   const todayStr = new Date().toISOString().split("T")[0];
   const selectedDate = params.date || todayStr;
 
   // 1. Fetch Class Streams
-  const classesWithStreams = await getSchoolClasses(schoolId, academicYearId);
   const allStreams = classesWithStreams.flatMap((c) => c.streams);
+  const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
+
+  // For teachers: only show assigned streams; for admins: show all
+  const visibleStreams = isTeacher && teacherAssignments.length > 0
+    ? allStreams.filter((s) => assignedStreamIds.has(s.id))
+    : allStreams;
+
+  const defaultStreamId =
+    params.classStreamId ||
+    (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].class_stream_id : undefined);
+
   const selectedStream =
-    allStreams.find((s) => s.id === params.classStreamId) || allStreams[0] || null;
+    visibleStreams.find((s) => s.id === defaultStreamId) || visibleStreams[0] || null;
 
   // 2. Fetch Enrolled Students for this stream
   const enrolments =
@@ -119,7 +144,28 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
+      {/* Unassigned Teacher Empty State */}
+      {isTeacher && teacherAssignments.length === 0 && (
+        <div className="p-6 rounded-[8px] bg-[#FFF8CF] border border-[#FBE6C2] space-y-3">
+          <div className="flex items-start gap-3">
+            <Clock className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
+            <div className="text-xs text-[#7A4A00] space-y-1">
+              <p className="font-bold text-sm text-[#4A3D00]">You have not been assigned to any classes yet.</p>
+              <p>
+                Your school administrator assigns teachers to their classes.
+                Once assigned, your classes will appear here for roll call.
+              </p>
+              <p className="text-[11px] text-[#92400E]">
+                If you believe this is an error, please contact your school administrator.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KPI Stats Grid — hidden for unassigned teachers */}
+      {(!isTeacher || teacherAssignments.length > 0) && (
+      <>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
@@ -184,20 +230,19 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Class Stream
             </label>
-            <form method="GET" className="flex gap-2">
+            <form method="GET">
               <input type="hidden" name="date" value={selectedDate} />
-              <select
+              <AutoSubmitSelect
                 name="classStreamId"
                 defaultValue={selectedStream?.id}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
-                {allStreams.map((stream) => (
+                {visibleStreams.map((stream) => (
                   <option key={stream.id} value={stream.id}>
                     {stream.name}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
           </div>
 
@@ -205,15 +250,13 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Attendance Date
             </label>
-            <form method="GET" className="flex gap-2">
+            <form method="GET">
               <input type="hidden" name="classStreamId" value={selectedStream?.id || ""} />
-              <input
-                type="date"
+              <AutoSubmitDateInput
                 name="date"
                 defaultValue={selectedDate}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-mono font-bold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               />
-              <button type="submit" className="px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
             </form>
           </div>
         </div>
@@ -334,6 +377,8 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
           </table>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

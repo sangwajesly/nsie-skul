@@ -6,6 +6,8 @@ import {
   getSchoolSubjects,
   getSchoolDepartments,
   getSchoolClasses,
+  getSchoolTeacherAssignments,
+  getSchoolSequences,
 } from "@/lib/academic/service";
 import { getSchoolStaffMemberships } from "@/lib/admin/service";
 import {
@@ -20,6 +22,10 @@ import {
   Info,
   Building2,
   Layers,
+  GraduationCap,
+  Sparkles,
+  Star,
+  Award,
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -27,18 +33,279 @@ export default async function DashboardPage() {
   const school = tenantContext?.school;
   const schoolName = school?.name || "Your School";
   const schoolId = school?.id || "";
-  const userName = tenantContext?.user?.full_name || "Admin";
+  const userName = tenantContext?.user?.full_name || "Staff Member";
+  const roleCode = tenantContext?.role?.code || "teacher";
+  const roleName = tenantContext?.role?.name || "Staff";
+
+  const isTeacher = roleCode === "teacher" || roleCode === "class_master";
 
   // Real data
   const activeYear = await getActiveAcademicYear(schoolId);
-  const [enrolledStudents, staff, subjects, departments, classes] = await Promise.all([
-    getEnrolledStudents(schoolId, activeYear?.id || ""),
+  const [staff, subjects, departments, classes, teacherAssignments, sequences] = await Promise.all([
     getSchoolStaffMemberships(schoolId),
     getSchoolSubjects(schoolId),
     getSchoolDepartments(schoolId),
     getSchoolClasses(schoolId, activeYear?.id),
+    isTeacher && activeYear && tenantContext?.user?.id
+      ? getSchoolTeacherAssignments(schoolId, activeYear.id, tenantContext.user.id)
+      : Promise.resolve([]),
+    getSchoolSequences(schoolId),
   ]);
 
+  // Teachers only fetch enrolled students for their assigned class streams
+  const assignedStreamIds = isTeacher
+    ? Array.from(new Set(teacherAssignments.map((a) => a.class_stream_id)))
+    : undefined;
+
+  const enrolledStudents = isTeacher
+    ? (assignedStreamIds && assignedStreamIds.length > 0
+        ? await getEnrolledStudents(schoolId, activeYear?.id || "", undefined, assignedStreamIds)
+        : [])
+    : await getEnrolledStudents(schoolId, activeYear?.id || "");
+
+  const activeSequence = sequences.find((s) => s.is_open_for_marks) || sequences[0] || null;
+
+  // ── TEACHER DASHBOARD VIEW ──
+  if (isTeacher) {
+    const assignedStudentsCount = enrolledStudents.length;
+
+    return (
+      <div className="space-y-6 max-w-5xl mx-auto">
+        {/* Welcome header */}
+        <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-6 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[11px] font-bold uppercase tracking-wider">
+                  <GraduationCap className="w-3.5 h-3.5" />
+                  {roleName}
+                </span>
+                {tenantContext?.isClassMaster && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-[11px] font-bold uppercase tracking-wider">
+                    <Star className="w-3.5 h-3.5 text-[#B45309]" />
+                    Class Master · {tenantContext.masteredStreamNames?.join(", ") || "Supervised Class"}
+                  </span>
+                )}
+                {tenantContext?.isHod && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold uppercase tracking-wider">
+                    <Building2 className="w-3.5 h-3.5 text-[#1E40AF]" />
+                    Head of Department
+                  </span>
+                )}
+                <span className="text-xs text-[#888888]">·</span>
+                <span className="text-xs text-[#555555] font-medium">
+                  {schoolName}
+                </span>
+              </div>
+              <h1 className="text-2xl font-extrabold text-[#191919] tracking-tight">
+                Welcome back, {userName.split(" ")[0]}!
+              </h1>
+              <p className="text-[13px] text-[#777777] mt-1 flex flex-wrap items-center gap-2">
+                <span>{activeYear?.name || "Academic year not set"}</span>
+                {activeSequence && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF8CF] text-[#4A3D00] text-[11px] font-semibold rounded-[4px] border border-[#FBE6C2]">
+                    <Sparkles className="w-3 h-3 text-[#B45309]" />
+                    Active Assessment: {activeSequence.name}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="text-[11px] text-[#999999] text-left sm:text-right">
+              <div className="font-mono font-bold text-[#142010]">{school?.code || "GBHS-BDA"}</div>
+              <div>MINESEC CBA Competency System</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Class Master Supervision Banner */}
+        {tenantContext?.isClassMaster && tenantContext.masteredStreamNames && tenantContext.masteredStreamNames.length > 0 && (
+          <div className="p-4 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-[#FFF8CF] text-[#B45309] flex items-center justify-center shrink-0">
+                <Award className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-bold text-xs text-[#142010]">
+                  Class Master Supervision: {tenantContext.masteredStreamNames.join(", ")}
+                </h3>
+                <p className="text-[11px] text-[#525E4B]">
+                  You are designated to supervise this class group, manage daily roll call, and review term report cards.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/dashboard/attendance"
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#191919] border border-[#D5D5CF] transition-colors"
+              >
+                Roll Call
+              </Link>
+              <Link
+                href="/dashboard/academics/report-cards"
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] bg-[#2A7C13] text-white hover:bg-[#20600E] transition-colors shadow-xs"
+              >
+                Review Report Cards
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Teacher Quick Stats */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <BookOpen className="w-4 h-4 text-[#2A7C13]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Classes Taught</span>
+            </div>
+            <div className="text-3xl font-extrabold font-mono text-[#191919]">{teacherAssignments.length}</div>
+            <div className="text-[11px] text-[#AAAAAA] mt-0.5">Assigned subject groups</div>
+          </div>
+
+          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <Users className="w-4 h-4 text-[#2A7C13]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">My Students</span>
+            </div>
+            <div className="text-3xl font-extrabold font-mono text-[#191919]">
+              {teacherAssignments.length > 0 ? assignedStudentsCount : 0}
+            </div>
+            <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+              {teacherAssignments.length > 0 ? "In your assigned classes" : "No classes assigned yet"}
+            </div>
+          </div>
+
+          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <ClipboardCheck className="w-4 h-4 text-[#2A7C13]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Current Test</span>
+            </div>
+            <div className="text-lg font-extrabold text-[#191919] truncate leading-tight mt-1">
+              {activeSequence ? `Seq ${activeSequence.sequence_number}` : "Term 1"}
+            </div>
+            <div className="text-[11px] text-[#2A7C13] font-semibold mt-0.5">Marks Entry Open</div>
+          </div>
+
+          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-[#2A7C13]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Subsystem</span>
+            </div>
+            <div className="text-lg font-extrabold text-[#191919] capitalize mt-1">
+              {school?.subsystem || "Anglophone"}
+            </div>
+            <div className="text-[11px] text-[#AAAAAA] mt-0.5">CBA 20-pt grading</div>
+          </div>
+        </div>
+
+        {/* My Teaching Assignments Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-[13px] font-bold text-[#555555] uppercase tracking-wider">
+              My Teaching Assignments &amp; Quick Mark Entry
+            </h2>
+            <span className="text-xs text-[#888888]">
+              {teacherAssignments.length} class{teacherAssignments.length === 1 ? "" : "es"} assigned
+            </span>
+          </div>
+
+          {teacherAssignments.length === 0 ? (
+            <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-[#F5F5F0] text-[#888888] flex items-center justify-center mx-auto">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-[15px] text-[#191919]">No Teaching Classes Assigned Yet</h3>
+              <p className="text-xs text-[#666666] max-w-md mx-auto">
+                Your Head of Department or School Principal assigns teachers to specific class streams and subjects.
+                Once assigned, your subjects will appear right here with one-click access to marks entry, Excel upload, and roll call.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {teacherAssignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="bg-white border border-[#E5E5DF] hover:border-[#2A7C13] rounded-[10px] p-4 transition-all shadow-2xs space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="px-2 py-0.5 rounded-[4px] bg-[#F5F5F0] text-[#555555] font-mono text-[10px] font-bold uppercase">
+                        {assignment.class_stream?.stream_tag || "Stream"}
+                      </span>
+                      <h3 className="font-bold text-[15px] text-[#191919] mt-1">
+                        {assignment.class_stream?.name || "Class Group"}
+                      </h3>
+                      <div className="text-xs font-semibold text-[#2A7C13] flex items-center gap-1.5 mt-0.5">
+                        <span>{assignment.subject?.name || "Subject"}</span>
+                        <span className="text-[#888888] font-mono text-[11px] font-normal">
+                          ({assignment.subject?.code}) · Coef {assignment.subject?.default_coefficient ?? 2}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#F0F0EC] flex items-center gap-2">
+                    <Link
+                      href={`/dashboard/academics/marks?classStreamId=${assignment.class_stream_id}&subjectId=${assignment.subject_id}`}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#191919] hover:bg-[#333333] text-white text-xs font-semibold transition-colors"
+                    >
+                      <ClipboardCheck className="w-3.5 h-3.5" />
+                      <span>Enter Marks</span>
+                    </Link>
+                    <Link
+                      href={`/dashboard/attendance?classStreamId=${assignment.class_stream_id}`}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EBEBE6] text-[#191919] text-xs font-medium transition-colors"
+                    >
+                      <CalendarCheck className="w-3.5 h-3.5" />
+                      <span>Roll Call</span>
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Common Teacher Actions */}
+        <div>
+          <h2 className="text-[13px] font-bold text-[#555555] uppercase tracking-wider mb-3">
+            Teacher Tools &amp; Actions
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <QuickAction
+              href="/dashboard/academics/marks"
+              icon={ClipboardCheck}
+              color="green"
+              title="Enter Marks"
+              description="Record test marks manually or import scores via Excel / CSV."
+            />
+            <QuickAction
+              href="/dashboard/attendance"
+              icon={CalendarCheck}
+              color="amber"
+              title="Daily Attendance"
+              description="Take roll call for your class and record student conduct."
+            />
+            <QuickAction
+              href="/dashboard/academics/report-cards"
+              icon={FileText}
+              color="blue"
+              title="Report Cards"
+              description="Review student terminal averages, ranks, and report sheets."
+            />
+            <QuickAction
+              href="/dashboard/students"
+              icon={Users}
+              color="green"
+              title="Class Register"
+              description="Check student matricules, class lists, and guardian numbers."
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── ADMINISTRATOR & BURSAR DASHBOARD VIEW ──
   const studentCount = enrolledStudents.length;
   const staffCount = staff.filter((member) => member.status === "active").length;
   const subjectCount = subjects.length;

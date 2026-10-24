@@ -18,35 +18,6 @@ const UpdateStaffRoleSchema = z.object({
   title: z.string().max(100, "Job title must be 100 characters or fewer."),
 });
 
-const CreateAcademicYearSchema = z.object({
-  name: z.string().trim().min(2, "Academic year name is required."),
-  startDate: z.iso.date("Choose a valid academic year start date."),
-  endDate: z.iso.date("Choose a valid academic year end date."),
-  makeCurrent: z.boolean().default(false),
-});
-
-const SetCurrentAcademicYearSchema = z.object({
-  academicYearId: z.uuid("Choose a valid academic year."),
-});
-
-function toISODate(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return "";
-
-  const date = new Date(trimmed);
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return date.toISOString().slice(0, 10);
-}
-
-function addMonths(dateString: string, monthOffset: number) {
-  const date = new Date(dateString);
-  date.setMonth(date.getMonth() + monthOffset);
-  return date.toISOString().slice(0, 10);
-}
-
 export async function addStaffMemberAction(formData: FormData) {
   const context = await requirePermission("staff.manage");
   const email = String(formData.get("email") || "").trim().toLowerCase();
@@ -145,13 +116,6 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   const ranking_mode = (formData.get("ranking_mode") as string) || "enabled";
   const result_approval_workflow = (formData.get("result_approval_workflow") as string) || "hod";
   const receipt_prefix = (formData.get("receipt_prefix") as string) || "REC";
-  const rawLogoUrl = String(formData.get("logo_url") || "").trim();
-  const logo_url =
-    !rawLogoUrl || rawLogoUrl === "null"
-      ? null
-      : rawLogoUrl.startsWith("data:image/") || /^https?:\/\//i.test(rawLogoUrl)
-      ? rawLogoUrl
-      : null;
 
   const supabase = await createClient();
 
@@ -164,7 +128,6 @@ export async function updateSchoolSettingsAction(formData: FormData) {
       phone,
       email,
       address,
-      logo_url,
       ranking_mode,
       result_approval_workflow,
       receipt_prefix,
@@ -194,188 +157,6 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/academics/report-cards");
-}
-
-export async function createAcademicYearAction(formData: FormData) {
-  const context = await requirePermission("school.settings.manage");
-
-  const parsed = CreateAcademicYearSchema.safeParse({
-    name: String(formData.get("name") || ""),
-    startDate: String(formData.get("start_date") || ""),
-    endDate: String(formData.get("end_date") || ""),
-    makeCurrent: String(formData.get("is_current") || "") === "on",
-  });
-
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message || "Check the academic year details and try again.");
-  }
-
-  const startDate = toISODate(parsed.data.startDate);
-  const endDate = toISODate(parsed.data.endDate);
-
-  if (!startDate || !endDate) {
-    throw new Error("Choose valid start and end dates for the academic year.");
-  }
-
-  if (new Date(endDate) <= new Date(startDate)) {
-    throw new Error("Academic year end date must be after the start date.");
-  }
-
-  const supabase = await createClient();
-
-  const { data: existingYear, error: duplicateCheckError } = await supabase
-    .from("academic_years")
-    .select("id")
-    .eq("school_id", context.school.id)
-    .eq("name", parsed.data.name)
-    .maybeSingle();
-
-  if (duplicateCheckError) {
-    throw new Error("Could not verify the academic year list. Please try again.");
-  }
-
-  if (existingYear) {
-    throw new Error("An academic year with that name already exists for this school.");
-  }
-
-  if (parsed.data.makeCurrent) {
-    const { error: clearCurrentError } = await supabase
-      .from("academic_years")
-      .update({ is_current: false, updated_at: new Date().toISOString() })
-      .eq("school_id", context.school.id)
-      .eq("is_current", true);
-
-    if (clearCurrentError) {
-      throw new Error("Could not switch the current school year. Please try again.");
-    }
-  }
-
-  const { data: academicYear, error: insertYearError } = await supabase
-    .from("academic_years")
-    .insert({
-      school_id: context.school.id,
-      name: parsed.data.name,
-      start_date: startDate,
-      end_date: endDate,
-      is_current: parsed.data.makeCurrent,
-    })
-    .select("id")
-    .single();
-
-  if (insertYearError || !academicYear) {
-    throw new Error(insertYearError?.message || "Could not save the academic year.");
-  }
-
-  const { data: terms, error: insertTermsError } = await supabase
-    .from("terms")
-    .insert([
-      {
-        school_id: context.school.id,
-        academic_year_id: academicYear.id,
-        term_number: 1,
-        name: "First Term",
-        start_date: startDate,
-        end_date: addMonths(startDate, 3),
-        is_active: true,
-      },
-      {
-        school_id: context.school.id,
-        academic_year_id: academicYear.id,
-        term_number: 2,
-        name: "Second Term",
-        start_date: addMonths(startDate, 4),
-        end_date: addMonths(startDate, 7),
-        is_active: false,
-      },
-      {
-        school_id: context.school.id,
-        academic_year_id: academicYear.id,
-        term_number: 3,
-        name: "Third Term",
-        start_date: addMonths(startDate, 8),
-        end_date: endDate,
-        is_active: false,
-      },
-    ])
-    .select("id, term_number");
-
-  if (insertTermsError || !terms || terms.length !== 3) {
-    throw new Error("Academic year saved, but the school terms could not be prepared.");
-  }
-
-  const sequences = terms.flatMap((term) =>
-    Array.from({ length: 6 }, (_, index) => ({
-      school_id: context.school.id,
-      term_id: term.id,
-      sequence_number: index + 1,
-      name: `Sequence ${index + 1}`,
-      is_open_for_marks: index === 0,
-    }))
-  );
-
-  const { error: insertSequencesError } = await supabase.from("evaluation_sequences").insert(sequences);
-
-  if (insertSequencesError) {
-    throw new Error("Academic year and terms were created, but the evaluation sequences could not be prepared.");
-  }
-
-  await supabase.from("audit_logs").insert({
-    school_id: context.school.id,
-    user_id: context.user.id,
-    action: "CREATE_ACADEMIC_YEAR",
-    resource_type: "academic_year",
-    resource_id: academicYear.id,
-    details: { name: parsed.data.name, is_current: parsed.data.makeCurrent },
-  });
-
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/academics");
-}
-
-export async function setCurrentAcademicYearAction(formData: FormData) {
-  const context = await requirePermission("school.settings.manage");
-
-  const parsed = SetCurrentAcademicYearSchema.safeParse({
-    academicYearId: formData.get("academicYearId"),
-  });
-
-  if (!parsed.success) {
-    throw new Error(parsed.error.issues[0]?.message || "Choose a valid academic year.");
-  }
-
-  const supabase = await createClient();
-  const { error: updateError } = await supabase
-    .from("academic_years")
-    .update({ is_current: false, updated_at: new Date().toISOString() })
-    .eq("school_id", context.school.id);
-
-  if (updateError) {
-    throw new Error("Could not update the school year status. Please try again.");
-  }
-
-  const { error: setCurrentError } = await supabase
-    .from("academic_years")
-    .update({ is_current: true, updated_at: new Date().toISOString() })
-    .eq("id", parsed.data.academicYearId)
-    .eq("school_id", context.school.id);
-
-  if (setCurrentError) {
-    throw new Error("Could not set that school year as the active one.");
-  }
-
-  await supabase.from("audit_logs").insert({
-    school_id: context.school.id,
-    user_id: context.user.id,
-    action: "SET_CURRENT_ACADEMIC_YEAR",
-    resource_type: "academic_year",
-    resource_id: parsed.data.academicYearId,
-    details: { academic_year_id: parsed.data.academicYearId },
-  });
-
-  revalidatePath("/dashboard/settings");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/academics");
 }
 
 export async function updateStaffRoleAction(formData: FormData) {
@@ -432,4 +213,135 @@ export async function updateStaffRoleAction(formData: FormData) {
   });
 
   revalidatePath("/dashboard/settings");
+}
+
+export async function toggleStaffStatusAction(formData: FormData) {
+  const context = await requirePermission("staff.manage");
+  const membershipId = String(formData.get("membershipId") || "");
+  const newStatus = String(formData.get("status") || "");
+
+  if (!membershipId || !["active", "suspended"].includes(newStatus)) {
+    throw new Error("Invalid staff status update request.");
+  }
+
+  const supabase = await createClient();
+  const { data: membership, error: fetchErr } = await supabase
+    .from("school_memberships")
+    .select("id, user_id, status")
+    .eq("id", membershipId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (fetchErr || !membership) {
+    throw new Error("Staff member not found in this school.");
+  }
+
+  if (membership.user_id === context.user.id) {
+    throw new Error("You cannot change the status of your own account.");
+  }
+
+  const { error: updateErr } = await supabase
+    .from("school_memberships")
+    .update({
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", membershipId)
+    .eq("school_id", context.school.id);
+
+  if (updateErr) {
+    throw new Error(updateErr.message);
+  }
+
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: newStatus === "suspended" ? "SUSPEND_STAFF" : "REACTIVATE_STAFF",
+    resource_type: "school_membership",
+    resource_id: membershipId,
+    details: { previous_status: membership.status, new_status: newStatus },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+}
+
+export async function removeStaffMembershipAction(formData: FormData) {
+  const context = await requirePermission("staff.manage");
+  const membershipId = String(formData.get("membershipId") || "");
+
+  if (!membershipId) {
+    throw new Error("Invalid staff removal request.");
+  }
+
+  const supabase = await createClient();
+  const { data: membership, error: fetchErr } = await supabase
+    .from("school_memberships")
+    .select("id, user_id, title")
+    .eq("id", membershipId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (fetchErr || !membership) {
+    throw new Error("Staff member not found in this school.");
+  }
+
+  if (membership.user_id === context.user.id) {
+    throw new Error("You cannot remove your own school administrator account.");
+  }
+
+  const targetUserId = membership.user_id;
+
+  // 1. Unassign class master duties
+  await supabase
+    .from("class_streams")
+    .update({ class_master_id: null, updated_at: new Date().toISOString() })
+    .eq("school_id", context.school.id)
+    .eq("class_master_id", targetUserId);
+
+  // 2. Unassign teacher subject allocations
+  await supabase
+    .from("teacher_assignments")
+    .delete()
+    .eq("school_id", context.school.id)
+    .eq("teacher_user_id", targetUserId);
+
+  // 3. Revoke HOD assignments
+  await supabase
+    .from("hod_assignments")
+    .update({ status: "revoked", updated_at: new Date().toISOString() })
+    .eq("school_id", context.school.id)
+    .eq("hod_user_id", targetUserId);
+
+  // 4. Attempt to delete membership; if foreign keys or audit trail exist, suspend access instead
+  const { error: deleteErr } = await supabase
+    .from("school_memberships")
+    .delete()
+    .eq("id", membershipId)
+    .eq("school_id", context.school.id);
+
+  if (deleteErr) {
+    // Soft deactivation fallback to protect historical marks/payments
+    await supabase
+      .from("school_memberships")
+      .update({
+        status: "suspended",
+        title: membership.title ? `${membership.title} (Former)` : "Former Staff",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", membershipId);
+  }
+
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "REMOVE_STAFF_MEMBER",
+    resource_type: "school_membership",
+    resource_id: membershipId,
+    details: { removed_user_id: targetUserId },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard");
 }

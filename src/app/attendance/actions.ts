@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { requirePermission } from "@/lib/tenancy/context";
+import { requireAnyPermission } from "@/lib/tenancy/context";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -32,7 +32,11 @@ export async function saveRollCallAction(payload: {
     justificationNote?: string;
   }>;
 }) {
-  const context = await requirePermission("attendance:manage");
+  const context = await requireAnyPermission([
+    "attendance.take_assigned",
+    "attendance.view_all",
+    "academics.manage",
+  ]);
   if (!context?.school?.id) {
     return { error: "Unauthorized. Staff permission required." };
   }
@@ -90,7 +94,11 @@ export async function saveRollCallAction(payload: {
 }
 
 export async function recordDisciplinarySanctionAction(formData: FormData) {
-  const context = await requirePermission("attendance:manage");
+  const context = await requireAnyPermission([
+    "attendance.take_assigned",
+    "attendance.view_all",
+    "academics.manage",
+  ]);
   if (!context?.school?.id) {
     return { error: "Unauthorized. Discipline Master or Administrator role required." };
   }

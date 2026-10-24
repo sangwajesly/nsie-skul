@@ -78,6 +78,7 @@ export async function loginAction(
     };
   }
 
+  // Preserve active school cookie for session
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
     httpOnly: true,
@@ -86,6 +87,7 @@ export async function loginAction(
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
+
 
   return { redirectTo: safePath };
 }

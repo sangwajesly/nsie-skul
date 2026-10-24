@@ -18,7 +18,7 @@ const RecordPaymentSchema = z.object({
 });
 
 export async function recordFeePaymentAction(formData: FormData) {
-  const context = await requirePermission("finance:payments:create");
+  const context = await requirePermission("finance.collect");
   if (!context?.school?.id) {
     return { error: "Unauthorized. Bursary permission required." };
   }
@@ -104,7 +104,7 @@ export async function recordFeePaymentAction(formData: FormData) {
 }
 
 export async function createFeeStructureAction(formData: FormData) {
-  const context = await requirePermission("finance:manage");
+  const context = await requirePermission("finance.manage_structure");
   if (!context?.school?.id) {
     return { error: "Unauthorized. Administrator or Bursar permission required." };
   }

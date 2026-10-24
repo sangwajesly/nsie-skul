@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/tenancy/context";
-import { getActiveAcademicYear } from "@/lib/academic/service";
+import { getActiveAcademicYear, getSchoolTeacherAssignments } from "@/lib/academic/service";
 import { getStudentReportCard } from "@/lib/academic/report-card-service";
 import { createClient } from "@/lib/supabase/server";
 import { MinesecReportCard } from "@/components/academic/MinesecReportCard";
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 interface ReportCardPageProps {
   params: Promise<{ studentId: string }>;
-  searchParams: Promise<{ termNumber?: string; template?: string }>;
+  searchParams: Promise<{ termNumber?: string }>;
 }
 
 export default async function StudentReportCardPage({
@@ -20,8 +20,7 @@ export default async function StudentReportCardPage({
   searchParams,
 }: ReportCardPageProps) {
   const { studentId } = await params;
-  const { termNumber, template } = await searchParams;
-  const selectedTemplate = template || "minesec-cba";
+  const { termNumber } = await searchParams;
 
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
@@ -66,14 +65,64 @@ export default async function StudentReportCardPage({
     );
   }
 
+  // Role-based authorization: Only Class Masters and School Administrators can view report cards
+  const canViewReportCards = Boolean(context?.hasPermission("report_cards.view"));
+  if (!canViewReportCards) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-3 py-10 text-center">
+        <h1 className="text-lg font-bold text-red-700">Access Denied</h1>
+        <p className="text-sm text-[#666666]">
+          Report card viewing and printing is restricted to Class Masters and School Administrators.
+        </p>
+        <Link href="/dashboard/academics/marks" className="text-sm font-semibold text-[#2A7C13] underline">
+          Go to Marks &amp; Grades
+        </Link>
+      </div>
+    );
+  }
+
+  const roleCode = context?.role?.code || "teacher";
+  const isClassMaster = Boolean(context?.isClassMaster || roleCode === "class_master");
+  if (isClassMaster && context?.user?.id) {
+    const teacherAssignments = await getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id);
+    const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
+
+    const { data: studentEnrolment } = await supabase
+      .from("enrolments")
+      .select("class_stream_id, class_stream:class_streams(class_master_id)")
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", activeYear.id)
+      .eq("student_id", studentId)
+      .maybeSingle();
+
+    const isDesignatedMaster =
+      studentEnrolment &&
+      ((studentEnrolment.class_stream as { class_master_id?: string | null })?.class_master_id === context.user.id ||
+        assignedStreamIds.has(studentEnrolment.class_stream_id));
+
+    if (!isDesignatedMaster) {
+      return (
+        <div className="mx-auto max-w-3xl space-y-3 py-10 text-center">
+          <h1 className="text-lg font-bold text-red-700">Access Denied</h1>
+          <p className="text-sm text-[#666666]">
+            As a Class Master, you can only view report cards for students in your supervised class group.
+          </p>
+          <Link href="/dashboard/academics/report-cards" className="text-sm font-semibold text-[#2A7C13] underline">
+            Back to report cards
+          </Link>
+        </div>
+      );
+    }
+  }
+
   const reportCardData = await getStudentReportCard(schoolId, term.id, studentId);
   if (!reportCardData) notFound();
 
+  // If student record not found in database, provide sample demo record based on the official MINESEC sample
   const data = reportCardData || {
     school: {
       name: context?.school?.name || "GOVERNMENT BILINGUAL HIGH SCHOOL BAMENDA",
       code: "GBHS-BDA",
-      logo_url: context?.school?.logo_url || null,
       address: "P.O. Box 24, Bamenda, North West Region",
       phone: "+237 677 000 000",
       email: "info@gbhsbamenda.cm",
@@ -305,7 +354,7 @@ export default async function StudentReportCardPage({
             <span>Class Report Roster</span>
           </Link>
           <div className="text-xs text-[#525E4B]">
-            Viewing {selectedTemplate === "minesec-cba" ? "official MINESEC" : "selected"} report card for{" "}
+            Viewing official MINESEC report card for{" "}
             <strong className="text-[#142010]">{data.student.fullName}</strong>
           </div>
         </div>

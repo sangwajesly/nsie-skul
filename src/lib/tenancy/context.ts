@@ -73,6 +73,92 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
     rolePerms?.map((rp) => rp.permissions as unknown as Permission) || [];
 
   const permissionSet = new Set(permissions.map((p) => p.code));
+  if (["school_admin", "principal"].includes(activeRole.code)) {
+    for (const code of [
+      "students.manage",
+      "students.import_export",
+      "students.view_all",
+      "academics.manage",
+      "schemes.manage",
+      "assignments.manage",
+      "school.settings.manage",
+      "staff.manage",
+      "marks.view_all",
+      "marks.enter_assigned",
+      "marks.approve_hod",
+      "results.approve_school",
+      "report_cards.generate",
+      "report_cards.view",
+      "attendance.view_all",
+      "attendance.take_assigned",
+      "audit.view",
+    ]) {
+      permissionSet.add(code);
+    }
+  } else if (activeRole.code === "teacher") {
+    for (const code of [
+      "students.view_assigned",
+      "marks.enter_assigned",
+      "attendance.take_assigned",
+    ]) {
+      permissionSet.add(code);
+    }
+  } else if (activeRole.code === "class_master") {
+    for (const code of [
+      "students.view_assigned",
+      "marks.enter_assigned",
+      "attendance.take_assigned",
+      "attendance.view_all",
+      "report_cards.view",
+    ]) {
+      permissionSet.add(code);
+    }
+  } else if (activeRole.code === "hod") {
+    for (const code of [
+      "students.view_assigned",
+      "marks.view_department",
+      "marks.enter_assigned",
+      "marks.review_hod",
+      "marks.approve_hod",
+      "report_cards.view",
+      "attendance.take_assigned",
+    ]) {
+      permissionSet.add(code);
+    }
+  }
+
+  // 5. Dynamic Dual-Role Resolution:
+  // Check if staff member is appointed as a Class Master or HOD in this school
+  const [{ data: masteredStreams }, { data: hodDepartments }] = await Promise.all([
+    supabase
+      .from("class_streams")
+      .select("id, name")
+      .eq("school_id", activeSchool.id)
+      .eq("class_master_id", authUser.id),
+    supabase
+      .from("hod_assignments")
+      .select("id, department_id")
+      .eq("school_id", activeSchool.id)
+      .eq("hod_user_id", authUser.id)
+      .eq("status", "active"),
+  ]);
+
+  const isClassMaster = (masteredStreams && masteredStreams.length > 0) || activeRole.code === "class_master";
+  const isHod = (hodDepartments && hodDepartments.length > 0) || activeRole.code === "hod";
+
+  // Grant dual-role permissions if appointed as Class Master
+  if (isClassMaster) {
+    permissionSet.add("report_cards.view");
+    permissionSet.add("attendance.take_assigned");
+    permissionSet.add("attendance.view_all");
+  }
+
+  // Grant dual-role permissions if appointed as HOD
+  if (isHod) {
+    permissionSet.add("marks.view_department");
+    permissionSet.add("marks.review_hod");
+    permissionSet.add("marks.approve_hod");
+  }
 
   return {
     user: userProfile as UserProfile,
@@ -81,7 +167,17 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
     role: activeRole,
     permissions,
     hasPermission: (code: string) => permissionSet.has(code),
+    isClassMaster,
+    masteredStreamNames: masteredStreams?.map((s) => s.name) || [],
+    isHod,
   };
+}
+
+export function hasAnyPermission(
+  context: ActiveTenantContext | null,
+  permissionCodes: readonly string[]
+): boolean {
+  return Boolean(context && permissionCodes.some((code) => context.hasPermission(code)));
 }
 
 /**
@@ -99,6 +195,22 @@ export async function requirePermission(permissionCode: string): Promise<ActiveT
     throw new Error(
       `Forbidden: Missing required permission [${permissionCode}] for school ${context.school.name}.`
     );
+  }
+
+  return context;
+}
+
+export async function requireAnyPermission(
+  permissionCodes: readonly string[]
+): Promise<ActiveTenantContext> {
+  const context = await getTenantContext();
+
+  if (!context) {
+    throw new Error("Unauthorized: No active school session found.");
+  }
+
+  if (!hasAnyPermission(context, permissionCodes)) {
+    throw new Error(`Forbidden: Missing one of the required permissions [${permissionCodes.join(", ")}].`);
   }
 
   return context;

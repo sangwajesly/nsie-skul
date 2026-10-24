@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
 import { getTenantContext } from "@/lib/tenancy/context";
 import { getActiveAcademicYear, getSchoolClasses } from "@/lib/academic/service";
 import {
@@ -278,8 +279,8 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* Class group filter */}
-            <form method="GET" className="inline-flex items-center gap-2">
-              <select
+            <form method="GET" className="inline-block">
+              <AutoSubmitSelect
                 name="classStreamId"
                 defaultValue={params.classStreamId || ""}
                 className="px-2.5 py-1 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs focus:outline-none focus:border-[#2A7C13]"
@@ -290,13 +291,12 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
                     {s.name}
                   </option>
                 ))}
-              </select>
-              <button type="submit" className="px-2 py-1 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
 
             {/* Status Filter */}
-            <form method="GET" className="inline-flex items-center gap-2">
-              <select
+            <form method="GET" className="inline-block">
+              <AutoSubmitSelect
                 name="statusFilter"
                 defaultValue={params.statusFilter || ""}
                 className="px-2.5 py-1 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs focus:outline-none focus:border-[#2A7C13]"
@@ -305,8 +305,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
                 <option value="paid">Fully Paid</option>
                 <option value="partial">Partially Paid</option>
                 <option value="unpaid">Unpaid / Due</option>
-              </select>
-              <button type="submit" className="px-2 py-1 rounded-[5px] bg-[#2A7C13] text-white text-[10px] font-semibold">Apply</button>
+              </AutoSubmitSelect>
             </form>
           </div>
         </div>

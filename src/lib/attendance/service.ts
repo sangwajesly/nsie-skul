@@ -67,10 +67,13 @@ export async function getAttendanceSessionWithRecords(
 export async function getRecentDisciplinaryIncidents(
   schoolId: string,
   academicYearId: string,
-  limit: number = 20
+  limit: number = 20,
+  classStreamIds?: string[]
 ): Promise<DisciplinaryRecord[]> {
+  if (classStreamIds && classStreamIds.length === 0) return [];
+
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("disciplinary_records")
     .select(
       `
@@ -82,8 +85,13 @@ export async function getRecentDisciplinaryIncidents(
     )
     .eq("school_id", schoolId)
     .eq("academic_year_id", academicYearId)
-    .order("incident_date", { ascending: false })
-    .limit(limit);
+    .order("incident_date", { ascending: false });
+
+  if (classStreamIds) {
+    query = query.in("class_stream_id", classStreamIds);
+  }
+
+  const { data } = await query.limit(limit);
 
   return (data as DisciplinaryRecord[]) || [];
 }

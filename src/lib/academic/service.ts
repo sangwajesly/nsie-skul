@@ -92,7 +92,8 @@ export async function getSchoolSubjects(schoolId: string): Promise<Subject[]> {
  */
 export async function getSchoolClasses(
   schoolId: string,
-  academicYearId?: string
+  academicYearId?: string,
+  classMasterUserId?: string
 ): Promise<(SchoolClass & { streams: ClassStream[] })[]> {
   const supabase = await createClient();
 
@@ -116,6 +117,10 @@ export async function getSchoolClasses(
 
   if (academicYearId) {
     query = query.eq("academic_year_id", academicYearId);
+  }
+
+  if (classMasterUserId) {
+    query = query.eq("class_master_id", classMasterUserId);
   }
 
   const { data: streams } = await query;
@@ -144,15 +149,118 @@ export async function getStreamSubjects(classStreamId: string): Promise<ClassSub
   return (data as ClassSubject[]) || [];
 }
 
+export async function getClassStreamsForSubjects(
+  schoolId: string,
+  classStreamIds: string[],
+  subjectIds: string[]
+): Promise<string[]> {
+  if (!schoolId || classStreamIds.length === 0 || subjectIds.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("class_subjects")
+    .select("class_stream_id")
+    .eq("school_id", schoolId)
+    .in("class_stream_id", classStreamIds)
+    .in("subject_id", subjectIds);
+
+  return [...new Set(data?.map((row) => row.class_stream_id) || [])];
+}
+
+export async function getAssignedClassStreamIds(
+  schoolId: string,
+  academicYearId: string,
+  userId: string,
+  roleCode: string
+): Promise<string[]> {
+  if (!schoolId || !academicYearId || !userId) return [];
+
+  const supabase = await createClient();
+
+  if (roleCode === "teacher") {
+    const { data } = await supabase
+      .from("teacher_assignments")
+      .select("class_stream_id")
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", academicYearId)
+      .eq("teacher_user_id", userId);
+
+    return [...new Set(data?.map((assignment) => assignment.class_stream_id) || [])];
+  }
+
+  if (roleCode === "class_master") {
+    const { data } = await supabase
+      .from("class_streams")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", academicYearId)
+      .eq("class_master_id", userId);
+
+    return [...new Set(data?.map((stream) => stream.id) || [])];
+  }
+
+  if (roleCode !== "hod") return [];
+
+  const { data: hodAssignments } = await supabase
+    .from("hod_assignments")
+    .select("department_id, subject_id")
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", academicYearId)
+    .eq("hod_user_id", userId)
+    .eq("status", "active");
+
+  if (!hodAssignments?.length) return [];
+
+  const explicitSubjectIds = hodAssignments
+    .map((assignment) => assignment.subject_id)
+    .filter((subjectId): subjectId is string => Boolean(subjectId));
+  const departmentIds = [...new Set(hodAssignments.map((assignment) => assignment.department_id))];
+  const subjectQueries = [];
+
+  if (explicitSubjectIds.length > 0) {
+    subjectQueries.push(
+      supabase.from("subjects").select("id").eq("school_id", schoolId).in("id", explicitSubjectIds)
+    );
+  }
+
+  if (departmentIds.length > 0) {
+    subjectQueries.push(
+      supabase.from("subjects").select("id").eq("school_id", schoolId).in("department_id", departmentIds)
+    );
+  }
+
+  const subjectResults = await Promise.all(subjectQueries);
+  const subjectIds = [...new Set(subjectResults.flatMap((result) => result.data?.map((subject) => subject.id) || []))];
+  if (subjectIds.length === 0) return [];
+
+  const { data: streams } = await supabase
+    .from("class_streams")
+    .select("id")
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", academicYearId);
+  const streamIds = streams?.map((stream) => stream.id) || [];
+  if (streamIds.length === 0) return [];
+
+  const { data: classSubjects } = await supabase
+    .from("class_subjects")
+    .select("class_stream_id")
+    .eq("school_id", schoolId)
+    .in("class_stream_id", streamIds)
+    .in("subject_id", subjectIds);
+
+  return [...new Set(classSubjects?.map((item) => item.class_stream_id) || [])];
+}
+
 /**
  * Lists active HOD assignments for a school in an academic year.
  */
 export async function getSchoolHodAssignments(
   schoolId: string,
-  academicYearId: string
+  academicYearId: string,
+  hodUserId?: string
 ): Promise<HodAssignment[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("hod_assignments")
     .select(
       `
@@ -166,6 +274,12 @@ export async function getSchoolHodAssignments(
     .eq("academic_year_id", academicYearId)
     .eq("status", "active");
 
+  if (hodUserId) {
+    query = query.eq("hod_user_id", hodUserId);
+  }
+
+  const { data } = await query;
+
   return (data as HodAssignment[]) || [];
 }
 
@@ -174,10 +288,11 @@ export async function getSchoolHodAssignments(
  */
 export async function getSchoolTeacherAssignments(
   schoolId: string,
-  academicYearId: string
+  academicYearId: string,
+  teacherUserId?: string
 ): Promise<TeacherAssignment[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+  let query = supabase
     .from("teacher_assignments")
     .select(
       `
@@ -190,6 +305,12 @@ export async function getSchoolTeacherAssignments(
     .eq("school_id", schoolId)
     .eq("academic_year_id", academicYearId);
 
+  if (teacherUserId) {
+    query = query.eq("teacher_user_id", teacherUserId);
+  }
+
+  const { data } = await query;
+
   return (data as TeacherAssignment[]) || [];
 }
 
@@ -199,8 +320,13 @@ export async function getSchoolTeacherAssignments(
 export async function getEnrolledStudents(
   schoolId: string,
   academicYearId: string,
-  classStreamId?: string
+  classStreamId?: string,
+  classStreamIds?: string[],
+  limit?: number,
+  status: string = "active"
 ): Promise<Enrolment[]> {
+  if (classStreamIds && classStreamIds.length === 0) return [];
+
   const supabase = await createClient();
   let query = supabase
     .from("enrolments")
@@ -212,11 +338,22 @@ export async function getEnrolledStudents(
     `
     )
     .eq("school_id", schoolId)
-    .eq("academic_year_id", academicYearId)
-    .eq("status", "active");
+    .eq("academic_year_id", academicYearId);
+
+  if (status && status !== "all") {
+    query = query.eq("status", status);
+  }
 
   if (classStreamId) {
     query = query.eq("class_stream_id", classStreamId);
+  }
+
+  if (classStreamIds) {
+    query = query.in("class_stream_id", classStreamIds);
+  }
+
+  if (limit) {
+    query = query.limit(limit);
   }
 
   const { data } = await query;

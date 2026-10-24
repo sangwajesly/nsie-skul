@@ -1,48 +1,60 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getTenantContext, hasAnyPermission } from "@/lib/tenancy/context";
+import { getActiveAcademicYear, getAssignedClassStreamIds } from "@/lib/academic/service";
 import { APP_CONFIG } from "@/lib/version";
 
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  const tenantContext = await getTenantContext();
+  if (!tenantContext) {
     return NextResponse.json(
       {
         error: "Unauthorized",
-        message: "A valid Bearer token or authenticated session is required.",
+        message: "A valid authenticated session is required.",
       },
       { status: 401 }
     );
   }
 
-  // Resolve school membership for tenant scoping
-  const { data: memberships } = await supabase
-    .from("school_memberships")
-    .select("school_id, schools (id, name, code)")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .limit(1);
-
-  if (!memberships || memberships.length === 0) {
+  if (!hasAnyPermission(tenantContext, ["students.view_all", "students.view_assigned", "students.manage"])) {
     return NextResponse.json(
-      {
-        error: "Forbidden",
-        message: "User is not linked to an active school.",
-      },
+      { error: "Forbidden", message: "Your school role does not include student-data access." },
       { status: 403 }
     );
   }
 
-  const schoolId = memberships[0].school_id;
+  const supabase = await createClient();
+  const schoolId = tenantContext.school.id;
+  const academicYear = await getActiveAcademicYear(schoolId);
+
+  if (!academicYear) {
+    return NextResponse.json({ version: APP_CONFIG.apiVersion, count: 0, data: [] });
+  }
+
+  const canViewAll = hasAnyPermission(tenantContext, ["students.view_all", "students.manage"]);
+  const assignedClassStreamIds = canViewAll
+    ? undefined
+    : await getAssignedClassStreamIds(
+        schoolId,
+        academicYear.id,
+        tenantContext.user.id,
+        tenantContext.role.code
+      );
+
   const searchParams = request.nextUrl.searchParams;
   const classStreamId = searchParams.get("classStreamId");
-  const limit = Math.min(Number(searchParams.get("limit") || 50), 100);
+  const requestedLimit = Number(searchParams.get("limit") || 50);
+  const limit = Number.isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 100) : 50;
+
+  if (classStreamId && assignedClassStreamIds && !assignedClassStreamIds.includes(classStreamId)) {
+    return NextResponse.json(
+      { error: "Forbidden", message: "You do not have access to that class group." },
+      { status: 403 }
+    );
+  }
 
   let query = supabase
-    .from("student_enrolments")
+    .from("enrolments")
     .select(
       `
       id,
@@ -54,24 +66,28 @@ export async function GET(request: NextRequest) {
         first_name,
         last_name,
         gender,
-        date_of_birth,
-        guardian_name,
-        guardian_phone
+        residence_status
       ),
       class_stream:class_streams (
         id,
         name,
-        class:classes (name, level, cycle)
+        class:classes (name, level_order, cycle)
       ),
       academic_year:academic_years (name, is_current)
     `
     )
     .eq("school_id", schoolId)
+    .eq("academic_year_id", academicYear.id)
     .eq("status", "active")
+    .order("created_at", { ascending: false })
     .limit(limit);
 
   if (classStreamId) {
     query = query.eq("class_stream_id", classStreamId);
+  }
+
+  if (assignedClassStreamIds) {
+    query = query.in("class_stream_id", assignedClassStreamIds);
   }
 
   const { data, error } = await query;
@@ -93,6 +109,7 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "X-Nsei-Api-Version": APP_CONFIG.apiVersion,
+        "Cache-Control": "private, no-store",
       },
     }
   );

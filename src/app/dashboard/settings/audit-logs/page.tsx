@@ -1,4 +1,5 @@
 import { getTenantContext } from "@/lib/tenancy/context";
+import AccessDenied from "@/components/AccessDenied";
 import { getSchoolAuditLogs } from "@/lib/admin/service";
 import Link from "next/link";
 import { ShieldAlert, ArrowLeft, Clock, Filter, FileText } from "lucide-react";
@@ -13,10 +14,14 @@ export default async function AuditLogsPage() {
     );
   }
 
+  if (!context.hasPermission("audit.view")) {
+    return <AccessDenied message="The school audit trail is restricted to authorized school leaders." />;
+  }
+
   const logs = await getSchoolAuditLogs(context.school.id, 100);
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E8DFC9]">
         <div>

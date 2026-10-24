@@ -7,6 +7,9 @@ export interface ActiveTenantContext {
   role: Role;
   permissions: Permission[];
   hasPermission: (permissionCode: string) => boolean;
+  isClassMaster?: boolean;
+  masteredStreamNames?: string[];
+  isHod?: boolean;
 }
 
 export interface UserSchoolOption {

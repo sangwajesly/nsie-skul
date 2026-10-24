@@ -3,26 +3,76 @@ import {
   getEnrolledStudents,
   getActiveAcademicYear,
   getSchoolClasses,
+  getSchoolTeacherAssignments,
 } from "@/lib/academic/service";
 import { registerStudentAction } from "@/app/academics/actions";
+import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
+import EmptyState from "@/components/EmptyState";
 import {
   Users,
   UserPlus,
   GraduationCap,
   Building,
   Home,
+  BookOpen,
+  Filter,
 } from "lucide-react";
 
-export default async function StudentsPage() {
+export const dynamic = "force-dynamic";
+
+interface StudentsPageProps {
+  searchParams?: Promise<{
+    classStreamId?: string;
+  }>;
+}
+
+export default async function StudentsPage({ searchParams }: StudentsPageProps) {
+  const params = await searchParams;
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
+  const canManageStudents = Boolean(context?.hasPermission("students.manage"));
+  const canViewAllStudents = Boolean(context?.hasPermission("students.view_all"));
+  const isTeacher = !canViewAllStudents;
 
   const activeYear = await getActiveAcademicYear(schoolId);
-  const enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "");
   const classesWithStreams = await getSchoolClasses(schoolId, activeYear?.id);
 
   // Flatten all streams for the dropdown
   const allStreams = classesWithStreams.flatMap((c) => c.streams);
+
+  // For teachers, load their specific assignments
+  const teacherAssignments = isTeacher && activeYear && context?.user?.id
+    ? await getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id)
+    : [];
+
+  const assignedStreamIds = Array.from(new Set(teacherAssignments.map((a) => a.class_stream_id)));
+
+  // Visible streams in filter dropdown
+  const visibleStreams = isTeacher
+    ? allStreams.filter((s) => assignedStreamIds.includes(s.id))
+    : allStreams;
+
+  const selectedStreamId = params?.classStreamId || "";
+
+  // Query enrolled students scoped to authorized streams
+  let enrolledStudents: Awaited<ReturnType<typeof getEnrolledStudents>> = [];
+  if (isTeacher) {
+    if (assignedStreamIds.length > 0) {
+      if (selectedStreamId && assignedStreamIds.includes(selectedStreamId)) {
+        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", selectedStreamId);
+      } else {
+        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", undefined, assignedStreamIds);
+      }
+    } else {
+      enrolledStudents = [];
+    }
+  } else {
+    enrolledStudents = await getEnrolledStudents(
+      schoolId,
+      activeYear?.id || "",
+      selectedStreamId || undefined
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -30,23 +80,44 @@ export default async function StudentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 pb-5 border-b border-[#E5E5DF]">
         <div>
           <h1 className="text-xl sm:text-2xl font-extrabold text-[#191919] tracking-tight">
-            Student Register &amp; Admissions
+            {canManageStudents ? "Student Register & Admissions" : "Student Register"}
           </h1>
           <p className="text-[13px] text-[#666666] mt-1 max-w-xl">
-            Add a student to the school year and find their class, admission number, and guardian contact here.
+            {canManageStudents
+              ? "Add a student to the school year and find their class, admission number, and guardian contact here."
+              : isTeacher
+              ? "View enrolled students and guardian contact details for your assigned class groups."
+              : "View enrolled students, their class groups, matricules, and guardian contacts."}
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="px-3 py-1.5 text-[12px] font-semibold rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]">
-            {enrolledStudents.length} enrolled
+            {isTeacher
+              ? `${enrolledStudents.length} student${enrolledStudents.length === 1 ? "" : "s"} in your classes`
+              : `${enrolledStudents.length} enrolled`}
           </span>
         </div>
       </div>
 
+      {/* Unassigned Teacher Empty State */}
+      {isTeacher && teacherAssignments.length === 0 && (
+        <div className="p-8 rounded-[10px] bg-white border border-[#E5E5DF] text-center space-y-3 shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-[#FFF8CF] text-[#B45309] flex items-center justify-center mx-auto">
+            <BookOpen className="w-6 h-6" />
+          </div>
+          <h2 className="text-base font-bold text-[#191919]">No Classes Assigned Yet</h2>
+          <p className="text-xs text-[#666666] max-w-md mx-auto leading-relaxed">
+            You have not been assigned to any class groups or subjects yet. Once your school administrator or Head of Department assigns you to your classes, your student roster and guardian contacts will appear here.
+          </p>
+        </div>
+      )}
+
       {/* Main Grid: Student Registration & List */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Register Student */}
+      {(!isTeacher || teacherAssignments.length > 0) && (
+      <div className={`grid grid-cols-1 ${canManageStudents ? "lg:grid-cols-3" : "grid-cols-1"} gap-6`}>
+        {/* Left Column: Register Student (Admins only) */}
+        {canManageStudents && (
         <div className="bg-white p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4">
           <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
             <UserPlus className="w-4 h-4 text-[#555555]" />
@@ -185,25 +256,71 @@ export default async function StudentsPage() {
             </button>
           </form>
         </div>
+        )}
 
-        {/* Right Column: Student Directory */}
-        <div className="lg:col-span-2 bg-white p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-[#EEEEEC]">
-            <Users className="w-4 h-4 text-[#555555]" />
-            <div>
-              <h2 className="text-[14px] font-bold text-[#191919]">Enrolled Students</h2>
-              <p className="text-[11px] text-[#777777]">Students registered for {activeYear?.name || "the current school year"}</p>
+        {/* Directory Column */}
+        <div className={`${canManageStudents ? "lg:col-span-2" : "col-span-1"} bg-white p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4`}>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#EEEEEC]">
+            <div className="flex items-center gap-2.5">
+              <Users className="w-4 h-4 text-[#555555]" />
+              <div>
+                <h2 className="text-[14px] font-bold text-[#191919]">
+                  {isTeacher ? "My Class Students" : "Enrolled Students"}
+                </h2>
+                <p className="text-[11px] text-[#777777]">
+                  {isTeacher
+                    ? "Students in classes assigned to you"
+                    : `Students registered for ${activeYear?.name || "the current school year"}`}
+                </p>
+              </div>
             </div>
+
+            {/* Class Stream Filter */}
+            {visibleStreams.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-[#888888]" />
+                <form method="GET">
+                  <AutoSubmitSelect
+                    name="classStreamId"
+                    defaultValue={selectedStreamId}
+                    className="px-2.5 py-1 text-[11px] font-semibold rounded-[5px] border border-[#D5D5CF] bg-[#FAFAF8] text-[#191919] focus:outline-none focus:border-[#191919]"
+                  >
+                    <option value="">
+                      {isTeacher ? "All My Assigned Classes" : "All Classes"}
+                    </option>
+                    {visibleStreams.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </AutoSubmitSelect>
+                </form>
+              </div>
+            )}
           </div>
 
           {/* Student Table */}
           <div className="overflow-x-auto text-[12px]">
             {enrolledStudents.length === 0 ? (
-              <div className="text-center py-12 text-[#888888] space-y-1.5">
-                <GraduationCap className="w-7 h-7 mx-auto text-[#BBBBBB]" />
-                <p className="font-medium text-[13px] text-[#191919]">No students enrolled for this school year yet.</p>
-                <p className="text-[11px] text-[#777777]">Use the form to add the first student.</p>
-              </div>
+              canManageStudents ? (
+                <EmptyState
+                  title="No students yet"
+                  description="Add a student to start managing records and attendance."
+                  ctaLabel="Admit First Student"
+                  ctaHref="/dashboard/students"
+                />
+              ) : (
+                <div className="text-center py-12 space-y-2">
+                  <h3 className="text-sm font-semibold text-[#191919]">
+                    {isTeacher ? "No students in this class" : "No students yet"}
+                  </h3>
+                  <p className="text-xs text-[#666666] max-w-sm mx-auto">
+                    {isTeacher
+                      ? "No students are currently enrolled in this class group."
+                      : "No students are enrolled for this academic year yet."}
+                  </p>
+                </div>
+              )
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -265,6 +382,7 @@ export default async function StudentsPage() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

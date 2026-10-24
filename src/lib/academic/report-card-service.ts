@@ -487,3 +487,38 @@ export async function getStudentReportCard(
     },
   };
 }
+
+/**
+ * Retrieves full report card data for all students enrolled in a class stream.
+ */
+export async function getClassStreamReportCards(
+  schoolId: string,
+  termId: string,
+  classStreamId: string
+): Promise<ReportCardFullData[]> {
+  const supabase = await createClient();
+
+  const { data: enrolments } = await supabase
+    .from("enrolments")
+    .select("student_id, student:students(matricule, last_name, first_name)")
+    .eq("school_id", schoolId)
+    .eq("class_stream_id", classStreamId)
+    .eq("status", "active");
+
+  if (!enrolments || enrolments.length === 0) return [];
+
+  // Sort alphabetically by last_name, first_name
+  const sorted = [...enrolments].sort((a, b) => {
+    const studentA = a.student as { last_name?: string; first_name?: string } | null;
+    const studentB = b.student as { last_name?: string; first_name?: string } | null;
+    const nameA = `${studentA?.last_name || ""} ${studentA?.first_name || ""}`.trim();
+    const nameB = `${studentB?.last_name || ""} ${studentB?.first_name || ""}`.trim();
+    return nameA.localeCompare(nameB);
+  });
+
+  const cards = await Promise.all(
+    sorted.map((e) => getStudentReportCard(schoolId, termId, e.student_id))
+  );
+
+  return cards.filter((c): c is ReportCardFullData => c !== null);
+}

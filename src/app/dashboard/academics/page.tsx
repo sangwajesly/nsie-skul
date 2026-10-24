@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import HodAssignmentForm from "./HodAssignmentForm";
 import TeacherAssignmentForm from "./TeacherAssignmentForm";
+import { ClassMasterSelectClient } from "./ClassMasterSelectClient";
 
 export default async function AcademicsPage() {
   const context = await getTenantContext();
@@ -33,20 +34,20 @@ export default async function AcademicsPage() {
   const hodAssignments = activeYear ? await getSchoolHodAssignments(schoolId, activeYear.id) : [];
   const staff = await getSchoolStaffMemberships(schoolId);
 
-  const headsOfDepartment = staff
-    .filter((member) => member.status === "active" && member.role?.code === "hod")
+  const teachingStaff = staff
+    .filter(
+      (member) =>
+        member.status === "active" &&
+        ["teacher", "class_master", "hod"].includes(member.role?.code || "")
+    )
     .map((member) => ({
       id: member.user_id,
       name: member.user?.full_name || "Staff member",
       email: member.user?.email || "",
     }));
-  const teachers = staff
-    .filter((member) => member.status === "active" && member.role?.code === "teacher")
-    .map((member) => ({
-      id: member.user_id,
-      name: member.user?.full_name || "Staff member",
-      email: member.user?.email || "",
-    }));
+
+  const headsOfDepartment = teachingStaff;
+  const teachers = teachingStaff;
   const classGroups = classesWithStreams.flatMap((classItem) =>
     classItem.streams.map((stream) => ({ id: stream.id, name: stream.name }))
   );
@@ -104,7 +105,7 @@ export default async function AcademicsPage() {
           <form
             action={async (formData: FormData) => {
               "use server";
-              await createDepartmentAction(formData);
+              await createDepartmentAction(null, formData);
             }}
             className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 text-[12px]"
           >
@@ -210,7 +211,7 @@ export default async function AcademicsPage() {
           <form
             action={async (formData: FormData) => {
               "use server";
-              await createSubjectAction(formData);
+              await createSubjectAction(null, formData);
             }}
             className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 text-[12px]"
           >
@@ -338,12 +339,29 @@ export default async function AcademicsPage() {
                     cls.streams.map((st) => (
                       <div
                         key={st.id}
-                        className="p-2 rounded-[4px] bg-white border border-[#E5E5DF] flex items-center justify-between text-[11px]"
+                        className="p-2.5 rounded-[4px] bg-white border border-[#E5E5DF] space-y-1.5 text-[11px]"
                       >
-                        <span className="font-semibold text-[#191919]">{st.name}</span>
-                        <span className="text-[10px] text-[#777777]">
-                          Class teacher: {st.class_master?.full_name || "Not assigned"}
-                        </span>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#191919]">{st.name}</span>
+                          {st.class_master?.full_name && (
+                            <span className="text-[10px] text-[#2A7C13] font-semibold bg-[#EAF7E4] px-1.5 py-0.5 rounded border border-[#76C457]/30">
+                              {st.class_master.full_name}
+                            </span>
+                          )}
+                        </div>
+
+                        {context?.hasPermission("assignments.manage") ? (
+                          <ClassMasterSelectClient
+                            classStreamId={st.id}
+                            streamName={st.name}
+                            currentClassMasterId={st.class_master_id}
+                            teachers={teachingStaff}
+                          />
+                        ) : (
+                          <div className="text-[10px] text-[#777777]">
+                            Class master: {st.class_master?.full_name || "Not assigned"}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
