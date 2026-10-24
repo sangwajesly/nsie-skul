@@ -544,7 +544,7 @@ export function MarksGridClient({
       )}
 
       {/* Bulk Action Toolbar */}
-      {selectedIds.size > 0 && !isLocked && (
+      {selectedIds.size > 0 && canEdit && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[8px] bg-[#142010] text-white text-xs shadow-sm">
           <div className="flex items-center gap-2">
             <span className="font-semibold text-white px-2 py-0.5 rounded-[4px] bg-[#2A7C13] text-[11px]">
@@ -596,7 +596,7 @@ export function MarksGridClient({
                   <div className="flex items-center justify-center gap-1">
                     <input
                       type="checkbox"
-                      disabled={isLocked || students.length === 0}
+                      disabled={!canEdit || students.length === 0}
                       aria-label="Select all students"
                       checked={students.length > 0 && selectedIds.size === students.length}
                       onChange={handleToggleSelectAll}
@@ -641,7 +641,7 @@ export function MarksGridClient({
                         <div className="flex items-center justify-center gap-1.5">
                           <input
                             type="checkbox"
-                            disabled={isLocked}
+                            disabled={!canEdit}
                             aria-label={`Select ${student.fullName}`}
                             checked={isSelected}
                             onChange={() => handleToggleSelectRow(student.studentId)}
@@ -660,7 +660,7 @@ export function MarksGridClient({
                       </td>
                       <td className="py-2 px-3">
                         <select
-                          disabled={isLocked}
+                          disabled={!canEdit}
                           value={student.status}
                           aria-label={`Attendance status for ${student.fullName}`}
                           onChange={(e) =>
@@ -669,7 +669,7 @@ export function MarksGridClient({
                               e.target.value as "present" | "absent" | "exempt"
                             )
                           }
-                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13]"
+                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
                         >
                           <option value="present">Present</option>
                           <option value="absent">Absent (ABS)</option>
@@ -685,7 +685,7 @@ export function MarksGridClient({
                           data-score-idx={idx}
                           onKeyDown={(e) => handleScoreKeyDown(idx, e)}
                           aria-label={`Score out of ${maxMarks} for ${student.fullName}`}
-                          disabled={isLocked || student.status !== "present"}
+                          disabled={!canEdit || student.status !== "present"}
                           placeholder={student.status === "present" ? "0.00" : "-"}
                           value={student.score ?? ""}
                           onChange={(e) => handleScoreChange(idx, e.target.value)}
@@ -725,12 +725,12 @@ export function MarksGridClient({
                       <td className="py-2 px-3">
                         <input
                           type="text"
-                          disabled={isLocked}
+                          disabled={!canEdit}
                           aria-label={`Teacher remark for ${student.fullName}`}
                           placeholder="Remark (optional)..."
                           value={student.remarks}
                           onChange={(e) => handleRemarksChange(idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13]"
+                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
                         />
                       </td>
                     </tr>
@@ -758,62 +758,213 @@ export function MarksGridClient({
 
       {/* HOD Review & Approval Gate Panel */}
       {departmentId && canApprove && (
-        <div className="p-5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#2A7C13]" />
-            <h3 className="font-bold text-sm text-[#142010]">
-              Head of Department Approval
-            </h3>
+        <div className="p-5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DFC9]">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-[#2A7C13]" />
+              <div>
+                <h3 className="font-bold text-sm text-[#142010]">
+                  Head of Department Review &amp; Quality Control
+                </h3>
+                <p className="text-[11px] text-[#525E4B]">
+                  {isFinalApproved
+                    ? "Marks are approved and locked. You can modify marks directly above or reopen the sheet if a verified student contestation arises."
+                    : isSubmitted
+                    ? "Teacher has submitted this mark sheet for your review. You may adjust scores above or approve."
+                    : "Teacher is currently drafting marks. You can view progress and approve when finalized."}
+                </p>
+              </div>
+            </div>
+            <span className={`px-2.5 py-1 rounded-full text-xs font-bold border self-start sm:self-auto ${
+              isFinalApproved
+                ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]"
+                : isSubmitted
+                ? "bg-[#EFF6FF] text-[#1E40AF] border-[#BFDBFE]"
+                : isReopened
+                ? "bg-[#FFF8CF] text-[#7A4A00] border-[#FBE6C2]"
+                : "bg-[#F7F3E8] text-[#555555] border-[#D5CBB2]"
+            }`}>
+              {isFinalApproved
+                ? "Approved"
+                : isSubmitted
+                ? "Under Review"
+                : isReopened
+                ? "Reopened for Revision"
+                : "Draft Mode"}
+            </span>
           </div>
-          <p className="text-xs text-[#525E4B]">
-            Once approved, these marks are locked. A school administrator must authorize any later correction.
-          </p>
 
-          {isApproved ? (
-            <div className="flex items-center gap-2 p-3 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] text-xs font-semibold border border-[#76C457]/40">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>
-                Approved by {approverName || "Department Head"}{" "}
-                {approvedAt ? `on ${new Date(approvedAt).toLocaleDateString()}` : ""}
-              </span>
+          {isFinalApproved ? (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-[6px] bg-[#F9FBF8] border border-[#E8DFC9]">
+              <div className="text-xs text-[#525E4B]">
+                <p className="font-semibold text-[#142010]">
+                  Approved by {currentApprover || approverName || "Department Head"}{" "}
+                  {currentApprovedAt ? `on ${new Date(currentApprovedAt).toLocaleDateString()}` : ""}
+                </p>
+                {currentNotes && (
+                  <p className="text-[11px] text-[#777777] mt-0.5">Note: {currentNotes}</p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReopenModal(true)}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors shrink-0"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reopen Mark Sheet for Teacher</span>
+              </button>
             </div>
           ) : (
             <form
               action={async (formData: FormData) => {
-                const res = await approveDepartmentalSequenceAction(formData);
-                if (res?.error) {
-                  setMessage({ type: "error", text: res.error });
-                } else {
-                  setMessage({
-                    type: "success",
-                    text: "Marks approved and locked.",
-                  });
-                }
+                await handleApproveMarks(formData);
               }}
-              className="pt-2"
+              className="space-y-3"
             >
               <input type="hidden" name="sequenceId" value={sequenceId} />
               <input type="hidden" name="classStreamId" value={classStreamId} />
               <input type="hidden" name="departmentId" value={departmentId} />
+              <input type="hidden" name="subjectId" value={subjectId} />
               <input type="hidden" name="academicYearId" value={academicYearId} />
               <input type="hidden" name="termId" value={termId} />
 
-              <div className="flex flex-col sm:flex-row items-center gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-[#525E4B] mb-1">
+                  HOD Endorsement / Quality Assurance Note (optional)
+                </label>
                 <input
                   type="text"
                   name="notes"
-                  placeholder="Optional review endorsement note..."
-                  className="w-full sm:flex-1 px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] text-xs focus:outline-none focus:border-[#2A7C13]"
+                  placeholder="e.g. Marks distribution audited and approved for report card inclusion."
+                  className="w-full px-3 py-2 rounded-[5px] border border-[#E8DFC9] text-xs focus:outline-none focus:border-[#2A7C13]"
                 />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div className="flex items-center gap-2">
+                  {isSubmitted && (
+                    <button
+                      type="button"
+                      onClick={() => setShowReopenModal(true)}
+                      disabled={isPending}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Send Back to Teacher for Revision</span>
+                    </button>
+                  )}
+                </div>
+
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors shrink-0"
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors shrink-0"
                 >
-                  Approve and Lock Marks
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Approve and Lock Marks</span>
                 </button>
               </div>
             </form>
           )}
+        </div>
+      )}
+
+      {/* Teacher Submit to HOD Modal */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-[8px] bg-white p-6 shadow-xl space-y-4 border border-[#E8DFC9]">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-[#EAF7E4] text-[#2A7C13] shrink-0">
+                <Send className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#142010]">
+                  Submit Marks to Head of Department?
+                </h4>
+                <p className="mt-1 text-xs text-[#555555] leading-relaxed">
+                  You are submitting marks for <strong className="text-[#142010]">{subjectName}</strong> ({streamName}, {sequenceName}).
+                </p>
+                <div className="mt-2 text-[11px] text-[#777777] bg-[#FFFDF5] p-2.5 rounded-[5px] border border-[#E8DFC9] space-y-1">
+                  <p>• Your marks will be saved and forwarded to your Head of Department.</p>
+                  <p>• Once submitted, editing is locked for teachers to protect mark integrity.</p>
+                  <p>• If a student grade contestation arises, your HOD can re-enable the sheet with verified justification.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8DFC9]">
+              <button
+                type="button"
+                onClick={() => setShowSubmitModal(false)}
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] border border-[#D5CBB2] text-[#444444] hover:bg-[#F7F3E8] transition-colors"
+              >
+                Keep Editing
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmitToHod}
+                disabled={isPending}
+                className="px-4 py-1.5 text-xs font-semibold rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-xs"
+              >
+                {isPending ? "Submitting..." : "Confirm & Submit"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* HOD Reopen / Student Contestation Modal */}
+      {showReopenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-[8px] bg-white p-6 shadow-xl space-y-4 border border-[#E8DFC9]">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-full bg-[#FFF8CF] text-[#B45309] shrink-0">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div className="w-full">
+                <h4 className="text-sm font-bold text-[#142010]">
+                  Reopen Mark Sheet for Teacher Revision
+                </h4>
+                <p className="mt-1 text-xs text-[#555555] leading-relaxed">
+                  Enter the audit reason or proof of verified student grade contestation. This ensures full transparency and prevents unverified mark adjustments.
+                </p>
+                <div className="mt-3">
+                  <label className="block text-[11px] font-bold text-[#444444] mb-1">
+                    Justification / Verified Proof *
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={reopenJustification}
+                    onChange={(e) => setReopenJustification(e.target.value)}
+                    placeholder="e.g. Student John Doe exam paper verified with Q3 score addition error: re-evaluated from 11/20 to 14/20."
+                    className="w-full p-2.5 rounded-[5px] border border-[#D5CBB2] text-xs focus:outline-none focus:border-[#2A7C13]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8DFC9]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowReopenModal(false);
+                  setReopenJustification("");
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] border border-[#D5CBB2] text-[#444444] hover:bg-[#F7F3E8] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReopen}
+                disabled={isPending || !reopenJustification.trim()}
+                className="px-4 py-1.5 text-xs font-semibold rounded-[5px] bg-[#B45309] hover:bg-[#92400E] text-white transition-colors shadow-xs disabled:opacity-50"
+              >
+                {isPending ? "Reopening..." : "Reopen Mark Sheet"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -7,13 +7,10 @@ import {
 } from "@/lib/academic/service";
 import { registerStudentAction } from "@/app/academics/actions";
 import { AutoSubmitSelect } from "@/components/AutoSubmitSelect";
-import EmptyState from "@/components/EmptyState";
+import { StudentDirectoryClient } from "./StudentDirectoryClient";
 import {
   Users,
   UserPlus,
-  GraduationCap,
-  Building,
-  Home,
   BookOpen,
   Filter,
 } from "lucide-react";
@@ -23,6 +20,7 @@ export const dynamic = "force-dynamic";
 interface StudentsPageProps {
   searchParams?: Promise<{
     classStreamId?: string;
+    status?: string;
   }>;
 }
 
@@ -53,15 +51,16 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
     : allStreams;
 
   const selectedStreamId = params?.classStreamId || "";
+  const statusFilter = params?.status || "active";
 
   // Query enrolled students scoped to authorized streams
   let enrolledStudents: Awaited<ReturnType<typeof getEnrolledStudents>> = [];
   if (isTeacher) {
     if (assignedStreamIds.length > 0) {
       if (selectedStreamId && assignedStreamIds.includes(selectedStreamId)) {
-        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", selectedStreamId);
+        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", selectedStreamId, undefined, undefined, "active");
       } else {
-        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", undefined, assignedStreamIds);
+        enrolledStudents = await getEnrolledStudents(schoolId, activeYear?.id || "", undefined, assignedStreamIds, undefined, "active");
       }
     } else {
       enrolledStudents = [];
@@ -70,7 +69,10 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
     enrolledStudents = await getEnrolledStudents(
       schoolId,
       activeYear?.id || "",
-      selectedStreamId || undefined
+      selectedStreamId || undefined,
+      undefined,
+      undefined,
+      statusFilter
     );
   }
 
@@ -299,87 +301,14 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
             )}
           </div>
 
-          {/* Student Table */}
-          <div className="overflow-x-auto text-[12px]">
-            {enrolledStudents.length === 0 ? (
-              canManageStudents ? (
-                <EmptyState
-                  title="No students yet"
-                  description="Add a student to start managing records and attendance."
-                  ctaLabel="Admit First Student"
-                  ctaHref="/dashboard/students"
-                />
-              ) : (
-                <div className="text-center py-12 space-y-2">
-                  <h3 className="text-sm font-semibold text-[#191919]">
-                    {isTeacher ? "No students in this class" : "No students yet"}
-                  </h3>
-                  <p className="text-xs text-[#666666] max-w-sm mx-auto">
-                    {isTeacher
-                      ? "No students are currently enrolled in this class group."
-                      : "No students are enrolled for this academic year yet."}
-                  </p>
-                </div>
-              )
-            ) : (
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-[#E5E5DF] text-[11px] font-bold uppercase tracking-wider text-[#777777]">
-                    <th className="py-2 px-2.5">Admission No.</th>
-                    <th className="py-2 px-2.5">Student Name</th>
-                    <th className="py-2 px-2.5">Class Group</th>
-                    <th className="py-2 px-2.5">Gender</th>
-                    <th className="py-2 px-2.5">Residence</th>
-                    <th className="py-2 px-2.5">Guardian Contact</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F1F1ED] text-[#191919]">
-                  {enrolledStudents.map((enrol) => (
-                    <tr key={enrol.id} className="hover:bg-[#FAFAF8]">
-                      <td className="py-2 px-2.5 font-mono font-bold text-[#191919]">
-                        {enrol.student?.matricule}
-                      </td>
-                      <td className="py-2 px-2.5 font-semibold">
-                        {enrol.student?.first_name} {enrol.student?.last_name}
-                      </td>
-                      <td className="py-2 px-2.5">
-                        <span className="px-1.5 py-0.5 rounded-[3px] bg-[#F1F1ED] text-[#555555] font-medium text-[11px]">
-                          {enrol.class_stream?.name || "Unassigned"}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2.5 font-bold text-[#555555]">
-                        {enrol.student?.gender}
-                      </td>
-                      <td className="py-2 px-2.5">
-                        <span
-                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-semibold uppercase tracking-wider ${
-                            enrol.student?.residence_status === "boarding"
-                              ? "bg-[#FAF5FF] text-[#7E22CE] border border-[#F3E8FF]"
-                              : "bg-[#F0FDF4] text-[#15803D] border border-[#DCFCE7]"
-                          }`}
-                        >
-                          {enrol.student?.residence_status === "boarding" ? (
-                            <Building className="w-3 h-3" />
-                          ) : (
-                            <Home className="w-3 h-3" />
-                          )}
-                          <span>{enrol.student?.residence_status}</span>
-                        </span>
-                      </td>
-                      <td className="py-2 px-2.5 text-[#666666]">
-                        {enrol.student?.guardian_name || "—"}{" "}
-                        {enrol.student?.guardian_phone && (
-                          <span className="font-mono text-[10px] text-[#888888]">
-                            ({enrol.student.guardian_phone})
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+          {/* Student Table — delegated to client component for search, status filtering, and status management */}
+          <StudentDirectoryClient
+            enrolledStudents={enrolledStudents}
+            canManageStudents={canManageStudents}
+            isTeacher={isTeacher}
+            selectedStreamId={selectedStreamId}
+            currentStatusFilter={statusFilter}
+          />
         </div>
       </div>
       )}
