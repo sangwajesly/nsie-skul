@@ -122,6 +122,9 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
       "marks.approve_hod",
       "report_cards.view",
       "attendance.take_assigned",
+      "assignments.manage",
+      "academics.manage",
+      "schemes.manage",
     ]) {
       permissionSet.add(code);
     }
@@ -158,6 +161,9 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
     permissionSet.add("marks.view_department");
     permissionSet.add("marks.review_hod");
     permissionSet.add("marks.approve_hod");
+    permissionSet.add("assignments.manage");
+    permissionSet.add("academics.manage");
+    permissionSet.add("schemes.manage");
   }
 
   return {

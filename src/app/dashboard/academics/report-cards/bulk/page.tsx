@@ -8,9 +8,8 @@ import {
 } from "@/lib/academic/service";
 import { getClassStreamReportCards } from "@/lib/academic/report-card-service";
 import { createClient } from "@/lib/supabase/server";
-import { MinesecReportCard } from "@/components/academic/MinesecReportCard";
-import { BulkPrintControls } from "./BulkPrintControls";
-import { ArrowLeft, Lock, Users } from "lucide-react";
+import { BulkReportCardsView } from "./BulkReportCardsView";
+import { Lock } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +17,7 @@ interface BulkReportCardsPageProps {
   searchParams: Promise<{
     classStreamId?: string;
     termNumber?: string;
+    sortBy?: "rank" | "alphabetical";
   }>;
 }
 
@@ -197,43 +197,15 @@ export default async function BulkReportCardsPage({
         }}
       />
 
-      {/* Floating Control Toolbar (Hidden during actual print) */}
-      <BulkPrintControls
+      {/* Interactive Bulk View with Rank / Alphabetical Sort and Print */}
+      <BulkReportCardsView
+        reportCards={reportCards}
         classNameTitle={selectedStream.name}
         termName={term.name}
-        studentCount={reportCards.length}
         classStreamId={selectedStream.id}
         termNumber={requestedTermNumber}
+        initialSortBy={params.sortBy}
       />
-
-      {/* Report Cards Container */}
-      {reportCards.length === 0 ? (
-        <div className="p-12 text-center rounded-[8px] bg-white border border-[#E8DFC9] space-y-3">
-          <Users className="w-8 h-8 text-[#888888] mx-auto" />
-          <h2 className="text-sm font-bold text-[#142010]">No Enrolled Students Found</h2>
-          <p className="text-xs text-[#525E4B] max-w-sm mx-auto">
-            There are currently no active students enrolled in {selectedStream.name} for {activeYear.name}.
-          </p>
-          <Link
-            href="/dashboard/academics/report-cards"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] text-xs font-semibold border border-[#D5D5CF]"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Return to Report Cards Hub</span>
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-8 print:space-y-0">
-          {reportCards.map((rc) => (
-            <div
-              key={rc.student.id}
-              className="report-card-print-sheet bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-4 sm:p-6 print:p-0 print:border-none print:shadow-none"
-            >
-              <MinesecReportCard data={rc} />
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

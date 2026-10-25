@@ -149,6 +149,19 @@ export async function getStreamSubjects(classStreamId: string): Promise<ClassSub
   return (data as ClassSubject[]) || [];
 }
 
+/**
+ * Lists all class-subject configurations for a school.
+ */
+export async function getSchoolClassSubjects(schoolId: string): Promise<ClassSubject[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("class_subjects")
+    .select("id, school_id, class_stream_id, subject_id, coefficient, max_marks, is_compulsory")
+    .eq("school_id", schoolId);
+
+  return (data as ClassSubject[]) || [];
+}
+
 export async function getClassStreamsForSubjects(
   schoolId: string,
   classStreamIds: string[],

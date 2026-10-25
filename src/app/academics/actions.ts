@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission, requireAnyPermission } from "@/lib/tenancy/context";
+import { getActiveAcademicYear } from "@/lib/academic/service";
+import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -11,8 +13,19 @@ const DepartmentSchema = z.object({
   description: z.string().optional(),
 });
 
+const DepartmentUpdateSchema = z.object({
+  departmentId: uuidSchema("Department ID is required"),
+  name: z.string().min(2, "Department name is required"),
+  code: z.string().min(2, "Department code is required").toUpperCase(),
+  description: z.string().optional(),
+});
+
+const DepartmentDeleteSchema = z.object({
+  departmentId: uuidSchema("Department ID is required"),
+});
+
 const SubjectSchema = z.object({
-  departmentId: z.string().uuid("Please select a department"),
+  departmentId: uuidSchema("Please select a department"),
   name: z.string().min(2, "Subject name is required"),
   code: z.string().min(2, "Subject code is required").toUpperCase(),
   defaultCoefficient: z.coerce.number().min(0.5).max(10).default(2),
@@ -25,37 +38,59 @@ const ClassSchema = z.object({
   cycle: z.enum(["cycle_1", "cycle_2"]).default("cycle_1"),
 });
 
+const ClassUpdateSchema = z.object({
+  classId: uuidSchema("Class ID is required"),
+  name: z.string().min(2, "Class name is required"),
+  levelOrder: z.coerce.number().int().min(1).max(12).default(1),
+  cycle: z.enum(["cycle_1", "cycle_2"]).default("cycle_1"),
+});
+
+const ClassDeleteSchema = z.object({
+  classId: uuidSchema("Class ID is required"),
+});
+
 const ClassStreamSchema = z.object({
-  classId: z.string().uuid("Please select a class"),
-  name: z.string().min(2, "Stream name is required"),
+  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  classId: uuidSchema("Please select a class"),
+  name: z.string().min(1, "Class group name is required"),
   streamTag: z.string().optional(),
 });
 
+const ClassStreamUpdateSchema = z.object({
+  classStreamId: uuidSchema("Class group ID is required"),
+  name: z.string().min(1, "Class group name is required"),
+  streamTag: z.string().optional(),
+});
+
+const ClassStreamDeleteSchema = z.object({
+  classStreamId: uuidSchema("Class group ID is required"),
+});
+
 const HodAssignmentSchema = z.object({
-  academicYearId: z.string().uuid(),
-  hodUserId: z.string().uuid("Please select a staff member"),
-  departmentId: z.string().uuid("Please select a department"),
-  subjectId: z.string().uuid().optional().or(z.literal("")),
+  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  hodUserId: uuidSchema("Please select a staff member"),
+  departmentId: uuidSchema("Please select a department"),
+  subjectId: uuidSchema("Please select a subject").optional().or(z.literal("")),
   scopeType: z.enum(["department", "subject"]),
 });
 
 const TeacherAssignmentSchema = z.object({
-  academicYearId: z.string().uuid(),
-  teacherUserId: z.string().uuid("Please select a teacher"),
-  classStreamId: z.string().uuid("Please select a class stream"),
-  subjectId: z.string().uuid("Please select a subject"),
+  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  teacherUserId: uuidSchema("Please select a teacher"),
+  classStreamId: uuidSchema("Please select a class group"),
+  subjectId: uuidSchema("Please select a subject"),
 });
 
 const ClassSubjectConfigSchema = z.object({
-  classStreamId: z.string().uuid(),
-  subjectId: z.string().uuid(),
+  classStreamId: uuidSchema("Please select a class group"),
+  subjectId: uuidSchema("Please select a subject"),
   coefficient: z.coerce.number().min(0.5).max(10),
   maxMarks: z.coerce.number().min(5).max(100), // e.g. 20, 40, 100 for technical
 });
 
 const StudentRegisterSchema = z.object({
-  academicYearId: z.string().uuid(),
-  classStreamId: z.string().uuid(),
+  academicYearId: uuidSchema("Please select an academic year"),
+  classStreamId: uuidSchema("Please select a class group"),
   matricule: z.string().min(2, "Matricule is required"),
   firstName: z.string().min(2, "First name is required"),
   lastName: z.string().min(2, "Last name is required"),
@@ -66,7 +101,7 @@ const StudentRegisterSchema = z.object({
 });
 
 export async function createDepartmentAction(_state: unknown, formData: FormData) {
-  const context = await requirePermission("academics.manage");
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
   const parsed = DepartmentSchema.safeParse({
     name: formData.get("name"),
     code: formData.get("code"),
@@ -85,14 +120,114 @@ export async function createDepartmentAction(_state: unknown, formData: FormData
     description: parsed.data.description,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A department with code "${parsed.data.code}" already exists.` };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: "Department created." };
+  return { success: true as const, message: `Department "${parsed.data.name}" created.` };
+}
+
+export async function updateDepartmentAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = DepartmentUpdateSchema.safeParse({
+    departmentId: formData.get("departmentId"),
+    name: formData.get("name"),
+    code: formData.get("code"),
+    description: formData.get("description"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("departments")
+    .update({
+      name: parsed.data.name,
+      code: parsed.data.code,
+      description: parsed.data.description,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.departmentId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `Another department with code "${parsed.data.code}" already exists.` };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/academics");
+  return { success: true as const, message: `Department "${parsed.data.name}" updated.` };
+}
+
+export async function deleteDepartmentAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = DepartmentDeleteSchema.safeParse({
+    departmentId: formData.get("departmentId"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Verify department exists and belongs to this school
+  const { data: dept, error: deptError } = await supabase
+    .from("departments")
+    .select("id, name")
+    .eq("id", parsed.data.departmentId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (deptError || !dept) {
+    return { error: "Department not found." };
+  }
+
+  // 2. Check if subjects are linked to this department
+  const { count, error: countError } = await supabase
+    .from("subjects")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", context.school.id)
+    .eq("department_id", parsed.data.departmentId);
+
+  if (!countError && count && count > 0) {
+    return {
+      error: `Cannot delete "${dept.name}" because ${count} subject(s) belong to it. Please reassign or delete those subjects first.`,
+    };
+  }
+
+  // 3. Remove HOD assignments for this department
+  await supabase
+    .from("hod_assignments")
+    .delete()
+    .eq("school_id", context.school.id)
+    .eq("department_id", parsed.data.departmentId);
+
+  // 4. Delete the department
+  const { error } = await supabase
+    .from("departments")
+    .delete()
+    .eq("id", parsed.data.departmentId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    return { error: `Could not delete department: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  return { success: true as const, message: `Department "${dept.name}" deleted.` };
 }
 
 export async function createSubjectAction(_state: unknown, formData: FormData) {
-  const context = await requirePermission("academics.manage");
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
   const parsed = SubjectSchema.safeParse({
     departmentId: formData.get("departmentId"),
     name: formData.get("name"),
@@ -115,14 +250,19 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
     default_max_marks: parsed.data.defaultMaxMarks,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A subject with code "${parsed.data.code}" already exists.` };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: "Subject created." };
+  return { success: true as const, message: `Subject "${parsed.data.name}" created.` };
 }
 
 export async function createClassAction(_state: unknown, formData: FormData) {
-  const context = await requirePermission("academics.manage");
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
   const parsed = ClassSchema.safeParse({
     name: formData.get("name"),
     levelOrder: formData.get("levelOrder"),
@@ -141,15 +281,34 @@ export async function createClassAction(_state: unknown, formData: FormData) {
     cycle: parsed.data.cycle,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A class named "${parsed.data.name}" already exists.` };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: "Class created." };
+  return { success: true as const, message: `Class "${parsed.data.name}" created.` };
 }
 
-export async function createClassStreamAction(formData: FormData) {
-  const context = await requirePermission("academics.manage");
+export async function createClassStreamAction(
+  stateOrFormData: unknown,
+  maybeFormData?: FormData
+) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : (stateOrFormData as FormData);
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+
+  const rawYear = formData?.get ? formData.get("academicYearId") : null;
+  let academicYearId = typeof rawYear === "string" && rawYear.trim() ? rawYear.trim() : "";
+
+  if (!academicYearId) {
+    const activeYear = await getActiveAcademicYear(context.school.id);
+    academicYearId = activeYear?.id || "";
+  }
+
   const parsed = ClassStreamSchema.safeParse({
+    academicYearId: academicYearId || undefined,
     classId: formData.get("classId"),
     name: formData.get("name"),
     streamTag: formData.get("streamTag"),
@@ -159,18 +318,233 @@ export async function createClassStreamAction(formData: FormData) {
     return { error: parsed.error.issues[0].message };
   }
 
+  const effectiveYearId = parsed.data.academicYearId || academicYearId;
+  if (!effectiveYearId) {
+    return { error: "No active academic year found. Please set an academic year first." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("class_streams").insert({
     school_id: context.school.id,
     class_id: parsed.data.classId,
+    academic_year_id: effectiveYearId,
     name: parsed.data.name,
     stream_tag: parsed.data.streamTag,
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A class group named "${parsed.data.name}" already exists in this class for this academic year.` };
+    }
+    return { error: error.message };
+  }
 
   revalidatePath("/dashboard/academics");
-  return { success: true };
+  return { success: true as const, message: `Class group "${parsed.data.name}" created.` };
+}
+
+export async function updateClassAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = ClassUpdateSchema.safeParse({
+    classId: formData.get("classId"),
+    name: formData.get("name"),
+    levelOrder: formData.get("levelOrder"),
+    cycle: formData.get("cycle"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("classes")
+    .update({
+      name: parsed.data.name,
+      level_order: parsed.data.levelOrder,
+      cycle: parsed.data.cycle,
+    })
+    .eq("id", parsed.data.classId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `Another class named "${parsed.data.name}" already exists.` };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/academics");
+  return { success: true as const, message: `Class updated to "${parsed.data.name}".` };
+}
+
+export async function deleteClassAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = ClassDeleteSchema.safeParse({
+    classId: formData.get("classId"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Verify class belongs to this school
+  const { data: cls, error: clsError } = await supabase
+    .from("classes")
+    .select("id, name")
+    .eq("id", parsed.data.classId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (clsError || !cls) {
+    return { error: "Class not found." };
+  }
+
+  // 2. Safety Check: Check if any class streams/groups exist for this class
+  const { count: streamCount } = await supabase
+    .from("class_streams")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", context.school.id)
+    .eq("class_id", parsed.data.classId);
+
+  if (streamCount && streamCount > 0) {
+    return {
+      error: `Safety Lock: Cannot delete class "${cls.name}" because it contains ${streamCount} class group(s). Please delete or move those class groups first.`,
+    };
+  }
+
+  // 3. Delete class
+  const { error } = await supabase
+    .from("classes")
+    .delete()
+    .eq("id", parsed.data.classId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    return { error: `Could not delete class: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  return { success: true as const, message: `Class "${cls.name}" deleted.` };
+}
+
+export async function updateClassStreamAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = ClassStreamUpdateSchema.safeParse({
+    classStreamId: formData.get("classStreamId"),
+    name: formData.get("name"),
+    streamTag: formData.get("streamTag"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("class_streams")
+    .update({
+      name: parsed.data.name,
+      stream_tag: parsed.data.streamTag,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.classStreamId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A class group named "${parsed.data.name}" already exists in this class.` };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard");
+  return { success: true as const, message: `Class group updated to "${parsed.data.name}".` };
+}
+
+export async function deleteClassStreamAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const parsed = ClassStreamDeleteSchema.safeParse({
+    classStreamId: formData.get("classStreamId"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0].message };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Verify stream exists and belongs to this school
+  const { data: stream, error: streamError } = await supabase
+    .from("class_streams")
+    .select("id, name")
+    .eq("id", parsed.data.classStreamId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (streamError || !stream) {
+    return { error: "Class group not found." };
+  }
+
+  // 2. Strict Safety Check: Enrolled students
+  const { count: enrolledCount } = await supabase
+    .from("enrolments")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", context.school.id)
+    .eq("class_stream_id", parsed.data.classStreamId);
+
+  if (enrolledCount && enrolledCount > 0) {
+    return {
+      error: `Safety Lock: Cannot delete "${stream.name}" because ${enrolledCount} student(s) are currently enrolled in it. Reassign or withdraw the students first to protect academic records.`,
+    };
+  }
+
+  // 3. Strict Safety Check: Assessment marks
+  const { count: marksCount } = await supabase
+    .from("assessment_marks")
+    .select("id", { count: "exact", head: true })
+    .eq("class_stream_id", parsed.data.classStreamId);
+
+  if (marksCount && marksCount > 0) {
+    return {
+      error: `Safety Lock: Cannot delete "${stream.name}" because ${marksCount} assessment mark(s) have been entered for this group. Deleting it would permanently destroy academic evaluation records.`,
+    };
+  }
+
+  // 4. Strict Safety Check: Attendance sessions
+  const { count: attendanceCount } = await supabase
+    .from("attendance_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", context.school.id)
+    .eq("class_stream_id", parsed.data.classStreamId);
+
+  if (attendanceCount && attendanceCount > 0) {
+    return {
+      error: `Safety Lock: Cannot delete "${stream.name}" because ${attendanceCount} attendance session(s) exist for this group.`,
+    };
+  }
+
+  // 5. Clean up assignments & class subjects
+  await supabase.from("teacher_assignments").delete().eq("class_stream_id", parsed.data.classStreamId);
+  await supabase.from("class_subjects").delete().eq("class_stream_id", parsed.data.classStreamId);
+
+  // 6. Delete the stream
+  const { error } = await supabase
+    .from("class_streams")
+    .delete()
+    .eq("id", parsed.data.classStreamId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    return { error: `Could not delete class group: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard");
+  return { success: true as const, message: `Class group "${stream.name}" deleted.` };
 }
 
 export async function assignClassMasterAction(formData: FormData) {
@@ -221,9 +595,16 @@ export async function assignClassMasterAction(formData: FormData) {
 }
 
 export async function assignHodAction(_previousState: unknown, formData: FormData) {
-  const context = await requirePermission("assignments.manage");
+  const context = await requireAnyPermission(["assignments.manage", "academics.manage"]);
+
+  let academicYearId = String(formData.get("academicYearId") || "").trim();
+  if (!academicYearId) {
+    const activeYear = await getActiveAcademicYear(context.school.id);
+    academicYearId = activeYear?.id || "";
+  }
+
   const parsed = HodAssignmentSchema.safeParse({
-    academicYearId: formData.get("academicYearId"),
+    academicYearId: academicYearId || undefined,
     hodUserId: formData.get("hodUserId"),
     departmentId: formData.get("departmentId"),
     subjectId: formData.get("subjectId") || undefined,
@@ -232,6 +613,11 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message };
+  }
+
+  const effectiveYearId = parsed.data.academicYearId || academicYearId;
+  if (!effectiveYearId) {
+    return { error: "No active academic year found. Please configure an academic year first." };
   }
 
   const supabase = await createClient();
@@ -253,7 +639,7 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
       .from("academic_years")
       .select("id")
       .eq("school_id", context.school.id)
-      .eq("id", parsed.data.academicYearId)
+      .eq("id", effectiveYearId)
       .maybeSingle(),
   ]);
 
@@ -271,7 +657,7 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
     .eq("id", membershipResult.data.role_id)
     .maybeSingle();
 
-  if (roleError || !staffRole || !["hod", "teacher", "class_master"].includes(staffRole.code)) {
+  if (roleError || !staffRole || !["hod", "teacher", "class_master", "school_admin", "principal"].includes(staffRole.code)) {
     return { error: "This staff member must be a member of the teaching faculty (Teacher, Class Master, or HOD)." };
   }
 
@@ -297,7 +683,7 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
     .from("hod_assignments")
     .select("id")
     .eq("school_id", context.school.id)
-    .eq("academic_year_id", parsed.data.academicYearId)
+    .eq("academic_year_id", effectiveYearId)
     .eq("department_id", parsed.data.departmentId)
     .eq("scope_type", parsed.data.scopeType)
     .eq("status", "active");
@@ -329,7 +715,7 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
         .eq("school_id", context.school.id)
     : await supabase.from("hod_assignments").insert({
         school_id: context.school.id,
-        academic_year_id: parsed.data.academicYearId,
+        academic_year_id: effectiveYearId,
         hod_user_id: parsed.data.hodUserId,
         department_id: parsed.data.departmentId,
         subject_id: parsed.data.scopeType === "subject" ? parsed.data.subjectId : null,
@@ -344,9 +730,18 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
 }
 
 export async function assignTeacherAction(_previousState: unknown, formData: FormData) {
-  const context = await requirePermission("assignments.manage");
+  const context = await requireAnyPermission(["assignments.manage", "academics.manage"]);
+
+  const rawYear = formData.get("academicYearId");
+  let academicYearId = typeof rawYear === "string" && rawYear.trim() ? rawYear.trim() : "";
+
+  if (!academicYearId) {
+    const activeYear = await getActiveAcademicYear(context.school.id);
+    academicYearId = activeYear?.id || "";
+  }
+
   const parsed = TeacherAssignmentSchema.safeParse({
-    academicYearId: formData.get("academicYearId"),
+    academicYearId: academicYearId || undefined,
     teacherUserId: formData.get("teacherUserId"),
     classStreamId: formData.get("classStreamId"),
     subjectId: formData.get("subjectId"),
@@ -357,7 +752,7 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
   }
 
   const supabase = await createClient();
-  const [membershipResult, streamResult, subjectResult, yearResult] = await Promise.all([
+  const [membershipResult, streamResult, subjectResult] = await Promise.all([
     supabase
       .from("school_memberships")
       .select("id, role_id")
@@ -367,31 +762,35 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
       .maybeSingle(),
     supabase
       .from("class_streams")
-      .select("id")
+      .select("id, academic_year_id")
       .eq("school_id", context.school.id)
-      .eq("academic_year_id", parsed.data.academicYearId)
       .eq("id", parsed.data.classStreamId)
       .maybeSingle(),
     supabase
       .from("subjects")
-      .select("id")
+      .select("id, default_coefficient, default_max_marks")
       .eq("school_id", context.school.id)
       .eq("id", parsed.data.subjectId)
       .maybeSingle(),
-    supabase
-      .from("academic_years")
-      .select("id")
-      .eq("school_id", context.school.id)
-      .eq("id", parsed.data.academicYearId)
-      .maybeSingle(),
   ]);
 
-  if (membershipResult.error || streamResult.error || subjectResult.error || yearResult.error) {
+  if (membershipResult.error || streamResult.error || subjectResult.error) {
     return { error: "Could not verify the teacher and class details. Please try again." };
   }
 
-  if (!membershipResult.data || !streamResult.data || !subjectResult.data || !yearResult.data) {
-    return { error: "Choose a teacher, class group, subject, and school year from this school." };
+  if (!membershipResult.data) {
+    return { error: "Please select an active teacher from this school." };
+  }
+  if (!streamResult.data) {
+    return { error: "Please select a valid class group." };
+  }
+  if (!subjectResult.data) {
+    return { error: "Please select a valid subject." };
+  }
+
+  const effectiveYearId = parsed.data.academicYearId || streamResult.data.academic_year_id || academicYearId;
+  if (!effectiveYearId) {
+    return { error: "No active academic year found. Please configure an academic year first." };
   }
 
   const { data: staffRole, error: roleError } = await supabase
@@ -400,14 +799,14 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     .eq("id", membershipResult.data.role_id)
     .maybeSingle();
 
-  if (roleError || !staffRole || !["teacher", "class_master", "hod"].includes(staffRole.code)) {
+  if (roleError || !staffRole || !["teacher", "class_master", "hod", "school_admin", "principal"].includes(staffRole.code)) {
     return { error: "This staff member must be a member of the teaching faculty (Teacher, Class Master, or HOD)." };
   }
 
   const { error } = await supabase.from("teacher_assignments").upsert(
     {
       school_id: context.school.id,
-      academic_year_id: parsed.data.academicYearId,
+      academic_year_id: effectiveYearId,
       teacher_user_id: parsed.data.teacherUserId,
       class_stream_id: parsed.data.classStreamId,
       subject_id: parsed.data.subjectId,
@@ -415,14 +814,30 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     { onConflict: "academic_year_id,class_stream_id,subject_id" }
   );
 
-  if (error) return { error: "Could not save the teacher assignment. Please try again." };
+  if (error) return { error: `Could not save the teacher assignment: ${error.message}` };
+
+  // Ensure class_subjects record exists for this stream and subject
+  await supabase.from("class_subjects").upsert(
+    {
+      school_id: context.school.id,
+      class_stream_id: parsed.data.classStreamId,
+      subject_id: parsed.data.subjectId,
+      coefficient: subjectResult.data.default_coefficient ?? 2,
+      max_marks: subjectResult.data.default_max_marks ?? 20,
+    },
+    { onConflict: "class_stream_id,subject_id", ignoreDuplicates: true }
+  );
 
   revalidatePath("/dashboard/academics");
   return { success: true, message: "Teacher assignment saved." };
 }
 
-export async function configureClassSubjectAction(formData: FormData) {
-  const context = await requirePermission("schemes.manage");
+export async function configureClassSubjectAction(
+  stateOrFormData: unknown,
+  maybeFormData?: FormData
+) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : (stateOrFormData as FormData);
+  const context = await requireAnyPermission(["schemes.manage", "academics.manage", "school.settings.manage"]);
   const parsed = ClassSubjectConfigSchema.safeParse({
     classStreamId: formData.get("classStreamId"),
     subjectId: formData.get("subjectId"),
@@ -449,7 +864,60 @@ export async function configureClassSubjectAction(formData: FormData) {
   if (error) return { error: error.message };
 
   revalidatePath("/dashboard/academics");
-  return { success: true };
+  revalidatePath("/dashboard/academics/report-cards");
+  return { success: true as const, message: "Subject coefficient updated." };
+}
+
+export async function updateStreamCoefficientsBatchAction(
+  _prevState: unknown,
+  formData: FormData
+) {
+  const context = await requireAnyPermission(["schemes.manage", "academics.manage", "school.settings.manage"]);
+  const classStreamId = String(formData.get("classStreamId") || "");
+  if (!classStreamId) {
+    return { error: "Class group ID is required." };
+  }
+
+  const supabase = await createClient();
+  const upserts: Array<{
+    school_id: string;
+    class_stream_id: string;
+    subject_id: string;
+    coefficient: number;
+    max_marks: number;
+  }> = [];
+
+  for (const [key, val] of formData.entries()) {
+    if (key.startsWith("coef_")) {
+      const subjectId = key.replace("coef_", "");
+      const coef = parseFloat(String(val));
+      if (!isNaN(coef) && coef > 0) {
+        const maxMarksKey = `max_${subjectId}`;
+        const maxMarksVal = parseFloat(String(formData.get(maxMarksKey) || "20"));
+        upserts.push({
+          school_id: context.school.id,
+          class_stream_id: classStreamId,
+          subject_id: subjectId,
+          coefficient: coef,
+          max_marks: !isNaN(maxMarksVal) && maxMarksVal > 0 ? maxMarksVal : 20,
+        });
+      }
+    }
+  }
+
+  if (upserts.length === 0) {
+    return { error: "No subject coefficients were submitted." };
+  }
+
+  const { error } = await supabase
+    .from("class_subjects")
+    .upsert(upserts, { onConflict: "class_stream_id,subject_id" });
+
+  if (error) return { error: `Could not save coefficients: ${error.message}` };
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  return { success: true as const, message: `Updated coefficients for ${upserts.length} subject(s).` };
 }
 
 export async function registerStudentAction(formData: FormData) {

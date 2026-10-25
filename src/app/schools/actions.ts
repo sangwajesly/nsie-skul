@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { ACTIVE_SCHOOL_COOKIE, getUserSchools } from "@/lib/tenancy/context";
+import { uuidSchema } from "@/lib/validation";
 
 function getSafeDashboardPath(value: string) {
   const baseUrl = "http://nsei.local";
@@ -22,7 +23,7 @@ function getSafeDashboardPath(value: string) {
 export async function setActiveSchoolAction(formData: FormData) {
   const parsed = z
     .object({
-      schoolId: z.uuid(),
+      schoolId: uuidSchema("Choose a valid school."),
       returnTo: z.string().optional(),
     })
     .safeParse({

@@ -2,14 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/tenancy/context";
+import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { formatReceiptNumber } from "@/lib/finance/receipt-utils";
 import { z } from "zod";
 
 const RecordPaymentSchema = z.object({
-  studentBillId: z.string().uuid(),
-  studentId: z.string().uuid(),
-  academicYearId: z.string().uuid(),
+  studentBillId: uuidSchema(),
+  studentId: uuidSchema(),
+  academicYearId: uuidSchema(),
   amount: z.coerce.number().positive("Payment amount must be greater than 0"),
   paymentMethod: z.enum(["cash", "momo", "orange_money", "bank_deposit"]),
   transactionRef: z.string().optional(),

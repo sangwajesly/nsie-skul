@@ -2,17 +2,18 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requireAnyPermission } from "@/lib/tenancy/context";
+import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const RollCallSchema = z.object({
-  academicYearId: z.string().uuid(),
-  termId: z.string().uuid(),
-  classStreamId: z.string().uuid(),
+  academicYearId: uuidSchema(),
+  termId: uuidSchema(),
+  classStreamId: uuidSchema(),
   sessionDate: z.string(),
   records: z.array(
     z.object({
-      studentId: z.string().uuid(),
+      studentId: uuidSchema(),
       status: z.enum(["present", "unjustified_absent", "justified_absent", "late", "excused"]),
       hoursMissed: z.number().min(0).max(10).default(0),
       justificationNote: z.string().optional(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, memo } from "react";
 import {
   saveSequenceMarksAction,
   approveDepartmentalSequenceAction,
@@ -105,18 +105,21 @@ export function MarksGridClient({
   const isFinalApproved = currentStatus === "approved";
   const isReopened = currentStatus === "rejected";
 
-  const handleScoreChange = (index: number, val: string) => {
+  const handleScoreChange = useCallback((index: number, val: string) => {
     const num = val === "" ? null : parseFloat(val);
-    const updated = [...students];
-    updated[index].score = isNaN(num as number) ? null : num;
-    if (num !== null && num > 0) {
-      updated[index].status = "present";
-    }
-    setStudents(updated);
+    setStudents((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        score: isNaN(num as number) ? null : num,
+        status: num !== null && num > 0 ? "present" : updated[index].status,
+      };
+      return updated;
+    });
     setIsDirty(true);
-  };
+  }, []);
 
-  const handleScoreKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleScoreKeyDown = useCallback((index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === "ArrowDown") {
       e.preventDefault();
       const nextInput = document.querySelector<HTMLInputElement>(`input[data-score-idx="${index + 1}"]`);
@@ -132,24 +135,32 @@ export function MarksGridClient({
         prevInput.select();
       }
     }
-  };
+  }, []);
 
-  const handleStatusChange = (index: number, newStatus: "present" | "absent" | "exempt") => {
-    const updated = [...students];
-    updated[index].status = newStatus;
-    if (newStatus !== "present") {
-      updated[index].score = null;
-    }
-    setStudents(updated);
+  const handleStatusChange = useCallback((index: number, newStatus: "present" | "absent" | "exempt") => {
+    setStudents((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        status: newStatus,
+        score: newStatus !== "present" ? null : updated[index].score,
+      };
+      return updated;
+    });
     setIsDirty(true);
-  };
+  }, []);
 
-  const handleRemarksChange = (index: number, rem: string) => {
-    const updated = [...students];
-    updated[index].remarks = rem;
-    setStudents(updated);
+  const handleRemarksChange = useCallback((index: number, rem: string) => {
+    setStudents((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        remarks: rem,
+      };
+      return updated;
+    });
     setIsDirty(true);
-  };
+  }, []);
 
   const handleToggleSelectAll = () => {
     if (selectedIds.size === students.length && students.length > 0) {
@@ -159,15 +170,17 @@ export function MarksGridClient({
     }
   };
 
-  const handleToggleSelectRow = (studentId: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(studentId)) {
-      next.delete(studentId);
-    } else {
-      next.add(studentId);
-    }
-    setSelectedIds(next);
-  };
+  const handleToggleSelectRow = useCallback((studentId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) {
+        next.delete(studentId);
+      } else {
+        next.add(studentId);
+      }
+      return next;
+    });
+  }, []);
 
   const handleBulkStatus = (status: "present" | "absent" | "exempt") => {
     const targetIds = selectedIds.size > 0 ? selectedIds : new Set(students.map((s) => s.studentId));
@@ -659,120 +672,21 @@ export function MarksGridClient({
                   </td>
                 </tr>
               ) : (
-                students.map((student, idx) => {
-                  const normalized20 =
-                    student.score !== null && maxMarks > 0
-                      ? parseFloat(((student.score / maxMarks) * 20).toFixed(2))
-                      : null;
-                  const gradeInfo = getGradeAppreciation(normalized20);
-                  const isSelected = selectedIds.has(student.studentId);
-
-                  return (
-                    <tr
-                      key={student.studentId}
-                      className={`hover:bg-[#FFFDF5] transition-colors ${
-                        isSelected ? "bg-[#F0FDF4]/70" : ""
-                      }`}
-                    >
-                      <td className="py-2 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            disabled={!canEdit}
-                            aria-label={`Select ${student.fullName}`}
-                            checked={isSelected}
-                            onChange={() => handleToggleSelectRow(student.studentId)}
-                            className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13] cursor-pointer"
-                          />
-                          <span className="text-[#788470] font-mono text-[11px] w-4 text-right">
-                            {idx + 1}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-2 px-3 font-mono font-semibold text-[#142010]">
-                        {student.matricule}
-                      </td>
-                      <td className="py-2 px-3 font-medium text-[#142010]">
-                        {student.fullName}
-                      </td>
-                      <td className="py-2 px-3">
-                        <select
-                          disabled={!canEdit}
-                          value={student.status}
-                          aria-label={`Attendance status for ${student.fullName}`}
-                          onChange={(e) =>
-                            handleStatusChange(
-                              idx,
-                              e.target.value as "present" | "absent" | "exempt"
-                            )
-                          }
-                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
-                        >
-                          <option value="present">Present</option>
-                          <option value="absent">Absent (ABS)</option>
-                          <option value="exempt">Exempt (EXC)</option>
-                        </select>
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        <input
-                          type="number"
-                          step="0.25"
-                          min="0"
-                          max={maxMarks}
-                          data-score-idx={idx}
-                          onKeyDown={(e) => handleScoreKeyDown(idx, e)}
-                          aria-label={`Score out of ${maxMarks} for ${student.fullName}`}
-                          disabled={!canEdit || student.status !== "present"}
-                          placeholder={student.status === "present" ? "0.00" : "-"}
-                          value={student.score ?? ""}
-                          onChange={(e) => handleScoreChange(idx, e.target.value)}
-                          className="w-20 px-2 py-1 text-center font-mono font-bold rounded-[4px] border border-[#E8DFC9] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:bg-[#F5EFE0] disabled:text-[#788470]"
-                        />
-                      </td>
-                      <td className="py-2 px-3 text-center font-mono font-bold text-[#142010]">
-                        {student.status === "present" && normalized20 !== null
-                          ? normalized20.toFixed(2)
-                          : "-"}
-                      </td>
-                      <td className="py-2 px-3 text-center">
-                        {student.status === "present" && normalized20 !== null ? (
-                          <span
-                            className={`inline-flex items-center justify-center px-2 py-0.5 rounded-[4px] text-[10px] font-bold ${
-                              gradeInfo.cba === "EXP"
-                                ? "bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40"
-                                : gradeInfo.cba === "SA"
-                                ? "bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]"
-                                : gradeInfo.cba === "SPA"
-                                ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
-                                : "bg-red-50 text-red-700 border border-red-200"
-                            }`}
-                          >
-                            {gradeInfo.letter} · {gradeInfo.label.split("/")[0].trim()}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-[#788470] font-mono">
-                            {student.status === "absent"
-                              ? "ABS"
-                              : student.status === "exempt"
-                              ? "EXC"
-                              : "-"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          disabled={!canEdit}
-                          aria-label={`Teacher remark for ${student.fullName}`}
-                          placeholder="Remark (optional)..."
-                          value={student.remarks}
-                          onChange={(e) => handleRemarksChange(idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
-                        />
-                      </td>
-                    </tr>
-                  );
-                })
+                students.map((student, idx) => (
+                  <StudentMarkRow
+                    key={student.studentId}
+                    student={student}
+                    idx={idx}
+                    maxMarks={maxMarks}
+                    canEdit={canEdit}
+                    isSelected={selectedIds.has(student.studentId)}
+                    onToggleSelectRow={handleToggleSelectRow}
+                    onScoreChange={handleScoreChange}
+                    onScoreKeyDown={handleScoreKeyDown}
+                    onStatusChange={handleStatusChange}
+                    onRemarksChange={handleRemarksChange}
+                  />
+                ))
               )}
             </tbody>
           </table>
@@ -1019,3 +933,140 @@ export function MarksGridClient({
     </div>
   );
 }
+
+interface StudentMarkRowProps {
+  student: StudentRow;
+  idx: number;
+  maxMarks: number;
+  canEdit: boolean;
+  isSelected: boolean;
+  onToggleSelectRow: (studentId: string) => void;
+  onScoreChange: (index: number, val: string) => void;
+  onScoreKeyDown: (index: number, e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onStatusChange: (index: number, newStatus: "present" | "absent" | "exempt") => void;
+  onRemarksChange: (index: number, rem: string) => void;
+}
+
+const StudentMarkRow = memo(function StudentMarkRow({
+  student,
+  idx,
+  maxMarks,
+  canEdit,
+  isSelected,
+  onToggleSelectRow,
+  onScoreChange,
+  onScoreKeyDown,
+  onStatusChange,
+  onRemarksChange,
+}: StudentMarkRowProps) {
+  const normalized20 =
+    student.score !== null && maxMarks > 0
+      ? parseFloat(((student.score / maxMarks) * 20).toFixed(2))
+      : null;
+  const gradeInfo = getGradeAppreciation(normalized20);
+
+  return (
+    <tr
+      className={`hover:bg-[#FFFDF5] transition-colors ${
+        isSelected ? "bg-[#F0FDF4]/70" : ""
+      }`}
+    >
+      <td className="py-2 px-3 text-center">
+        <div className="flex items-center justify-center gap-1.5">
+          <input
+            type="checkbox"
+            disabled={!canEdit}
+            aria-label={`Select ${student.fullName}`}
+            checked={isSelected}
+            onChange={() => onToggleSelectRow(student.studentId)}
+            className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13] cursor-pointer"
+          />
+          <span className="text-[#788470] font-mono text-[11px] w-4 text-right">
+            {idx + 1}
+          </span>
+        </div>
+      </td>
+      <td className="py-2 px-3 font-mono font-semibold text-[#142010]">
+        {student.matricule}
+      </td>
+      <td className="py-2 px-3 font-medium text-[#142010]">
+        {student.fullName}
+      </td>
+      <td className="py-2 px-3">
+        <select
+          disabled={!canEdit}
+          value={student.status}
+          aria-label={`Attendance status for ${student.fullName}`}
+          onChange={(e) =>
+            onStatusChange(
+              idx,
+              e.target.value as "present" | "absent" | "exempt"
+            )
+          }
+          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+        >
+          <option value="present">Present</option>
+          <option value="absent">Absent (ABS)</option>
+          <option value="exempt">Exempt (EXC)</option>
+        </select>
+      </td>
+      <td className="py-2 px-3 text-center">
+        <input
+          type="number"
+          step="0.25"
+          min="0"
+          max={maxMarks}
+          data-score-idx={idx}
+          onKeyDown={(e) => onScoreKeyDown(idx, e)}
+          aria-label={`Score out of ${maxMarks} for ${student.fullName}`}
+          disabled={!canEdit || student.status !== "present"}
+          placeholder={student.status === "present" ? "0.00" : "-"}
+          value={student.score ?? ""}
+          onChange={(e) => onScoreChange(idx, e.target.value)}
+          className="w-20 px-2 py-1 text-center font-mono font-bold rounded-[4px] border border-[#E8DFC9] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:bg-[#F5EFE0] disabled:text-[#788470]"
+        />
+      </td>
+      <td className="py-2 px-3 text-center font-mono font-bold text-[#142010]">
+        {student.status === "present" && normalized20 !== null
+          ? normalized20.toFixed(2)
+          : "-"}
+      </td>
+      <td className="py-2 px-3 text-center">
+        {student.status === "present" && normalized20 !== null ? (
+          <span
+            className={`inline-flex items-center justify-center px-2 py-0.5 rounded-[4px] text-[10px] font-bold ${
+              gradeInfo.cba === "EXP"
+                ? "bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40"
+                : gradeInfo.cba === "SA"
+                ? "bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]"
+                : gradeInfo.cba === "SPA"
+                ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
+                : "bg-red-50 text-red-700 border border-red-200"
+            }`}
+          >
+            {gradeInfo.letter} · {gradeInfo.label.split("/")[0].trim()}
+          </span>
+        ) : (
+          <span className="text-[10px] text-[#788470] font-mono">
+            {student.status === "absent"
+              ? "ABS"
+              : student.status === "exempt"
+              ? "EXC"
+              : "-"}
+          </span>
+        )}
+      </td>
+      <td className="py-2 px-3">
+        <input
+          type="text"
+          disabled={!canEdit}
+          aria-label={`Teacher remark for ${student.fullName}`}
+          placeholder="Remark (optional)..."
+          value={student.remarks}
+          onChange={(e) => onRemarksChange(idx, e.target.value)}
+          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+        />
+      </td>
+    </tr>
+  );
+});
