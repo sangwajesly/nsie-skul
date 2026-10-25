@@ -16,7 +16,7 @@ const RollCallSchema = z.object({
       studentId: uuidSchema(),
       status: z.enum(["present", "unjustified_absent", "justified_absent", "late", "excused"]),
       hoursMissed: z.number().min(0).max(10).default(0),
-      justificationNote: z.string().optional(),
+      justificationNote: z.string().nullish(),
     })
   ),
 });

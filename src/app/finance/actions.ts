@@ -13,9 +13,9 @@ const RecordPaymentSchema = z.object({
   academicYearId: uuidSchema(),
   amount: z.coerce.number().positive("Payment amount must be greater than 0"),
   paymentMethod: z.enum(["cash", "momo", "orange_money", "bank_deposit"]),
-  transactionRef: z.string().optional(),
-  termNumber: z.coerce.number().min(1).max(3).optional(),
-  remarks: z.string().optional(),
+  transactionRef: z.string().nullish(),
+  termNumber: z.coerce.number().min(1).max(3).nullish(),
+  remarks: z.string().nullish(),
 });
 
 export async function recordFeePaymentAction(formData: FormData) {

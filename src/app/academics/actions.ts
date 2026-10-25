@@ -10,14 +10,14 @@ import { z } from "zod";
 const DepartmentSchema = z.object({
   name: z.string().min(2, "Department name is required"),
   code: z.string().min(2, "Department code is required").toUpperCase(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
 });
 
 const DepartmentUpdateSchema = z.object({
   departmentId: uuidSchema("Department ID is required"),
   name: z.string().min(2, "Department name is required"),
   code: z.string().min(2, "Department code is required").toUpperCase(),
-  description: z.string().optional(),
+  description: z.string().nullish(),
 });
 
 const DepartmentDeleteSchema = z.object({
@@ -50,16 +50,16 @@ const ClassDeleteSchema = z.object({
 });
 
 const ClassStreamSchema = z.object({
-  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  academicYearId: uuidSchema("Please select a valid academic year.").nullish().or(z.literal("")),
   classId: uuidSchema("Please select a class"),
   name: z.string().min(1, "Class group name is required"),
-  streamTag: z.string().optional(),
+  streamTag: z.string().nullish(),
 });
 
 const ClassStreamUpdateSchema = z.object({
   classStreamId: uuidSchema("Class group ID is required"),
   name: z.string().min(1, "Class group name is required"),
-  streamTag: z.string().optional(),
+  streamTag: z.string().nullish(),
 });
 
 const ClassStreamDeleteSchema = z.object({
@@ -67,15 +67,15 @@ const ClassStreamDeleteSchema = z.object({
 });
 
 const HodAssignmentSchema = z.object({
-  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  academicYearId: uuidSchema("Please select a valid academic year.").nullish().or(z.literal("")),
   hodUserId: uuidSchema("Please select a staff member"),
   departmentId: uuidSchema("Please select a department"),
-  subjectId: uuidSchema("Please select a subject").optional().or(z.literal("")),
+  subjectId: uuidSchema("Please select a subject").nullish().or(z.literal("")),
   scopeType: z.enum(["department", "subject"]),
 });
 
 const TeacherAssignmentSchema = z.object({
-  academicYearId: uuidSchema("Please select a valid academic year.").optional().or(z.literal("")),
+  academicYearId: uuidSchema("Please select a valid academic year.").nullish().or(z.literal("")),
   teacherUserId: uuidSchema("Please select a teacher"),
   classStreamId: uuidSchema("Please select a class group"),
   subjectId: uuidSchema("Please select a subject"),
@@ -96,8 +96,8 @@ const StudentRegisterSchema = z.object({
   lastName: z.string().min(2, "Last name is required"),
   gender: z.enum(["M", "F"]),
   residenceStatus: z.enum(["day", "boarding"]),
-  guardianName: z.string().optional(),
-  guardianPhone: z.string().optional(),
+  guardianName: z.string().nullish(),
+  guardianPhone: z.string().nullish(),
 });
 
 export async function createDepartmentAction(_state: unknown, formData: FormData) {
@@ -311,7 +311,7 @@ export async function createClassStreamAction(
     academicYearId: academicYearId || undefined,
     classId: formData.get("classId"),
     name: formData.get("name"),
-    streamTag: formData.get("streamTag"),
+    streamTag: formData.get("streamTag") || undefined,
   });
 
   if (!parsed.success) {
@@ -435,7 +435,7 @@ export async function updateClassStreamAction(_state: unknown, formData: FormDat
   const parsed = ClassStreamUpdateSchema.safeParse({
     classStreamId: formData.get("classStreamId"),
     name: formData.get("name"),
-    streamTag: formData.get("streamTag"),
+    streamTag: formData.get("streamTag") || undefined,
   });
 
   if (!parsed.success) {
