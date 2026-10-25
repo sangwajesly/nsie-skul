@@ -167,6 +167,7 @@ export interface StreamReportCardContext {
   sequences: any[];
   allSubjects: any[];
   classSubjectMap: Map<string, { coefficient: number; max_marks: number }>;
+  teacherNameMap?: Map<string, string>;
   streamMarks: AssessmentMark[];
   dbCompetencies: any[];
   actualClassSize: number;
@@ -278,18 +279,61 @@ export async function getStudentReportCard(
 
   // 6. Fetch Subjects for this stream & department
   let allSubjects = sharedContext?.allSubjects || null;
+  let teacherNameMap = sharedContext?.teacherNameMap || new Map<string, string>();
+
   if (!allSubjects) {
-    const { data: subjectsData } = await supabase
-      .from("subjects")
-      .select(
+    const [
+      { data: subjectsData },
+      { data: teacherAssignmentsData },
+      { data: classSubjectsData },
+    ] = await Promise.all([
+      supabase
+        .from("subjects")
+        .select(
+          `
+          *,
+          department:departments (*)
         `
-        *,
-        department:departments (*)
-      `
-      )
-      .eq("school_id", schoolId)
-      .order("name", { ascending: true });
-    allSubjects = subjectsData || [];
+        )
+        .eq("school_id", schoolId)
+        .order("name", { ascending: true }),
+      supabase
+        .from("teacher_assignments")
+        .select(
+          `
+          subject_id,
+          teacher:user_profiles (full_name)
+        `
+        )
+        .eq("school_id", schoolId)
+        .eq("academic_year_id", term.academic_year_id)
+        .eq("class_stream_id", classStream.id),
+      supabase
+        .from("class_subjects")
+        .select("subject_id, coefficient, max_marks")
+        .eq("class_stream_id", classStream.id),
+    ]);
+
+    const rawSubjects = subjectsData || [];
+    const assignedSubjectIds = new Set<string>();
+
+    (teacherAssignmentsData || []).forEach((ta: any) => {
+      assignedSubjectIds.add(ta.subject_id);
+      const teacher = ta.teacher as { full_name?: string } | null;
+      if (teacher?.full_name) {
+        teacherNameMap.set(ta.subject_id, teacher.full_name);
+      }
+    });
+
+    (classSubjectsData || []).forEach((cs) => {
+      assignedSubjectIds.add(cs.subject_id);
+    });
+
+    // Only include subjects assigned to this class group!
+    // Falls back to raw subjects only if no assignments exist at all in the school yet.
+    allSubjects = assignedSubjectIds.size > 0
+      ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
+      : rawSubjects;
   }
 
   // 6b. Fetch stream-specific class_subjects for custom coefficients and max marks
@@ -408,7 +452,7 @@ export async function getStudentReportCard(
     return {
       subjectId: sub.id,
       subjectName: sub.name,
-      teacherName: "M. Staff",
+      teacherName: teacherNameMap.get(sub.id) || "Course Teacher",
       competencies,
       seqAMark: scoreA,
       seqBMark: scoreB,
@@ -701,13 +745,14 @@ export async function getClassStreamReportCards(
 
   const enrolledStudentIds = sorted.map((e) => e.student_id);
 
-  // 2. Fetch shared context in parallel (school, term, sequences, subjects, stream marks, competencies)
+  // 2. Fetch shared context in parallel (school, term, sequences, subjects, stream marks, competencies, assignments)
   const [
     { data: schoolData },
     { data: termData },
     { data: sequencesData },
     { data: subjectsData },
     { data: classSubjectsData },
+    { data: teacherAssignmentsData },
     { data: dbCompetenciesData },
     { data: termResultsData },
     { data: attendanceRecordsData },
@@ -718,6 +763,7 @@ export async function getClassStreamReportCards(
     supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
     supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
     supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
+    supabase.from("teacher_assignments").select("subject_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
     supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
     supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
     supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
@@ -729,8 +775,28 @@ export async function getClassStreamReportCards(
   const school = schoolData as School;
   const term = termData as Term & { academic_year: { name: string } };
   const sequences = sequencesData || [];
-  const allSubjects = subjectsData || [];
   const seqIds = sequences.map((s) => s.id);
+
+  // 2b. Filter strictly to subjects assigned to this class group
+  const assignedSubjectIds = new Set<string>();
+  const teacherNameMap = new Map<string, string>();
+
+  (teacherAssignmentsData || []).forEach((ta: any) => {
+    assignedSubjectIds.add(ta.subject_id);
+    const teacher = ta.teacher as { full_name?: string } | null;
+    if (teacher?.full_name) {
+      teacherNameMap.set(ta.subject_id, teacher.full_name);
+    }
+  });
+
+  (classSubjectsData || []).forEach((cs) => {
+    assignedSubjectIds.add(cs.subject_id);
+  });
+
+  const rawSubjects = subjectsData || [];
+  const streamSubjects = assignedSubjectIds.size > 0
+    ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
+    : rawSubjects;
 
   // Fetch assessment marks for this stream and sequences
   const { data: streamMarksData } = await supabase
@@ -777,7 +843,7 @@ export async function getClassStreamReportCards(
     sanctionsMap.set(s.student_id, prev);
   });
 
-  // 3. Precompute class ranking & statistical profile ONCE for all students
+  // 3. Precompute class ranking & statistical profile ONCE across assigned stream subjects
   const seqA = sequences[0] || null;
   const seqB = sequences[1] || null;
   const studentAverages: Array<{ studentId: string; average: number }> = [];
@@ -786,7 +852,7 @@ export async function getClassStreamReportCards(
     let sCoef = 0;
     let sWeighted = 0;
 
-    for (const sub of allSubjects) {
+    for (const sub of streamSubjects) {
       const markA = streamMarks.find(
         (m) => m.student_id === sId && m.subject_id === sub.id && m.sequence_id === seqA?.id
       );
@@ -845,8 +911,9 @@ export async function getClassStreamReportCards(
     school,
     term,
     sequences,
-    allSubjects,
+    allSubjects: streamSubjects,
     classSubjectMap,
+    teacherNameMap,
     streamMarks,
     dbCompetencies: dbCompetenciesData || [],
     actualClassSize: enrolledStudentIds.length,
