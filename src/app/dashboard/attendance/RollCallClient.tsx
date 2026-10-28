@@ -151,8 +151,135 @@ export function RollCallClient({
         </div>
       )}
 
-      {/* Roster Table */}
-      <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden">
+      {/* ── 1. Mobile Attendance Touch Cards (< md) ────────────────────────── */}
+      <div className="block md:hidden space-y-3">
+        {students.length === 0 ? (
+          <div className="p-8 text-center bg-white rounded-[8px] border border-[#E8DFC9] text-xs text-[#788470]">
+            No students enrolled in this class stream.
+          </div>
+        ) : (
+          students.map((student, idx) => (
+            <div
+              key={student.studentId}
+              className={`p-3.5 rounded-[8px] bg-white border transition-colors space-y-2.5 ${
+                student.status === "present"
+                  ? "border-[#E8DFC9] shadow-2xs"
+                  : student.status === "unjustified_absent" || student.status === "justified_absent"
+                  ? "border-red-300 bg-red-50/30"
+                  : "border-amber-300 bg-amber-50/30"
+              }`}
+            >
+              {/* Header: #, Name, Matricule & Gender */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-[#142010] text-white flex items-center justify-center font-bold font-mono text-xs shrink-0 mt-0.5">
+                    {idx + 1}
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-[#142010] leading-tight">
+                      {student.fullName}
+                    </h4>
+                    <div className="flex items-center gap-2 text-[11px] text-[#788470] mt-0.5 font-mono">
+                      <span>{student.matricule}</span>
+                      <span>•</span>
+                      <span>{student.gender === "M" ? "Male" : "Female"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Pills */}
+              <div className="grid grid-cols-4 gap-1 p-1 rounded-[6px] bg-[#F7F4EA] border border-[#E8DFC9]">
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(idx, "present")}
+                  className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center cursor-pointer ${
+                    student.status === "present"
+                      ? "bg-[#2A7C13] text-white shadow-xs"
+                      : "text-[#555555] hover:bg-white/60"
+                  }`}
+                >
+                  Present
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(idx, "unjustified_absent")}
+                  className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center cursor-pointer ${
+                    student.status === "unjustified_absent"
+                      ? "bg-[#DC2626] text-white shadow-xs"
+                      : "text-[#555555] hover:bg-white/60"
+                  }`}
+                >
+                  Absent
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(idx, "late")}
+                  className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center cursor-pointer ${
+                    student.status === "late"
+                      ? "bg-[#D97706] text-white shadow-xs"
+                      : "text-[#555555] hover:bg-white/60"
+                  }`}
+                >
+                  Late
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleStatusChange(idx, "excused")}
+                  className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center cursor-pointer ${
+                    student.status === "excused"
+                      ? "bg-[#2563EB] text-white shadow-xs"
+                      : "text-[#555555] hover:bg-white/60"
+                  }`}
+                >
+                  Excused
+                </button>
+              </div>
+
+              {/* Absence Details when not present */}
+              {student.status !== "present" && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1 border-t border-[#E8DFC9]/70 text-xs">
+                  <div>
+                    <label className="block text-[10px] font-bold text-[#525E4B] mb-0.5">
+                      Hours Missed:
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0.5"
+                      max="8"
+                      value={student.hoursMissed}
+                      onChange={(e) => handleHoursChange(idx, e.target.value)}
+                      className="w-full px-2.5 py-1.5 rounded-[4px] border border-[#E8DFC9] bg-white font-mono font-bold text-center"
+                      style={{ fontSize: "16px" }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-[#525E4B] mb-0.5">
+                      Reason / Justification Note:
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Illness, family emergency..."
+                      value={student.justificationNote}
+                      onChange={(e) => {
+                        const updated = [...students];
+                        updated[idx].justificationNote = e.target.value;
+                        setStudents(updated);
+                      }}
+                      className="w-full px-2.5 py-1.5 rounded-[4px] border border-[#E8DFC9] bg-white text-xs"
+                      style={{ fontSize: "16px" }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* ── 2. Desktop Attendance Table (md+) ───────────────────────────────── */}
+      <div className="hidden md:block bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead>

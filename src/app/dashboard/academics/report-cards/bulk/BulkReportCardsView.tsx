@@ -4,6 +4,9 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { ReportCardFullData } from "@/lib/academic/report-card-service";
 import { MinesecReportCard } from "@/components/academic/MinesecReportCard";
+import { GroupedClassicReportCard } from "@/components/academic/GroupedClassicReportCard";
+import { TraditionalReportCard } from "@/components/academic/TraditionalReportCard";
+import { ReportCardTemplateType } from "@/components/academic/ReportCardRenderer";
 import {
   Printer,
   ArrowLeft,
@@ -20,6 +23,7 @@ interface Props {
   classStreamId: string;
   termNumber: number;
   initialSortBy?: "rank" | "alphabetical";
+  initialTemplate?: ReportCardTemplateType;
 }
 
 export function BulkReportCardsView({
@@ -29,7 +33,11 @@ export function BulkReportCardsView({
   classStreamId,
   termNumber,
   initialSortBy = "rank",
+  initialTemplate,
 }: Props) {
+  const template: ReportCardTemplateType =
+    initialTemplate ||
+    ((reportCards[0]?.school?.reportCardTemplate as ReportCardTemplateType) || "cba_grouped_classic");
   const [sortBy, setSortBy] = useState<"rank" | "alphabetical">(initialSortBy);
 
   const sortedReportCards = useMemo(() => {
@@ -76,12 +84,12 @@ export function BulkReportCardsView({
             </div>
           </div>
 
-          {/* Sort Controls & Print Button */}
+          {/* Sort & Print Controls */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Sort Toggle Group */}
             <div className="inline-flex items-center gap-1 bg-[#F4EFE0] p-1 rounded-[6px] border border-[#D5CBB2] text-xs">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#666666] px-1.5">
-                Sort Order:
+                Sort:
               </span>
               <button
                 type="button"
@@ -93,7 +101,7 @@ export function BulkReportCardsView({
                 }`}
               >
                 <Award className="w-3.5 h-3.5" />
-                <span>By Rank (1st → Last)</span>
+                <span>By Rank</span>
               </button>
               <button
                 type="button"
@@ -105,7 +113,7 @@ export function BulkReportCardsView({
                 }`}
               >
                 <ArrowDownAZ className="w-3.5 h-3.5" />
-                <span>Alphabetical (A → Z)</span>
+                <span>A → Z</span>
               </button>
             </div>
 
@@ -160,7 +168,13 @@ export function BulkReportCardsView({
               key={rc.student.id}
               className="report-card-print-sheet bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-4 sm:p-6 print:p-0 print:border-none print:shadow-none"
             >
-              <MinesecReportCard data={rc} />
+              {template === "traditional_classic" ? (
+                <TraditionalReportCard data={rc} />
+              ) : template === "cba_grouped_classic" ? (
+                <GroupedClassicReportCard data={rc} />
+              ) : (
+                <MinesecReportCard data={rc} />
+              )}
             </div>
           ))}
         </div>

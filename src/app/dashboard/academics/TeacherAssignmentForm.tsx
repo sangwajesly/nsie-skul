@@ -91,7 +91,7 @@ export default function TeacherAssignmentForm({
       </div>
       <div className="sm:col-span-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[11px] text-[#777777]">
-          Saving replaces the current teacher for this class group and subject.
+          Assign a teacher to this class group and subject. Multiple teachers can be assigned to co-teach the same subject.
         </p>
         <button
           type="submit"

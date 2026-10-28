@@ -273,7 +273,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
               >
                 {sequences.map((seq) => (
                   <option key={seq.id} value={seq.id}>
-                    {seq.name} (Test {seq.sequence_number} of 6) {seq.is_open_for_marks ? "★ Active" : ""}
+                    {seq.name} (Test {seq.sequence_number}) — {seq.is_open_for_marks ? "Open for Marks" : "Closed"}
                   </option>
                 ))}
               </AutoSubmitSelect>

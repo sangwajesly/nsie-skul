@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, memo } from "react";
+import { useState, useTransition, useCallback, memo, useEffect, useRef } from "react";
 import {
   saveSequenceMarksAction,
   approveDepartmentalSequenceAction,
@@ -23,6 +23,11 @@ import {
   RotateCcw,
   Clock,
   HelpCircle,
+  LayoutGrid,
+  List,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface StudentRow {
@@ -96,6 +101,10 @@ export function MarksGridClient({
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showReopenModal, setShowReopenModal] = useState(false);
   const [reopenJustification, setReopenJustification] = useState("");
+  const [showFloatingDock, setShowFloatingDock] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
+  const bottomCardRef = useRef<HTMLDivElement>(null);
 
   // Permission calculation:
   // HOD and Administrator can ALWAYS edit marks (in draft, submitted, or approved states)
@@ -126,6 +135,7 @@ export function MarksGridClient({
       if (nextInput) {
         nextInput.focus();
         nextInput.select();
+        nextInput.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -133,6 +143,7 @@ export function MarksGridClient({
       if (prevInput) {
         prevInput.focus();
         prevInput.select();
+        prevInput.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     }
   }, []);
@@ -289,6 +300,77 @@ export function MarksGridClient({
     });
   };
 
+  const handleSaveDraftRef = useRef<(silent?: boolean) => Promise<boolean>>(() => Promise.resolve(false));
+
+  useEffect(() => {
+    handleSaveDraftRef.current = handleSaveDraft;
+  });
+
+  // Track scroll position to reveal the floating action island mid-page and hide at top and bottom
+  useEffect(() => {
+    const handleScroll = () => {
+      // 1. Accurately measure scroll position from whichever element is scrolling
+      const scrollY = Math.max(
+        window.scrollY || 0,
+        document.documentElement.scrollTop || 0,
+        document.body.scrollTop || 0,
+        document.querySelector("main")?.scrollTop || 0
+      );
+
+      // Must be scrolled down past top controls (~120px)
+      const pastTop = scrollY > 120;
+
+      // 2. Measure total scroll distance to detect when at the end of the page
+      const scrollHeight = Math.max(
+        document.documentElement.scrollHeight || 0,
+        document.body.scrollHeight || 0,
+        document.querySelector("main")?.scrollHeight || 0
+      );
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 800;
+      const distFromBottom = scrollHeight - (scrollY + viewportHeight);
+
+      // Hide if reached the end of the page (within 80px)
+      let atBottom = distFromBottom <= 80;
+
+      // Also hide if the bottom card is comfortably in view
+      if (!atBottom && bottomCardRef.current) {
+        const rect = bottomCardRef.current.getBoundingClientRect();
+        if (rect.top <= viewportHeight - 160 && rect.bottom <= viewportHeight + 120) {
+          atBottom = true;
+        }
+      }
+
+      setShowFloatingDock(pastTop && !atBottom);
+    };
+
+    // Use capture: true so scroll events from both <main> and window are captured
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
+    window.addEventListener("resize", handleScroll, { passive: true });
+
+    // Initial check
+    handleScroll();
+
+    return () => {
+      window.removeEventListener("scroll", handleScroll, { capture: true } as any);
+      window.removeEventListener("resize", handleScroll);
+    };
+  }, []);
+
+  // Global keyboard shortcut: Ctrl+S or Cmd+S to quickly save marks without moving mouse
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (canEdit && !isPending) {
+          handleSaveDraftRef.current(false);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [canEdit, isPending]);
+
   const handleConfirmSubmitToHod = async () => {
     setMessage(null);
     setShowSubmitModal(false);
@@ -374,7 +456,7 @@ export function MarksGridClient({
     });
   };
 
-  // Compute live averages
+  // Compute live averages & progress statistics
   const presentStudents = students.filter((s) => s.status === "present" && s.score !== null);
   const avgOutOf20 =
     presentStudents.length > 0
@@ -384,23 +466,134 @@ export function MarksGridClient({
         ).toFixed(2)
       : null;
 
+  const totalStudentsCount = students.length;
+  const recordedStudentsCount = students.filter(
+    (s) => s.score !== null || s.status === "absent" || s.status === "exempt"
+  ).length;
+  const pendingStudentsCount = Math.max(0, totalStudentsCount - recordedStudentsCount);
+
+  const renderSaveAndSubmitButtons = (size: "normal" | "large" = "normal") => {
+    if (!canEdit) {
+      if (isSubmitted) {
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] font-bold ${
+              size === "large" ? "px-4 py-2.5 text-xs" : "px-3 py-1.5 text-xs"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5 text-[#1D4ED8]" />
+            <span>Submitted to HOD</span>
+          </span>
+        );
+      }
+      return (
+        <span
+          className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] font-bold ${
+            size === "large" ? "px-4 py-2.5 text-xs" : "px-3 py-1.5 text-xs"
+          }`}
+        >
+          <Lock className="w-3.5 h-3.5 text-[#7A4A00]" />
+          <span>Approved &amp; Locked</span>
+        </span>
+      );
+    }
+
+    return (
+      <div className="flex items-center gap-2">
+        {isDirty ? (
+          <button
+            type="button"
+            onClick={() => handleSaveDraft(false)}
+            disabled={isPending}
+            className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold shadow-xs transition-colors disabled:opacity-50 cursor-pointer ${
+              size === "large" ? "px-5 py-2.5 text-xs" : "px-3.5 py-1.5 text-xs"
+            }`}
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>{isPending ? "Saving..." : canApprove ? "Save Changes" : "Save Draft"}</span>
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" title="Unsaved changes" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => handleSaveDraft(false)}
+            disabled={isPending}
+            className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#555555] font-semibold border border-[#D5D5CF] transition-colors cursor-pointer ${
+              size === "large" ? "px-5 py-2.5 text-xs" : "px-3.5 py-1.5 text-xs"
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#2A7C13]" />
+            <span>{isPending ? "Saving..." : canApprove ? "All Changes Saved" : "Draft Saved"}</span>
+          </button>
+        )}
+
+        {!canApprove && (currentStatus === "draft" || currentStatus === "rejected") && (
+          <button
+            type="button"
+            onClick={() => setShowSubmitModal(true)}
+            disabled={isPending}
+            className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#142010] hover:bg-[#2A7C13] text-white font-bold shadow-xs transition-colors cursor-pointer ${
+              size === "large" ? "px-5 py-2.5 text-xs" : "px-3.5 py-1.5 text-xs"
+            }`}
+          >
+            <Send className="w-3.5 h-3.5 text-[#76C457]" />
+            <span>Submit to HOD</span>
+          </button>
+        )}
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Action and Metric Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
-        <div className="flex flex-wrap items-center gap-4 text-xs">
-          <div>
-            <span className="text-[#525E4B]">Subject:</span>{" "}
-            <strong className="text-[#142010] font-bold text-sm">{subjectName}</strong>
+    <div className="space-y-4 pb-24">
+      {/* ── Top Header: 2 Distinct Columns (Details vs Offline Tools) ──────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+        {/* Column 1 (Left 7 cols): Subject Details & Denominator Settings */}
+        <div className="lg:col-span-7 p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-col justify-between gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+            <div>
+              <span className="text-[10px] font-bold text-[#525E4B] uppercase tracking-wider block">
+                Target Evaluation &amp; Subject
+              </span>
+              <h2 className="text-base font-extrabold text-[#142010] flex flex-wrap items-center gap-2 mt-0.5">
+                <span>{subjectName}</span>
+                <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]">
+                  Weight: Coef {coefficient}
+                </span>
+              </h2>
+              <p className="text-xs text-[#525E4B] mt-0.5">
+                {streamName} · <strong className="text-[#142010]">{sequenceName}</strong>
+              </p>
+            </div>
+
+            {/* Workflow Status Badge */}
+            <div>
+              {isFinalApproved ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-xs font-bold">
+                  <Lock className="w-3.5 h-3.5 text-[#166534]" />
+                  <span>Approved &amp; Locked</span>
+                </span>
+              ) : isSubmitted ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
+                  <Clock className="w-3.5 h-3.5 text-[#1D4ED8]" />
+                  <span>Under HOD Review</span>
+                </span>
+              ) : isReopened ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-xs font-bold">
+                  <RotateCcw className="w-3.5 h-3.5 text-[#B45309]" />
+                  <span>Reopened for Revision</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#F5F5F0] text-[#555555] border border-[#D5D5CF] text-xs font-bold">
+                  <Unlock className="w-3.5 h-3.5 text-[#2A7C13]" />
+                  <span>Draft Mode</span>
+                </span>
+              )}
+            </div>
           </div>
-          <div className="h-4 w-px bg-[#E8DFC9] hidden sm:block" />
-          <div>
-            <span className="text-[#525E4B]">Weight:</span>{" "}
-            <span className="font-mono font-bold text-[#142010]">Coef {coefficient}</span>
-          </div>
-          <div className="h-4 w-px bg-[#E8DFC9] hidden sm:block" />
-          <div className="flex items-center gap-1.5">
-            <label htmlFor="maxMarksInput" className="text-[#525E4B]">
+
+          <div className="pt-2.5 border-t border-[#E8DFC9]/70 flex flex-wrap items-center gap-2 text-xs">
+            <label htmlFor="maxMarksInput" className="font-semibold text-[#525E4B]">
               Max Denominator:
             </label>
             <input
@@ -411,83 +604,117 @@ export function MarksGridClient({
               onChange={(e) => setMaxMarks(parseFloat(e.target.value) || 20)}
               className="w-16 px-2 py-1 rounded-[5px] border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
             />
-            <span className="text-[10px] text-[#788470]">(20 for general, 40-100 for technical)</span>
+            <span className="text-[11px] text-[#788470]">
+              (Default /20 for general subjects, /40–/100 for technical subjects)
+            </span>
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {canEdit && (
-            <>
-              <button
-                type="button"
-                onClick={handleQuickDownloadTemplate}
-                title="Download pre-filled CSV sheet with your class roster"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[6px] bg-white hover:bg-[#F5F5F0] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors shadow-2xs"
-              >
-                <Download className="w-3.5 h-3.5 text-[#2A7C13]" />
-                <span>Template</span>
-              </button>
+        {/* Column 2 (Right 5 cols): Offline Spreadsheet Tools Section */}
+        <div className="lg:col-span-5 p-4 rounded-[8px] bg-[#FAFAF7] border border-[#E8DFC9] shadow-2xs flex flex-col justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-4 h-4 text-[#2A7C13]" />
+              <h3 className="text-xs font-bold text-[#142010] uppercase tracking-wide">
+                Offline Spreadsheet Tools
+              </h3>
+            </div>
+            <p className="text-[11px] text-[#666666] mt-1 leading-snug">
+              Prefer grading offline? Download the official class roster CSV, enter marks in Excel or Google Sheets, and import back in one click.
+            </p>
+          </div>
 
-              <button
-                type="button"
-                onClick={() => setIsImportModalOpen(true)}
-                title="Import student scores from Excel or CSV file"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[6px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] font-semibold text-xs transition-colors shadow-2xs"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Import Excel/CSV</span>
-              </button>
-            </>
-          )}
-
-          {!canEdit ? (
-            isSubmitted ? (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
-                <Clock className="w-3.5 h-3.5" />
-                <span>Submitted to HOD</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-xs font-bold">
-                <Lock className="w-3.5 h-3.5" />
-                <span>Approved &amp; Locked</span>
-              </span>
-            )
-          ) : (
-            <>
-              {isDirty ? (
-                <button
-                  onClick={() => handleSaveDraft(false)}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{isPending ? "Saving..." : canApprove ? "Save Changes" : "Save Draft"}</span>
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" title="Unsaved changes" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => handleSaveDraft(false)}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#555555] font-semibold text-xs border border-[#D5D5CF] transition-colors"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>{isPending ? "Saving..." : canApprove ? "All Changes Saved" : "Draft Saved"}</span>
-                </button>
-              )}
-
-              {!canApprove && (currentStatus === "draft" || currentStatus === "rejected") && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E8DFC9]/70">
+            {canEdit ? (
+              <>
                 <button
                   type="button"
-                  onClick={() => setShowSubmitModal(true)}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-[6px] bg-[#142010] hover:bg-[#2A7C13] text-white font-semibold text-xs shadow-xs transition-colors"
+                  onClick={handleQuickDownloadTemplate}
+                  title="Download pre-filled CSV sheet with your class roster"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-white hover:bg-[#F5F5F0] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
                 >
-                  <Send className="w-3.5 h-3.5 text-[#76C457]" />
-                  <span>Submit to HOD</span>
+                  <Download className="w-3.5 h-3.5 text-[#2A7C13]" />
+                  <span>Download Template</span>
                 </button>
-              )}
-            </>
+
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(true)}
+                  title="Import student scores from Excel or CSV file"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5" />
+                  <span>Import Excel / CSV</span>
+                </button>
+              </>
+            ) : (
+              <span className="text-[11px] text-[#788470] italic">
+                Spreadsheet import disabled while marks are locked.
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Separate Line: Online Mark Entry Grid Status & Top Actions ──────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#2A7C13]" />
+            <span className="font-bold text-[#142010]">Mark Entry Roster</span>
+          </div>
+          <div className="h-3.5 w-px bg-[#E8DFC9] hidden sm:block" />
+          <div className="text-[#525E4B]">
+            Progress: <strong className="text-[#142010]">{recordedStudentsCount}</strong> of{" "}
+            <strong className="text-[#142010]">{totalStudentsCount}</strong> entered
+            {pendingStudentsCount > 0 ? (
+              <span className="ml-1 text-[#A16207] font-semibold">({pendingStudentsCount} pending)</span>
+            ) : (
+              <span className="ml-1 text-[#2A7C13] font-semibold">(Complete ✓)</span>
+            )}
+          </div>
+          {isDirty && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#B45309] animate-pulse" />
+              Unsaved changes
+            </span>
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E8DFC9]/70">
+          {/* Mobile/Desktop View Switcher */}
+          <div className="inline-flex items-center rounded-[6px] border border-[#E8DFC9] p-0.5 bg-[#F5EFE0]/70 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
+                viewMode === "cards" || (viewMode === "auto")
+                  ? "bg-white text-[#142010] shadow-xs"
+                  : "text-[#666666] hover:text-[#142010]"
+              } ${viewMode === "auto" ? "md:hidden" : ""}`}
+              title="Touch Cards view (recommended for smartphones)"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
+                viewMode === "table" || (viewMode === "auto")
+                  ? "bg-white text-[#142010] shadow-xs"
+                  : "text-[#666666] hover:text-[#142010]"
+              } ${viewMode === "auto" ? "hidden md:inline-flex" : ""}`}
+              title="Table view (recommended for laptops & desktops)"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Table</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {renderSaveAndSubmitButtons("normal")}
+          </div>
         </div>
       </div>
 
@@ -636,8 +863,57 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* Interactive Mark Entry Grid */}
-      <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden">
+      {/* ── 1. Mobile Touch Cards View (Default for smartphones) ──────────── */}
+      <div
+        className={`${
+          viewMode === "table" ? "hidden" : viewMode === "cards" ? "block" : "block md:hidden"
+        } space-y-3`}
+      >
+        {students.length === 0 ? (
+          <div className="p-8 text-center bg-white rounded-[8px] border border-[#E8DFC9] text-xs text-[#788470]">
+            No students are enrolled in this class group yet.
+          </div>
+        ) : (
+          students.map((student, idx) => (
+            <StudentMarkCard
+              key={student.studentId}
+              student={student}
+              idx={idx}
+              maxMarks={maxMarks}
+              canEdit={canEdit}
+              isSelected={selectedIds.has(student.studentId)}
+              onToggleSelectRow={handleToggleSelectRow}
+              onScoreChange={handleScoreChange}
+              onScoreKeyDown={handleScoreKeyDown}
+              onStatusChange={handleStatusChange}
+              onRemarksChange={handleRemarksChange}
+              onFocusInput={() => setIsInputFocused(true)}
+              onBlurInput={() => setIsInputFocused(false)}
+            />
+          ))
+        )}
+
+        {/* Mobile Summary Card */}
+        <div className="p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] flex flex-wrap items-center justify-between gap-2 text-xs text-[#525E4B]">
+          <div>
+            Students: <strong className="text-[#142010]">{students.length}</strong> · Present:{" "}
+            <strong className="text-[#2A7C13]">{presentStudents.length}</strong> · Absent:{" "}
+            <strong>{students.filter((s) => s.status === "absent").length}</strong>
+          </div>
+          {avgOutOf20 && (
+            <div className="font-mono text-xs">
+              Class Average: <strong className="text-[#142010] font-bold">{avgOutOf20} / 20</strong>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 2. Desktop Data Table View (Default for laptops & desktops) ────── */}
+      <div
+        className={`${
+          viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
+        } bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden`}
+      >
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead>
@@ -685,6 +961,8 @@ export function MarksGridClient({
                     onScoreKeyDown={handleScoreKeyDown}
                     onStatusChange={handleStatusChange}
                     onRemarksChange={handleRemarksChange}
+                    onFocusInput={() => setIsInputFocused(true)}
+                    onBlurInput={() => setIsInputFocused(false)}
                   />
                 ))
               )}
@@ -704,6 +982,36 @@ export function MarksGridClient({
               Class Average: <strong className="text-[#142010] font-bold">{avgOutOf20} / 20</strong>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* ── Dedicated End-of-List Submission Bar (After the Student List) ───── */}
+      <div
+        ref={bottomCardRef}
+        className="p-4 sm:p-5 rounded-[8px] bg-white border-2 border-[#E8DFC9] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-[#2A7C13]" />
+            <h3 className="font-bold text-sm text-[#142010]">
+              Finished Entering Marks for {streamName}?
+            </h3>
+          </div>
+          <p className="text-xs text-[#525E4B] max-w-xl leading-relaxed">
+            {canEdit
+              ? pendingStudentsCount > 0
+                ? `You have recorded marks for ${recordedStudentsCount} of ${totalStudentsCount} students (${pendingStudentsCount} student${pendingStudentsCount > 1 ? "s" : ""} still unrecorded). You can save draft now and return later, or submit directly to your Head of Department.`
+                : `All ${totalStudentsCount} students have recorded marks. You can save your draft or click "Submit to HOD" to forward this mark sheet for departmental approval and lock it.`
+              : isSubmitted
+              ? "These marks have been submitted to your Head of Department. Editing is locked while under departmental review."
+              : isFinalApproved
+              ? "Marks for this evaluation are approved and locked for official term report card calculations."
+              : "Mark editing is disabled."}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+          {renderSaveAndSubmitButtons("large")}
         </div>
       </div>
 
@@ -775,14 +1083,14 @@ export function MarksGridClient({
             >
               <input type="hidden" name="sequenceId" value={sequenceId} />
               <input type="hidden" name="classStreamId" value={classStreamId} />
-              <input type="hidden" name="departmentId" value={departmentId} />
+              <input type="hidden" name="departmentId" value={departmentId || ""} />
               <input type="hidden" name="subjectId" value={subjectId} />
               <input type="hidden" name="academicYearId" value={academicYearId} />
               <input type="hidden" name="termId" value={termId} />
 
               <div>
                 <label className="block text-[11px] font-semibold text-[#525E4B] mb-1">
-                  HOD Endorsement / Quality Assurance Note (optional)
+                  Institutional Endorsement / Quality Assurance Note (optional)
                 </label>
                 <input
                   type="text"
@@ -820,6 +1128,80 @@ export function MarksGridClient({
           )}
         </div>
       )}
+
+      {/* ── Persistent Floating Action Island (Scroll-Aware for 60-120 students) ── */}
+      <div
+        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 ease-out ${
+          showFloatingDock && !isInputFocused
+            ? "translate-y-0 opacity-100 scale-100 pointer-events-auto"
+            : "translate-y-8 opacity-0 scale-95 pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-2.5 sm:gap-3.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full bg-[#142010]/95 backdrop-blur-md text-white border border-[#2A7C13]/40 shadow-2xl max-w-[calc(100vw-2rem)]">
+          {/* Progress & Dirty Indicator */}
+          <div className="flex items-center gap-2 pr-2.5 border-r border-white/20 text-xs shrink-0">
+            {isDirty ? (
+              <span className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span>Unsaved</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-[#76C457] font-semibold text-[11px]">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Saved</span>
+              </span>
+            )}
+            <span className="text-white/30">•</span>
+            <span className="font-mono text-white/90 text-[11px]">
+              <strong>{recordedStudentsCount}</strong>/{totalStudentsCount}
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            {canEdit ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSaveDraft(false)}
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
+                  title="Save marks draft (Ctrl+S / Cmd+S)"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isPending ? "Saving..." : canApprove ? "Save Changes" : "Save Draft"}</span>
+                  <kbd className="hidden sm:inline-block ml-1 px-1.5 py-0.2 rounded text-[9px] font-mono bg-black/40 text-white/80">
+                    Ctrl+S
+                  </kbd>
+                </button>
+
+                {!canApprove && (currentStatus === "draft" || currentStatus === "rejected") && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSubmitModal(true)}
+                    disabled={isPending}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors cursor-pointer border border-white/20"
+                    title="Submit mark sheet to Head of Department"
+                  >
+                    <Send className="w-3.5 h-3.5 text-[#76C457]" />
+                    <span>Submit</span>
+                  </button>
+                )}
+              </>
+            ) : isSubmitted ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-semibold">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Submitted to HOD</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs font-semibold">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Locked</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Teacher Submit to HOD Modal */}
       {showSubmitModal && (
@@ -945,6 +1327,8 @@ interface StudentMarkRowProps {
   onScoreKeyDown: (index: number, e: React.KeyboardEvent<HTMLInputElement>) => void;
   onStatusChange: (index: number, newStatus: "present" | "absent" | "exempt") => void;
   onRemarksChange: (index: number, rem: string) => void;
+  onFocusInput?: () => void;
+  onBlurInput?: () => void;
 }
 
 const StudentMarkRow = memo(function StudentMarkRow({
@@ -958,6 +1342,8 @@ const StudentMarkRow = memo(function StudentMarkRow({
   onScoreKeyDown,
   onStatusChange,
   onRemarksChange,
+  onFocusInput,
+  onBlurInput,
 }: StudentMarkRowProps) {
   const normalized20 =
     student.score !== null && maxMarks > 0
@@ -1016,14 +1402,18 @@ const StudentMarkRow = memo(function StudentMarkRow({
           step="0.25"
           min="0"
           max={maxMarks}
+          inputMode="decimal"
           data-score-idx={idx}
           onKeyDown={(e) => onScoreKeyDown(idx, e)}
+          onFocus={onFocusInput}
+          onBlur={onBlurInput}
           aria-label={`Score out of ${maxMarks} for ${student.fullName}`}
           disabled={!canEdit || student.status !== "present"}
           placeholder={student.status === "present" ? "0.00" : "-"}
           value={student.score ?? ""}
           onChange={(e) => onScoreChange(idx, e.target.value)}
           className="w-20 px-2 py-1 text-center font-mono font-bold rounded-[4px] border border-[#E8DFC9] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:bg-[#F5EFE0] disabled:text-[#788470]"
+          style={{ fontSize: "16px" }}
         />
       </td>
       <td className="py-2 px-3 text-center font-mono font-bold text-[#142010]">
@@ -1060,13 +1450,229 @@ const StudentMarkRow = memo(function StudentMarkRow({
         <input
           type="text"
           disabled={!canEdit}
+          onFocus={onFocusInput}
+          onBlur={onBlurInput}
           aria-label={`Teacher remark for ${student.fullName}`}
           placeholder="Remark (optional)..."
           value={student.remarks}
           onChange={(e) => onRemarksChange(idx, e.target.value)}
           className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+          style={{ fontSize: "16px" }}
         />
       </td>
     </tr>
+  );
+});
+
+const StudentMarkCard = memo(function StudentMarkCard({
+  student,
+  idx,
+  maxMarks,
+  canEdit,
+  isSelected,
+  onToggleSelectRow,
+  onScoreChange,
+  onScoreKeyDown,
+  onStatusChange,
+  onRemarksChange,
+  onFocusInput,
+  onBlurInput,
+}: StudentMarkRowProps) {
+  const [showRemarks, setShowRemarks] = useState(Boolean(student.remarks));
+  const normalized20 =
+    student.score !== null && maxMarks > 0
+      ? parseFloat(((student.score / maxMarks) * 20).toFixed(2))
+      : null;
+  const gradeInfo = getGradeAppreciation(normalized20);
+
+  return (
+    <div
+      className={`p-3.5 rounded-[8px] bg-white border transition-colors space-y-3 ${
+        isSelected
+          ? "border-[#2A7C13] bg-[#F0FDF4]/30"
+          : student.score !== null || student.status !== "present"
+          ? "border-[#E8DFC9] shadow-2xs"
+          : "border-[#E8DFC9]/80 bg-[#FFFDF5]/40"
+      }`}
+    >
+      {/* Student Identification Header */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2.5">
+          <div className="w-7 h-7 rounded-full bg-[#142010] text-white flex items-center justify-center font-bold font-mono text-xs shrink-0 mt-0.5">
+            {idx + 1}
+          </div>
+          <div>
+            <h4 className="font-bold text-sm text-[#142010] leading-tight">
+              {student.fullName}
+            </h4>
+            <div className="flex items-center gap-2 text-[11px] text-[#788470] mt-0.5 font-mono">
+              <span className="font-semibold text-[#142010]">{student.matricule}</span>
+              <span>•</span>
+              <span>{student.gender === "M" ? "Male" : "Female"}</span>
+            </div>
+          </div>
+        </div>
+
+        {canEdit && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelectRow(student.studentId)}
+            className="w-4 h-4 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13] cursor-pointer mt-1"
+          />
+        )}
+      </div>
+
+      {/* Attendance Status Touch Segmented Buttons (1-Tap on Phone) */}
+      <div className="grid grid-cols-3 gap-1.5 p-1 rounded-[6px] bg-[#F7F4EA] border border-[#E8DFC9]">
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={() => onStatusChange(idx, "present")}
+          className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+            student.status === "present"
+              ? "bg-[#2A7C13] text-white shadow-xs"
+              : "text-[#555555] hover:bg-white/60"
+          }`}
+        >
+          <span>Present</span>
+        </button>
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={() => onStatusChange(idx, "absent")}
+          className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+            student.status === "absent"
+              ? "bg-[#DC2626] text-white shadow-xs"
+              : "text-[#555555] hover:bg-white/60"
+          }`}
+        >
+          <span>Absent</span>
+        </button>
+        <button
+          type="button"
+          disabled={!canEdit}
+          onClick={() => onStatusChange(idx, "exempt")}
+          className={`py-1.5 px-1 rounded-[4px] text-xs font-bold transition-all text-center flex items-center justify-center gap-1 cursor-pointer ${
+            student.status === "exempt"
+              ? "bg-[#D97706] text-white shadow-xs"
+              : "text-[#555555] hover:bg-white/60"
+          }`}
+        >
+          <span>Exempt</span>
+        </button>
+      </div>
+
+      {/* Score Entry & Live Calculation */}
+      {student.status === "present" ? (
+        <div className="grid grid-cols-2 gap-2.5 pt-1 items-end">
+          {/* Touch Score Input */}
+          <div>
+            <label className="block text-[10px] font-bold text-[#525E4B] uppercase mb-1">
+              Mark (/{maxMarks})
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                step="0.25"
+                min="0"
+                max={maxMarks}
+                inputMode="decimal"
+                data-score-idx={idx}
+                onKeyDown={(e) => onScoreKeyDown(idx, e)}
+                onFocus={onFocusInput}
+                onBlur={onBlurInput}
+                disabled={!canEdit}
+                placeholder="0.00"
+                value={student.score ?? ""}
+                onChange={(e) => onScoreChange(idx, e.target.value)}
+                className="w-full h-11 px-3 text-center font-mono font-black rounded-[6px] border border-[#D5D5CF] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/20 shadow-xs"
+                style={{ fontSize: "18px" }}
+              />
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] font-mono text-[#888888]">
+                /{maxMarks}
+              </span>
+            </div>
+          </div>
+
+          {/* Real-Time Scaled Score & Grade */}
+          <div>
+            <span className="block text-[10px] font-bold text-[#525E4B] uppercase mb-1">
+              Scaled /20 &amp; Grade
+            </span>
+            <div className="h-11 px-2.5 rounded-[6px] bg-[#FAFAF8] border border-[#E8DFC9] flex items-center justify-between">
+              <span className="font-mono font-black text-sm text-[#142010]">
+                {normalized20 !== null ? `${normalized20.toFixed(2)}` : "//"}
+              </span>
+              {normalized20 !== null ? (
+                <span
+                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                    gradeInfo.cba === "EXP"
+                      ? "bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40"
+                      : gradeInfo.cba === "SA"
+                      ? "bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]"
+                      : gradeInfo.cba === "SPA"
+                      ? "bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]"
+                      : "bg-red-50 text-red-700 border border-red-200"
+                  }`}
+                >
+                  {gradeInfo.letter} · {gradeInfo.cba}
+                </span>
+              ) : (
+                <span className="text-[10px] text-[#888888] font-mono">—</span>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-2.5 rounded-[6px] bg-[#F9F9F7] border border-[#E8DFC9] text-xs font-semibold text-center text-[#788470]">
+          {student.status === "absent" ? "Marked as ABSENT (0 score)" : "Marked as EXEMPTED (no score penalty)"}
+        </div>
+      )}
+
+      {/* Teacher Note Field */}
+      <div>
+        {!showRemarks && !student.remarks ? (
+          <button
+            type="button"
+            onClick={() => setShowRemarks(true)}
+            className="text-[11px] text-[#2A7C13] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+          >
+            <MessageSquare className="w-3 h-3" />
+            <span>+ Add report card note</span>
+          </button>
+        ) : (
+          <div className="space-y-1 pt-1">
+            <div className="flex items-center justify-between text-[11px]">
+              <label className="text-[#525E4B] font-medium flex items-center gap-1">
+                <MessageSquare className="w-3 h-3 text-[#2A7C13]" />
+                <span>Teacher&apos;s Note (Report Card)</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowRemarks(false);
+                  if (!student.remarks) onRemarksChange(idx, "");
+                }}
+                className="text-[#888888] hover:text-[#555555] text-[10px] underline cursor-pointer"
+              >
+                Hide
+              </button>
+            </div>
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={student.remarks}
+              onFocus={onFocusInput}
+              onBlur={onBlurInput}
+              onChange={(e) => onRemarksChange(idx, e.target.value)}
+              placeholder="e.g. Good mastery, continue practicing..."
+              className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] text-xs text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
+              style={{ fontSize: "16px" }}
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 });

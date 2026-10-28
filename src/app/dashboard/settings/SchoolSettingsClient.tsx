@@ -13,6 +13,10 @@ import {
   Image as ImageIcon,
   Upload,
   Trash2,
+  IdCard,
+  LayoutGrid,
+  FileText,
+  Award,
 } from "lucide-react";
 
 interface Props {
@@ -23,6 +27,12 @@ export default function SchoolSettingsClient({ school }: Props) {
   const [rankingMode, setRankingMode] = useState<string>(school.ranking_mode || "enabled");
   const [approvalWorkflow, setApprovalWorkflow] = useState<string>(
     school.result_approval_workflow || "hod"
+  );
+  const [matriculeFormat, setMatriculeFormat] = useState<string>(
+    school.matricule_format || "{CODE}-{YEAR}-{SEQ:4}"
+  );
+  const [reportCardTemplate, setReportCardTemplate] = useState<string>(
+    school.report_card_template || "cba_grouped_classic"
   );
   const [logoUrl, setLogoUrl] = useState<string>(school.logo_url || "");
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -57,6 +67,7 @@ export default function SchoolSettingsClient({ school }: Props) {
     const formData = new FormData(e.currentTarget);
     formData.set("ranking_mode", rankingMode);
     formData.set("result_approval_workflow", approvalWorkflow);
+    formData.set("matricule_format", matriculeFormat);
     formData.set("logo_url", logoUrl);
 
     try {
@@ -330,6 +341,87 @@ export default function SchoolSettingsClient({ school }: Props) {
                 </button>
               </div>
             </div>
+
+            {/* Report Card Template Selector */}
+            <div className="md:col-span-2 space-y-2 pt-3 border-t border-[#E8DFC9]">
+              <label className="block font-bold text-[#142010]">
+                Default Report Card Layout Template
+              </label>
+              <p className="text-[#666666] leading-relaxed text-[11px]">
+                Choose the default official report card template layout used across the school.
+              </p>
+              <input type="hidden" name="report_card_template" value={reportCardTemplate} />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setReportCardTemplate("traditional_classic")}
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                    reportCardTemplate === "traditional_classic"
+                      ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
+                      : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                      <Award className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      Traditional Numerical System
+                    </span>
+                    {reportCardTemplate === "traditional_classic" && (
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#666666] leading-tight">
+                    Classic Cameroon secondary score sheet with Sequence marks, Term marks, Coefficients, Weighted Totals, Grades (A-F), Class Rankings, and Teacher Remarks, without Competency descriptors.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportCardTemplate("cba_grouped_classic")}
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                    reportCardTemplate === "cba_grouped_classic"
+                      ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
+                      : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                      <LayoutGrid className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      Grouped Classic CBA (APC)
+                    </span>
+                    {reportCardTemplate === "cba_grouped_classic" && (
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#666666] leading-tight">
+                    Clean subject groups (Languages/General, Sciences, Practical), sequence marks, term marks, coefficients, class averages &amp; ranks, min/max benchmarks, and dual summary/discipline matrices.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setReportCardTemplate("cba_ministry_standard")}
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                    reportCardTemplate === "cba_ministry_standard"
+                      ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
+                      : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      MINESEC Official CBA Grid
+                    </span>
+                    {reportCardTemplate === "cba_ministry_standard" && (
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#666666] leading-tight">
+                    Full official MINESEC national syllabus competencies table with bulleted competency objectives evaluated per subject and institutional stamps.
+                  </p>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -370,6 +462,71 @@ export default function SchoolSettingsClient({ school }: Props) {
                 value="FCFA (Central African CFA Franc - XAF)"
                 className="w-full px-3 py-2 border border-[#E8DFC9] rounded-[5px] bg-[#F7F3E8] text-[#777777] cursor-not-allowed font-medium"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Section 4: Student Identification & Automatic Matricule Format */}
+        <div className="bg-[#FFFDF5] border border-[#E8DFC9] rounded-[8px] p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#E8DFC9]">
+            <IdCard className="w-4 h-4 text-[#2A7C13]" />
+            <h3 className="font-bold text-[14px] text-[#142010]">
+              Student Matricule Generation &amp; Numbering
+            </h3>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            <p className="text-[#555555] leading-relaxed text-[12px]">
+              Set how unique student admission numbers (matricules) are generated across the school. The matricule follows each student through all academic years and report cards.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-medium text-[#444444] mb-1">
+                  Matricule Pattern Template <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="matricule_format"
+                  value={matriculeFormat}
+                  onChange={(e) => setMatriculeFormat(e.target.value)}
+                  placeholder="{CODE}-{YEAR}-{SEQ:4}"
+                  required
+                  className="w-full px-3 py-2 border border-[#D5CBB2] rounded-[5px] bg-white text-[#142010] font-mono text-xs focus:outline-none focus:border-[#2A7C13]"
+                />
+                <div className="mt-2 p-2.5 rounded-[5px] bg-[#F7F3E8] border border-[#E8DFC9] text-[11px] text-[#555555] space-y-1">
+                  <div className="font-semibold text-[#142010]">Supported Pattern Tokens:</div>
+                  <ul className="list-disc pl-4 space-y-0.5 font-mono text-[10px]">
+                    <li><strong>{"{CODE}"}</strong> &rarr; School Code / Acronym (e.g. {school.code || "GBHS"})</li>
+                    <li><strong>{"{YEAR}"}</strong> &rarr; 2-digit academic year (e.g. 26)</li>
+                    <li><strong>{"{YEAR:4}"}</strong> &rarr; 4-digit academic year (e.g. 2026)</li>
+                    <li><strong>{"{SEQ:4}"}</strong> &rarr; 4-digit sequence number (0001, 0002...)</li>
+                    <li><strong>{"{SEQ:3}"}</strong> &rarr; 3-digit sequence number (001, 002...)</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-medium text-[#444444] mb-1">
+                  Live Preview (Next Enrolled Student)
+                </label>
+                <div className="p-3.5 rounded-[6px] border-2 border-dashed border-[#2A7C13]/40 bg-[#F0FDF4] space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#166534]">
+                    Generated Student Matricule
+                  </span>
+                  <div className="text-base font-mono font-extrabold text-[#166534]">
+                    {matriculeFormat
+                      .replace(/{CODE}/gi, school.code || "GBHS")
+                      .replace(/{YEAR:4}/gi, "2026")
+                      .replace(/{YEAR}/gi, "26")
+                      .replace(/{SEQ:(\d+)}/gi, (_, pad) => "1".padStart(Number(pad) || 4, "0"))
+                      .replace(/{SEQ}/gi, "0001")}
+                  </div>
+                  <p className="text-[11px] text-[#2A7C13] leading-snug">
+                    When admitting students, this format will pre-fill automatically. Administrators can still override it manually if needed for transfer students.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

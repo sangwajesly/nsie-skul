@@ -66,9 +66,6 @@ export function SubjectCreateForm({
   return (
     <form action={formAction} className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 text-[12px]">
       <div className="text-[11px] font-bold uppercase tracking-wider text-[#777777]">Add New Subject</div>
-      {departments.length === 0 && (
-        <p className="text-xs text-[#777777]">Add a department before creating a subject.</p>
-      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <input
           type="text"
@@ -86,13 +83,11 @@ export function SubjectCreateForm({
         />
         <select
           name="departmentId"
-          aria-label="Department for subject"
-          required
-          disabled={departments.length === 0}
+          aria-label="Department for subject (optional)"
           defaultValue=""
-          className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] focus:outline-none focus:border-[#191919] disabled:opacity-60"
+          className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] focus:outline-none focus:border-[#191919]"
         >
-          <option value="" disabled>Select Department</option>
+          <option value="">General Studies (No Department)</option>
           {departments.map((department) => (
             <option key={department.id} value={department.id}>{department.name}</option>
           ))}
@@ -119,8 +114,8 @@ export function SubjectCreateForm({
       </div>
       <button
         type="submit"
-        disabled={isPending || departments.length === 0}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors disabled:opacity-50"
+        disabled={isPending}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
       >
         <Plus className="w-3.5 h-3.5" />
         <span>{isPending ? "Adding..." : "Add Subject"}</span>

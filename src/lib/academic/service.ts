@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import {
   Department,
@@ -15,8 +16,11 @@ import {
 
 /**
  * Retrieves the currently active academic year for a school.
+ * Cached per request.
  */
-export async function getActiveAcademicYear(schoolId: string): Promise<AcademicYear | null> {
+export const getActiveAcademicYear = cache(async function getActiveAcademicYear(
+  schoolId: string
+): Promise<AcademicYear | null> {
   if (!schoolId) return null;
 
   const supabase = await createClient();
@@ -28,12 +32,15 @@ export async function getActiveAcademicYear(schoolId: string): Promise<AcademicY
     .maybeSingle();
 
   return (data as AcademicYear | null) || null;
-}
+});
 
 /**
  * Retrieves the 6 evaluation sequences for an academic year.
+ * Cached per request.
  */
-export async function getSchoolSequences(schoolId: string): Promise<EvaluationSequence[]> {
+export const getSchoolSequences = cache(async function getSchoolSequences(
+  schoolId: string
+): Promise<EvaluationSequence[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("evaluation_sequences")
@@ -42,7 +49,7 @@ export async function getSchoolSequences(schoolId: string): Promise<EvaluationSe
     .order("sequence_number", { ascending: true });
 
   return (data as EvaluationSequence[]) || [];
-}
+});
 
 /**
  * Lists all departments in a school, with their assigned subjects and active HOD.
@@ -371,4 +378,93 @@ export async function getEnrolledStudents(
 
   const { data } = await query;
   return (data as Enrolment[]) || [];
+}
+
+/**
+ * Automatically generates the next unique student matricule for a school.
+ * Formatted according to the school's configured matricule_format pattern (default: {CODE}-{YEAR}-{SEQ:4}).
+ */
+export async function generateNextStudentMatricule(
+  schoolId: string,
+  academicYearId?: string
+): Promise<string> {
+  const supabase = await createClient();
+
+  // 1. Fetch School Settings & Code
+  const { data: school } = await supabase
+    .from("schools")
+    .select("name, code, matricule_format")
+    .eq("id", schoolId)
+    .maybeSingle();
+
+  // 2. Fetch Academic Year (current or requested)
+  let yearName = "";
+  if (academicYearId) {
+    const { data: year } = await supabase
+      .from("academic_years")
+      .select("name")
+      .eq("id", academicYearId)
+      .maybeSingle();
+    yearName = year?.name || "";
+  } else {
+    const activeYear = await getActiveAcademicYear(schoolId);
+    yearName = activeYear?.name || "";
+  }
+
+  // Determine {CODE}
+  let code = (school?.code || "").trim().toUpperCase();
+  if (!code && school?.name) {
+    const words = school.name.trim().split(/\s+/).filter(Boolean);
+    code = words.map((w: string) => w[0]?.toUpperCase()).join("").slice(0, 5) || "SCH";
+  }
+  if (!code) code = "SCH";
+
+  // Determine {YEAR}
+  const yearMatch = yearName.match(/\d{4}/);
+  const fullYear = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
+  const shortYear = fullYear.slice(-2);
+
+  // 3. Count total students in school to calculate sequential index
+  const { count } = await supabase
+    .from("students")
+    .select("id", { count: "exact", head: true })
+    .eq("school_id", schoolId);
+
+  let nextIndex = (count || 0) + 1;
+
+  // Pattern formatting
+  const format = (school?.matricule_format || "{CODE}-{YEAR}-{SEQ:4}").trim();
+
+  const buildMatricule = (idx: number) => {
+    return format
+      .replace(/{CODE}/gi, code)
+      .replace(/{YEAR:4}/gi, fullYear)
+      .replace(/{YEAR}/gi, shortYear)
+      .replace(/{SEQ:(\d+)}/gi, (_: string, pad: string) => String(idx).padStart(Number(pad) || 4, "0"))
+      .replace(/{SEQ}/gi, String(idx).padStart(4, "0"));
+  };
+
+  let candidate = buildMatricule(nextIndex);
+
+  // Collision safety check
+  let exists = true;
+  let attempts = 0;
+  while (exists && attempts < 50) {
+    const { data: existing } = await supabase
+      .from("students")
+      .select("id")
+      .eq("school_id", schoolId)
+      .eq("matricule", candidate)
+      .maybeSingle();
+
+    if (!existing) {
+      exists = false;
+    } else {
+      nextIndex++;
+      candidate = buildMatricule(nextIndex);
+      attempts++;
+    }
+  }
+
+  return candidate;
 }

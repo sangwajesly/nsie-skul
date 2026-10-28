@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
 import { ActiveTenantContext, UserSchoolOption } from "@/types/tenancy";
@@ -7,8 +8,10 @@ export const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
 
 /**
  * Retrieves the currently active tenant context for the authenticated user.
+ * Wrapped in React cache() to deduplicate requests across layout and page components
+ * within the same server render lifecycle.
  */
-export async function getTenantContext(): Promise<ActiveTenantContext | null> {
+export const getTenantContext = cache(async function getTenantContext(): Promise<ActiveTenantContext | null> {
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -100,6 +103,7 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
       "students.view_assigned",
       "marks.enter_assigned",
       "attendance.take_assigned",
+      "report_cards.view",
     ]) {
       permissionSet.add(code);
     }
@@ -146,7 +150,8 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
       .eq("status", "active"),
   ]);
 
-  const isClassMaster = (masteredStreams && masteredStreams.length > 0) || activeRole.code === "class_master";
+  // A teacher only has active Class Master status if assigned to at least one class stream
+  const isClassMaster = Boolean(masteredStreams && masteredStreams.length > 0);
   const isHod = (hodDepartments && hodDepartments.length > 0) || activeRole.code === "hod";
 
   // Grant dual-role permissions if appointed as Class Master
@@ -177,7 +182,7 @@ export async function getTenantContext(): Promise<ActiveTenantContext | null> {
     masteredStreamNames: masteredStreams?.map((s) => s.name) || [],
     isHod,
   };
-}
+});
 
 export function hasAnyPermission(
   context: ActiveTenantContext | null,

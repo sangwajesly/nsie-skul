@@ -20,6 +20,8 @@ export interface School {
   ranking_mode: RankingMode;
   result_approval_workflow: ApprovalWorkflow;
   receipt_prefix: string;
+  matricule_format?: string;
+  report_card_template?: "cba_grouped_classic" | "cba_ministry_standard" | string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -238,6 +240,7 @@ export interface Student {
   guardian_name: string | null;
   guardian_phone: string | null;
   guardian_email: string | null;
+  is_repeater?: boolean;
   status: "active" | "withdrawn" | "transferred" | "graduated" | "dismissed";
   created_at: string;
   updated_at: string;
@@ -250,6 +253,7 @@ export interface Enrolment {
   academic_year_id: string;
   class_stream_id: string;
   roll_number: number | null;
+  is_repeater?: boolean;
   enrolment_date: string;
   status: "active" | "promoted" | "repeated" | "withdrawn" | "dismissed";
   created_at: string;

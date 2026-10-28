@@ -4,8 +4,8 @@ import { getTenantContext } from "@/lib/tenancy/context";
 import { getActiveAcademicYear, getSchoolTeacherAssignments } from "@/lib/academic/service";
 import { getStudentReportCard } from "@/lib/academic/report-card-service";
 import { createClient } from "@/lib/supabase/server";
-import { MinesecReportCard } from "@/components/academic/MinesecReportCard";
-import { ArrowLeft } from "lucide-react";
+import { ReportCardRenderer } from "@/components/academic/ReportCardRenderer";
+import { ArrowLeft, Eye } from "lucide-react";
 import { PrintButton } from "./PrintButton";
 
 export const dynamic = "force-dynamic";
@@ -82,30 +82,49 @@ export default async function StudentReportCardPage({
   }
 
   const roleCode = context?.role?.code || "teacher";
-  const isClassMaster = Boolean(context?.isClassMaster || roleCode === "class_master");
-  if (isClassMaster && context?.user?.id) {
-    const teacherAssignments = await getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id);
+  const isAdmin =
+    !roleCode ||
+    roleCode === "school_admin" ||
+    roleCode === "principal" ||
+    roleCode === "superadmin" ||
+    Boolean(context?.hasPermission("school.settings.manage")) ||
+    Boolean(context?.hasPermission("academics.manage"));
+
+  // Fetch student enrolment to determine class stream and class master
+  const { data: studentEnrolment } = await supabase
+    .from("enrolments")
+    .select("class_stream_id, class_stream:class_streams(class_master_id)")
+    .eq("school_id", schoolId)
+    .eq("academic_year_id", activeYear.id)
+    .eq("student_id", studentId)
+    .maybeSingle();
+
+  const isStreamClassMaster = Boolean(
+    studentEnrolment &&
+      (studentEnrolment.class_stream as { class_master_id?: string | null })?.class_master_id === context?.user?.id
+  );
+
+  const canPrint = isAdmin || isStreamClassMaster;
+
+  let teacherAssignments: any[] = [];
+  if (context?.user?.id) {
+    teacherAssignments = await getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id);
+  }
+
+  // Only apply stream restrictions to non-admin staff (regular teachers & class masters)
+  if (!isAdmin && context?.user?.id) {
     const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
 
-    const { data: studentEnrolment } = await supabase
-      .from("enrolments")
-      .select("class_stream_id, class_stream:class_streams(class_master_id)")
-      .eq("school_id", schoolId)
-      .eq("academic_year_id", activeYear.id)
-      .eq("student_id", studentId)
-      .maybeSingle();
+    const isAuthorizedForStudent =
+      isStreamClassMaster ||
+      (studentEnrolment && assignedStreamIds.has(studentEnrolment.class_stream_id));
 
-    const isDesignatedMaster =
-      studentEnrolment &&
-      ((studentEnrolment.class_stream as { class_master_id?: string | null })?.class_master_id === context.user.id ||
-        assignedStreamIds.has(studentEnrolment.class_stream_id));
-
-    if (!isDesignatedMaster) {
+    if (!isAuthorizedForStudent) {
       return (
         <div className="mx-auto max-w-3xl space-y-3 py-10 text-center">
           <h1 className="text-lg font-bold text-red-700">Access Denied</h1>
           <p className="text-sm text-[#666666]">
-            As a Class Master, you can only view report cards for students in your supervised class group.
+            You can only view report cards for students in your assigned or supervised class groups.
           </p>
           <Link href="/dashboard/academics/report-cards" className="text-sm font-semibold text-[#2A7C13] underline">
             Back to report cards
@@ -341,8 +360,32 @@ export default async function StudentReportCardPage({
     },
   };
 
+  // Security & scoping: Regular subject teachers can only view their own assigned subjects
+  if (!canPrint && studentEnrolment) {
+    const teacherStreamSubjectIds = new Set(
+      teacherAssignments
+        .filter((a) => a.class_stream_id === studentEnrolment.class_stream_id)
+        .map((a) => a.subject_id)
+    );
+    const allowedSubjectIds =
+      teacherStreamSubjectIds.size > 0
+        ? teacherStreamSubjectIds
+        : new Set(teacherAssignments.map((a) => a.subject_id));
+
+    data.subjects = data.subjects.filter((s) => allowedSubjectIds.has(s.subjectId));
+  }
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto print:space-y-0 print:max-w-none print:m-0 print:p-0">
+      {/* Print protection for unauthorized roles */}
+      {!canPrint && (
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `@media print { body { display: none !important; } }`,
+          }}
+        />
+      )}
+
       {/* Top Controls Bar (Hidden during actual print) */}
       <div className="print:hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
         <div className="flex items-center gap-3">
@@ -360,13 +403,20 @@ export default async function StudentReportCardPage({
         </div>
 
         <div className="flex items-center gap-2">
-          <PrintButton />
+          {canPrint ? (
+            <PrintButton />
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#4A3D00] text-xs font-semibold">
+              <Eye className="w-3.5 h-3.5 text-[#B45309]" />
+              <span>View Only</span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Official MINESEC Report Card Component */}
+      {/* Official Report Card Component */}
       <div className="report-card-print-sheet bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-4 print:p-0 print:border-none print:shadow-none">
-        <MinesecReportCard data={data} />
+        <ReportCardRenderer data={data} canPrint={canPrint} />
       </div>
     </div>
   );

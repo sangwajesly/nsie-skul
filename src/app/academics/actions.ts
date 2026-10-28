@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission, requireAnyPermission } from "@/lib/tenancy/context";
-import { getActiveAcademicYear } from "@/lib/academic/service";
+import { getActiveAcademicYear, generateNextStudentMatricule } from "@/lib/academic/service";
 import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -25,7 +25,11 @@ const DepartmentDeleteSchema = z.object({
 });
 
 const SubjectSchema = z.object({
-  departmentId: uuidSchema("Please select a department"),
+  departmentId: z
+    .preprocess(
+      (val) => (val === "" || val === "none" || val === null || val === undefined ? null : val),
+      uuidSchema("Invalid department ID").nullish()
+    ),
   name: z.string().min(2, "Subject name is required"),
   code: z.string().min(2, "Subject code is required").toUpperCase(),
   defaultCoefficient: z.coerce.number().min(0.5).max(10).default(2),
@@ -91,11 +95,55 @@ const ClassSubjectConfigSchema = z.object({
 const StudentRegisterSchema = z.object({
   academicYearId: uuidSchema("Please select an academic year"),
   classStreamId: uuidSchema("Please select a class group"),
-  matricule: z.string().min(2, "Matricule is required"),
-  firstName: z.string().min(2, "First name is required"),
-  lastName: z.string().min(2, "Last name is required"),
-  gender: z.enum(["M", "F"]),
-  residenceStatus: z.enum(["day", "boarding"]),
+  matricule: z.string().nullish(),
+  firstName: z.string().trim().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().trim().min(2, "Last name must be at least 2 characters"),
+  gender: z.enum(["M", "F"], { message: "Please select a gender" }),
+  residenceStatus: z.enum(["day", "boarding"], { message: "Please select a residence status" }),
+  isRepeater: z
+    .preprocess(
+      (val) => val === "true" || val === true || val === "1" || val === "on",
+      z.boolean()
+    )
+    .default(false),
+  rollNumber: z
+    .preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+      z
+        .number()
+        .int("Class roster number must be a whole number")
+        .min(1, "Class roster number must be 1 or greater")
+        .nullish()
+    ),
+  guardianName: z.string().nullish(),
+  guardianPhone: z.string().nullish(),
+});
+
+const StudentUpdateSchema = z.object({
+  studentId: uuidSchema("Student ID is required"),
+  enrolmentId: uuidSchema("Enrolment ID is required").nullish(),
+  academicYearId: uuidSchema("Academic Year ID is required").nullish(),
+  classStreamId: uuidSchema("Please select a class group"),
+  matricule: z.string().trim().min(1, "Matricule / Admission number is required").toUpperCase(),
+  firstName: z.string().trim().min(2, "First name must be at least 2 characters"),
+  lastName: z.string().trim().min(2, "Last name must be at least 2 characters"),
+  gender: z.enum(["M", "F"], { message: "Please select a gender" }),
+  residenceStatus: z.enum(["day", "boarding"], { message: "Please select a residence status" }),
+  isRepeater: z
+    .preprocess(
+      (val) => val === "true" || val === true || val === "1" || val === "on",
+      z.boolean()
+    )
+    .default(false),
+  rollNumber: z
+    .preprocess(
+      (val) => (val === "" || val === null || val === undefined ? null : Number(val)),
+      z
+        .number()
+        .int("Class roster number must be a whole number")
+        .min(1, "Class roster number must be 1 or greater")
+        .nullish()
+    ),
   guardianName: z.string().nullish(),
   guardianPhone: z.string().nullish(),
 });
@@ -109,7 +157,17 @@ export async function createDepartmentAction(_state: unknown, formData: FormData
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -141,7 +199,17 @@ export async function updateDepartmentAction(_state: unknown, formData: FormData
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -174,7 +242,17 @@ export async function deleteDepartmentAction(_state: unknown, formData: FormData
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -237,13 +315,23 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.from("subjects").insert({
     school_id: context.school.id,
-    department_id: parsed.data.departmentId,
+    department_id: parsed.data.departmentId || null,
     name: parsed.data.name,
     code: parsed.data.code,
     default_coefficient: parsed.data.defaultCoefficient,
@@ -270,7 +358,17 @@ export async function createClassAction(_state: unknown, formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -315,7 +413,17 @@ export async function createClassStreamAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const effectiveYearId = parsed.data.academicYearId || academicYearId;
@@ -353,7 +461,17 @@ export async function updateClassAction(_state: unknown, formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -385,7 +503,17 @@ export async function deleteClassAction(_state: unknown, formData: FormData) {
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -439,7 +567,17 @@ export async function updateClassStreamAction(_state: unknown, formData: FormDat
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -472,7 +610,17 @@ export async function deleteClassStreamAction(_state: unknown, formData: FormDat
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -612,7 +760,17 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const effectiveYearId = parsed.data.academicYearId || academicYearId;
@@ -748,7 +906,17 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -811,7 +979,7 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
       class_stream_id: parsed.data.classStreamId,
       subject_id: parsed.data.subjectId,
     },
-    { onConflict: "academic_year_id,class_stream_id,subject_id" }
+    { onConflict: "academic_year_id,class_stream_id,subject_id,teacher_user_id" }
   );
 
   if (error) return { error: `Could not save the teacher assignment: ${error.message}` };
@@ -829,7 +997,46 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
   );
 
   revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
   return { success: true, message: "Teacher assignment saved." };
+}
+
+export async function removeTeacherAssignmentAction(
+  stateOrFormData: unknown,
+  maybeFormData?: FormData
+) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : (stateOrFormData as FormData);
+  const context = await requireAnyPermission(["assignments.manage", "academics.manage", "school.settings.manage"]);
+
+  const assignmentId = String(formData.get("assignmentId") || "").trim();
+  if (!assignmentId) {
+    return { error: "Please select an assignment to remove." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("teacher_assignments")
+    .delete()
+    .eq("id", assignmentId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    return { error: `Could not remove teacher assignment: ${error.message}` };
+  }
+
+  // Record audit log
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "REMOVE_TEACHER_ASSIGNMENT",
+    resource_type: "teacher_assignment",
+    resource_id: assignmentId,
+    details: { assignment_id: assignmentId },
+  });
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  return { success: true, message: "Teacher assignment removed successfully." };
 }
 
 export async function configureClassSubjectAction(
@@ -846,7 +1053,17 @@ export async function configureClassSubjectAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
@@ -920,25 +1137,47 @@ export async function updateStreamCoefficientsBatchAction(
   return { success: true as const, message: `Updated coefficients for ${upserts.length} subject(s).` };
 }
 
-export async function registerStudentAction(formData: FormData) {
+export async function registerStudentAction(
+  stateOrFormData: unknown,
+  maybeFormData?: FormData
+) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : (stateOrFormData as FormData);
   const context = await requirePermission("students.manage");
   const parsed = StudentRegisterSchema.safeParse({
-    academicYearId: formData.get("academicYearId"),
-    classStreamId: formData.get("classStreamId"),
-    matricule: formData.get("matricule"),
-    firstName: formData.get("firstName"),
-    lastName: formData.get("lastName"),
-    gender: formData.get("gender"),
-    residenceStatus: formData.get("residenceStatus"),
-    guardianName: formData.get("guardianName"),
-    guardianPhone: formData.get("guardianPhone"),
+    academicYearId: formData?.get ? formData.get("academicYearId") : null,
+    classStreamId: formData?.get ? formData.get("classStreamId") : null,
+    matricule: formData?.get ? formData.get("matricule") : null,
+    firstName: formData?.get ? formData.get("firstName") : null,
+    lastName: formData?.get ? formData.get("lastName") : null,
+    gender: formData?.get ? formData.get("gender") : null,
+    residenceStatus: formData?.get ? formData.get("residenceStatus") : null,
+    isRepeater: formData?.get ? formData.get("isRepeater") : null,
+    rollNumber: formData?.get ? formData.get("rollNumber") : null,
+    guardianName: formData?.get ? formData.get("guardianName") : null,
+    guardianPhone: formData?.get ? formData.get("guardianPhone") : null,
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.issues[0].message };
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
   }
 
   const supabase = await createClient();
+
+  // If matricule was left empty or omitted, automatically generate next sequence matricule
+  let matricule = (parsed.data.matricule || "").trim().toUpperCase();
+  if (!matricule) {
+    matricule = await generateNextStudentMatricule(context.school.id, parsed.data.academicYearId);
+  }
 
   // 1. Insert or update student
   const { data: student, error: studentError } = await supabase
@@ -946,13 +1185,14 @@ export async function registerStudentAction(formData: FormData) {
     .upsert(
       {
         school_id: context.school.id,
-        matricule: parsed.data.matricule,
+        matricule,
         first_name: parsed.data.firstName,
         last_name: parsed.data.lastName,
         gender: parsed.data.gender,
         residence_status: parsed.data.residenceStatus,
         guardian_name: parsed.data.guardianName,
         guardian_phone: parsed.data.guardianPhone,
+        is_repeater: parsed.data.isRepeater,
         status: "active",
       },
       { onConflict: "school_id,matricule" }
@@ -964,13 +1204,15 @@ export async function registerStudentAction(formData: FormData) {
     return { error: studentError?.message || "Failed to create student record." };
   }
 
-  // 2. Insert enrolment
+  // 2. Insert or update enrolment
   const { error: enrolError } = await supabase.from("enrolments").upsert(
     {
       school_id: context.school.id,
       student_id: student.id,
       academic_year_id: parsed.data.academicYearId,
       class_stream_id: parsed.data.classStreamId,
+      is_repeater: parsed.data.isRepeater,
+      roll_number: parsed.data.rollNumber || null,
       status: "active",
     },
     { onConflict: "academic_year_id,student_id" }
@@ -979,7 +1221,227 @@ export async function registerStudentAction(formData: FormData) {
   if (enrolError) return { error: enrolError.message };
 
   revalidatePath("/dashboard/students");
-  return { success: true };
+  revalidatePath("/dashboard/academics/report-cards");
+  return {
+    success: true as const,
+    message: `Student "${parsed.data.firstName} ${parsed.data.lastName}" enrolled with Matricule ${matricule}.`,
+    matricule,
+  };
+}
+
+/**
+ * Updates an enrolled student's personal details, assigned stream, repeater status, and guardian info.
+ */
+export async function updateStudentAction(
+  stateOrFormData: unknown,
+  maybeFormData?: FormData
+) {
+  const formData = maybeFormData instanceof FormData ? maybeFormData : (stateOrFormData as FormData);
+  const context = await requirePermission("students.manage");
+  const parsed = StudentUpdateSchema.safeParse({
+    studentId: formData?.get ? formData.get("studentId") : null,
+    enrolmentId: formData?.get ? formData.get("enrolmentId") : null,
+    academicYearId: formData?.get ? formData.get("academicYearId") : null,
+    classStreamId: formData?.get ? formData.get("classStreamId") : null,
+    matricule: formData?.get ? formData.get("matricule") : null,
+    firstName: formData?.get ? formData.get("firstName") : null,
+    lastName: formData?.get ? formData.get("lastName") : null,
+    gender: formData?.get ? formData.get("gender") : null,
+    residenceStatus: formData?.get ? formData.get("residenceStatus") : null,
+    isRepeater: formData?.get ? formData.get("isRepeater") : null,
+    rollNumber: formData?.get ? formData.get("rollNumber") : null,
+    guardianName: formData?.get ? formData.get("guardianName") : null,
+    guardianPhone: formData?.get ? formData.get("guardianPhone") : null,
+  });
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const field = String(issue.path[0] || "");
+      if (field && !fieldErrors[field]) {
+        fieldErrors[field] = issue.message;
+      }
+    }
+    return {
+      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
+      fieldErrors,
+    };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Verify student exists in this school
+  const { data: existingStudent, error: fetchErr } = await supabase
+    .from("students")
+    .select("id, matricule, first_name, last_name, school_id")
+    .eq("id", parsed.data.studentId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (fetchErr || !existingStudent) {
+    return { error: "Student record not found in this school." };
+  }
+
+  // 2. Check matricule uniqueness within this school
+  if (parsed.data.matricule !== existingStudent.matricule) {
+    const { data: duplicateMatricule } = await supabase
+      .from("students")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("matricule", parsed.data.matricule)
+      .neq("id", parsed.data.studentId)
+      .maybeSingle();
+
+    if (duplicateMatricule) {
+      return {
+        error: `Admission number "${parsed.data.matricule}" is already assigned to another student in your school.`,
+        fieldErrors: { matricule: "This admission number is already in use." },
+      };
+    }
+  }
+
+  // 3. Update students table
+  const { error: studentUpdateErr } = await supabase
+    .from("students")
+    .update({
+      matricule: parsed.data.matricule,
+      first_name: parsed.data.firstName,
+      last_name: parsed.data.lastName,
+      gender: parsed.data.gender,
+      residence_status: parsed.data.residenceStatus,
+      guardian_name: parsed.data.guardianName || null,
+      guardian_phone: parsed.data.guardianPhone || null,
+      is_repeater: parsed.data.isRepeater,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.studentId)
+    .eq("school_id", context.school.id);
+
+  if (studentUpdateErr) {
+    return { error: studentUpdateErr.message };
+  }
+
+  // 4. Update enrolment record if stream/repeater/rollNumber changed
+  const enrolmentUpdate: Record<string, any> = {
+    class_stream_id: parsed.data.classStreamId,
+    is_repeater: parsed.data.isRepeater,
+    roll_number: parsed.data.rollNumber ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (parsed.data.enrolmentId) {
+    await supabase
+      .from("enrolments")
+      .update(enrolmentUpdate)
+      .eq("id", parsed.data.enrolmentId)
+      .eq("school_id", context.school.id);
+  } else if (parsed.data.academicYearId) {
+    await supabase
+      .from("enrolments")
+      .update(enrolmentUpdate)
+      .eq("student_id", parsed.data.studentId)
+      .eq("academic_year_id", parsed.data.academicYearId)
+      .eq("school_id", context.school.id);
+  }
+
+  // 5. If class_stream_id changed, update assessment marks class_stream_id for this student
+  // to ensure their marks remain visible in marksheets & report cards under their new class
+  await supabase
+    .from("assessment_marks")
+    .update({ class_stream_id: parsed.data.classStreamId, updated_at: new Date().toISOString() })
+    .eq("student_id", parsed.data.studentId)
+    .eq("school_id", context.school.id);
+
+  // 6. Log audit event
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "UPDATE_STUDENT_INFO",
+    resource_type: "student",
+    resource_id: parsed.data.studentId,
+    details: {
+      previous: {
+        matricule: existingStudent.matricule,
+        name: `${existingStudent.first_name} ${existingStudent.last_name}`,
+      },
+      updated: {
+        matricule: parsed.data.matricule,
+        name: `${parsed.data.firstName} ${parsed.data.lastName}`,
+        class_stream_id: parsed.data.classStreamId,
+      },
+    },
+  });
+
+  revalidatePath("/dashboard/students");
+  revalidatePath("/dashboard/academics/marks");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard");
+
+  return {
+    success: true,
+    message: `Student information for "${parsed.data.firstName} ${parsed.data.lastName}" updated successfully.`,
+  };
+}
+
+/**
+ * Permanently deletes a student record and cascaded academic data from the school database.
+ */
+export async function deleteStudentAction(formData: FormData) {
+  const context = await requirePermission("students.manage");
+  const studentId = String(formData.get("studentId") || "");
+
+  if (!studentId) {
+    return { error: "Student ID is required." };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Verify student exists in this school
+  const { data: student, error: fetchErr } = await supabase
+    .from("students")
+    .select("id, matricule, first_name, last_name")
+    .eq("id", studentId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (fetchErr || !student) {
+    return { error: "Student record not found in your school." };
+  }
+
+  // 2. Audit log before deletion
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "DELETE_STUDENT",
+    resource_type: "student",
+    resource_id: studentId,
+    details: {
+      matricule: student.matricule,
+      name: `${student.first_name} ${student.last_name}`,
+      deleted_by: context.user.id,
+    },
+  });
+
+  // 3. Delete student (Postgres foreign key cascade deletes enrolments, assessment_marks, term_results, fees, attendance)
+  const { error: deleteErr } = await supabase
+    .from("students")
+    .delete()
+    .eq("id", studentId)
+    .eq("school_id", context.school.id);
+
+  if (deleteErr) {
+    return { error: deleteErr.message };
+  }
+
+  revalidatePath("/dashboard/students");
+  revalidatePath("/dashboard/academics/marks");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard");
+
+  return {
+    success: true,
+    message: `Student "${student.first_name} ${student.last_name}" (${student.matricule}) has been permanently deleted from the database.`,
+  };
 }
 
 /**
@@ -1201,34 +1663,45 @@ export async function submitSequenceMarksAction(formData: FormData) {
     resolvedDeptId = subj?.department_id || "";
   }
 
-  if (!resolvedDeptId) {
-    return { error: "Subject must belong to a department before submitting to HOD." };
+  // If a department exists, track in departmental_approvals
+  if (resolvedDeptId) {
+    const { error: approvalErr } = await supabase.from("departmental_approvals").upsert(
+      {
+        school_id: context.school.id,
+        academic_year_id: academicYearId,
+        term_id: termId,
+        sequence_id: sequenceId,
+        class_stream_id: classStreamId,
+        department_id: resolvedDeptId,
+        subject_id: subjectId,
+        status: "submitted",
+        notes: `Submitted for review by ${context.user.full_name || "Teacher"}`,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
+    );
+
+    if (approvalErr) {
+      return { error: approvalErr.message };
+    }
   }
 
-  // Upsert departmental_approvals with status 'submitted'
-  const { error: approvalErr } = await supabase.from("departmental_approvals").upsert(
-    {
-      school_id: context.school.id,
-      academic_year_id: academicYearId,
-      term_id: termId,
-      sequence_id: sequenceId,
-      class_stream_id: classStreamId,
-      department_id: resolvedDeptId,
-      subject_id: subjectId,
-      status: "submitted",
-      notes: `Submitted for review by ${context.user.full_name || "Teacher"}`,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
-  );
-
-  if (approvalErr) {
-    return { error: approvalErr.message };
-  }
+  // Also lock entered marks for this teacher until approved by HOD or Principal
+  await supabase
+    .from("assessment_marks")
+    .update({ is_locked: true, updated_by: context.user?.id })
+    .eq("sequence_id", sequenceId)
+    .eq("class_stream_id", classStreamId)
+    .eq("subject_id", subjectId);
 
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics");
-  return { success: true, message: "Marks submitted to Head of Department for review." };
+  return {
+    success: true,
+    message: resolvedDeptId
+      ? "Marks submitted to Head of Department for review."
+      : "Marks submitted directly to School Administration for review.",
+  };
 }
 
 /**
@@ -1246,41 +1719,39 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
 
   const sequenceId = formData.get("sequenceId") as string;
   const classStreamId = formData.get("classStreamId") as string;
-  const departmentId = formData.get("departmentId") as string;
+  const departmentId = (formData.get("departmentId") as string) || null;
   const subjectId = (formData.get("subjectId") as string) || null;
   const academicYearId = formData.get("academicYearId") as string;
   const termId = formData.get("termId") as string;
   const notes = (formData.get("notes") as string) || null;
 
-  if (!sequenceId || !classStreamId || !departmentId) {
+  if (!sequenceId || !classStreamId) {
     return { error: "Missing required parameters for approval." };
   }
 
   const supabase = await createClient();
 
-  // 1. Record approval
-  const { error: approvalError } = await supabase.from("departmental_approvals").upsert(
-    {
-      school_id: context.school.id,
-      academic_year_id: academicYearId,
-      term_id: termId,
-      sequence_id: sequenceId,
-      class_stream_id: classStreamId,
-      department_id: departmentId,
-      subject_id: subjectId,
-      status: "approved",
-      approved_by: context.user?.id,
-      approved_at: new Date().toISOString(),
-      notes,
-    },
-    { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
-  );
-
-  if (approvalError) {
-    return { error: approvalError.message };
+  // 1. Record formal departmental approval if departmentId is available
+  if (departmentId) {
+    await supabase.from("departmental_approvals").upsert(
+      {
+        school_id: context.school.id,
+        academic_year_id: academicYearId,
+        term_id: termId,
+        sequence_id: sequenceId,
+        class_stream_id: classStreamId,
+        department_id: departmentId,
+        subject_id: subjectId,
+        status: "approved",
+        approved_by: context.user?.id,
+        approved_at: new Date().toISOString(),
+        notes,
+      },
+      { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
+    );
   }
 
-  // 2. Lock marks for this subject (or department)
+  // 2. Lock marks for this subject (or department / stream)
   if (subjectId) {
     await supabase
       .from("assessment_marks")
@@ -1288,7 +1759,7 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
       .eq("sequence_id", sequenceId)
       .eq("class_stream_id", classStreamId)
       .eq("subject_id", subjectId);
-  } else {
+  } else if (departmentId) {
     const { data: deptSubjects } = await supabase
       .from("subjects")
       .select("id")
@@ -1303,10 +1774,28 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
         .eq("class_stream_id", classStreamId)
         .in("subject_id", subjectIds);
     }
+  } else {
+    // School-wide or stream-wide approval without department
+    await supabase
+      .from("assessment_marks")
+      .update({ is_locked: true, updated_by: context.user?.id })
+      .eq("sequence_id", sequenceId)
+      .eq("class_stream_id", classStreamId);
   }
+
+  // 3. Log audit event
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "APPROVE_SEQUENCE_MARKS",
+    resource_type: "assessment_marks",
+    resource_id: `${sequenceId}_${classStreamId}_${subjectId || departmentId || "stream"}`,
+    details: { approved_by: context.user.id, notes },
+  });
 
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
   return { success: true };
 }
 
@@ -1337,27 +1826,26 @@ export async function reopenDepartmentalSequenceAction(formData: FormData) {
   const supabase = await createClient();
 
   // 1. Update departmental_approvals to 'rejected' (reopened for revision) with audit notes
-  let query = supabase
-    .from("departmental_approvals")
-    .update({
-      status: "rejected",
-      notes: notes || `Reopened for teacher revision by ${context.user.full_name || "HOD"}`,
-      approved_by: context.user.id,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("school_id", context.school.id)
-    .eq("sequence_id", sequenceId)
-    .eq("class_stream_id", classStreamId);
+  if (departmentId || subjectId) {
+    let query = supabase
+      .from("departmental_approvals")
+      .update({
+        status: "rejected",
+        notes: notes || `Reopened for teacher revision by ${context.user.full_name || "HOD / Administration"}`,
+        approved_by: context.user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("school_id", context.school.id)
+      .eq("sequence_id", sequenceId)
+      .eq("class_stream_id", classStreamId);
 
-  if (subjectId) {
-    query = query.eq("subject_id", subjectId);
-  } else {
-    query = query.eq("department_id", departmentId);
-  }
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    } else if (departmentId) {
+      query = query.eq("department_id", departmentId);
+    }
 
-  const { error: updateErr } = await query;
-  if (updateErr) {
-    return { error: updateErr.message };
+    await query;
   }
 
   // 2. Unlock assessment_marks
@@ -1485,4 +1973,62 @@ export async function updateStudentStatusAction(formData: FormData) {
 
   return { success: true, message: `Student status updated to ${newStatus}.` };
 }
+
+export async function toggleSequenceMarksAction(formData: FormData) {
+  const context = await requirePermission("academics.manage");
+  const sequenceId = String(formData.get("sequenceId") || "");
+  const isOpen = formData.get("isOpen") === "true";
+
+  if (!sequenceId) {
+    throw new Error("Invalid sequence specified.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("evaluation_sequences")
+    .update({ is_open_for_marks: isOpen })
+    .eq("id", sequenceId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/marks");
+  revalidatePath("/dashboard/academics/report-cards");
+}
+
+export async function setActiveSequenceAction(formData: FormData) {
+  const context = await requirePermission("academics.manage");
+  const activeSequenceId = String(formData.get("activeSequenceId") || "");
+
+  if (!activeSequenceId) {
+    throw new Error("Invalid sequence specified.");
+  }
+
+  const supabase = await createClient();
+  // Close all sequences first, then open the chosen active sequence
+  await supabase
+    .from("evaluation_sequences")
+    .update({ is_open_for_marks: false })
+    .eq("school_id", context.school.id);
+
+  const { error } = await supabase
+    .from("evaluation_sequences")
+    .update({ is_open_for_marks: true })
+    .eq("id", activeSequenceId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/marks");
+  revalidatePath("/dashboard/academics/report-cards");
+}
+
 

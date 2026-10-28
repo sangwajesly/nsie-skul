@@ -9,6 +9,7 @@ import {
   Loader2,
   AlertTriangle,
   SlidersHorizontal,
+  Plus,
 } from "lucide-react";
 import {
   updateClassAction,
@@ -244,6 +245,7 @@ export function ClassCardItem({
 }: Props) {
   const [isEditingClass, setIsEditingClass] = useState(false);
   const [isConfirmingDeleteClass, setIsConfirmingDeleteClass] = useState(false);
+  const [showAddStream, setShowAddStream] = useState(false);
 
   const [updateClassState, updateClassFormAction, isUpdateClassPending] = useActionState(
     updateClassAction,
@@ -422,13 +424,38 @@ export function ClassCardItem({
         </div>
       </div>
 
-      {/* Add Class Group Form */}
+      {/* Add Class Group Form (Collapsible) */}
       {canManageAcademics && (
-        <ClassStreamCreateForm
-          classId={cls.id}
-          className={cls.name}
-          academicYearId={academicYearId}
-        />
+        <div className="pt-2 border-t border-[#EEEEEC]">
+          {showAddStream ? (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] text-[#555555]">
+                <span className="font-semibold">New group in {cls.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAddStream(false)}
+                  className="text-[#888888] hover:text-[#191919] p-0.5"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <ClassStreamCreateForm
+                classId={cls.id}
+                className={cls.name}
+                academicYearId={academicYearId}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowAddStream(true)}
+              className="w-full py-1.5 px-2 text-[11px] font-semibold text-[#555555] hover:text-[#191919] hover:bg-[#EAEAE6] rounded-[4px] border border-dashed border-[#D5D5CF] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Add Class Group</span>
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

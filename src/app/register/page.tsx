@@ -31,7 +31,7 @@ export default function RegisterPage() {
             Create Account
           </h1>
           <p className="text-xs text-[#666666] mt-1">
-            Join your institution on Nsei Skul
+            Set up your school or join as staff on Nsei Skul
           </p>
         </div>
 

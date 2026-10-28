@@ -135,8 +135,12 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
           </div>
           <div className="col-span-3 p-1 flex items-center gap-2">
             <span className="font-bold">Repeater:</span>
-            <span>Yes [ ]</span>
-            <span className="font-bold">No [✓]</span>
+            <span className={student.isRepeater ? "font-bold" : ""}>
+              Yes [{student.isRepeater ? "✓" : " "}]
+            </span>
+            <span className={!student.isRepeater ? "font-bold" : ""}>
+              No [{!student.isRepeater ? "✓" : " "}]
+            </span>
           </div>
           <div className="col-span-4 p-1">
             <span className="font-bold">Number of subjects:</span>{" "}

@@ -9,6 +9,8 @@ import {
   CbaAppreciation,
 } from "@/types/database";
 
+export type SubjectGroupType = "group_1" | "group_2" | "group_3";
+
 export interface SubjectRowData {
   subjectId: string;
   subjectName: string;
@@ -24,6 +26,10 @@ export interface SubjectRowData {
   minClassScore: number;
   maxClassScore: number;
   remarks: string;
+  subjectRank?: number | null;
+  subjectAverage?: number | null;
+  departmentName?: string | null;
+  subjectGroup?: SubjectGroupType;
 }
 
 export interface ReportCardFullData {
@@ -37,6 +43,8 @@ export interface ReportCardFullData {
     regionalDelegation: string;
     divisionalDelegation: string;
     subsystem: string;
+    motto?: string | null;
+    reportCardTemplate?: string;
   };
   term: {
     id: string;
@@ -60,6 +68,8 @@ export interface ReportCardFullData {
     className: string;
     streamName: string;
     classEnrolment: number;
+    maleEnrolment?: number;
+    femaleEnrolment?: number;
     classMasterName: string;
   };
   subjects: SubjectRowData[];
@@ -73,6 +83,8 @@ export interface ReportCardFullData {
     cbaAppreciation: CbaAppreciation;
     rank: number | null;
     rankingEnabled: boolean;
+    seqAAverage?: number | null;
+    seqBAverage?: number | null;
   };
   classProfile: {
     classAverage: number;
@@ -161,6 +173,73 @@ const DEFAULT_CBA_COMPETENCIES: Record<string, string[]> = {
   ],
 };
 
+export function determineSubjectGroup(
+  subjectName: string,
+  departmentName?: string | null
+): SubjectGroupType {
+  const normSub = subjectName.toUpperCase().trim();
+  const normDept = (departmentName || "").toUpperCase().trim();
+
+  // Group 3: Practical, Sports, Labour & Other
+  if (
+    normSub.includes("SPORT") ||
+    normSub.includes("PHYSICAL EDUCATION") ||
+    normSub.includes("EPS") ||
+    normSub.includes("MANUAL LABOUR") ||
+    normSub.includes("MANUAL LABOR") ||
+    normSub.includes("TRAVAIL MANUEL") ||
+    normSub.includes("HEALTH SCIENCE") ||
+    normSub.includes("SANTE") ||
+    normSub.includes("HOME ECONOMICS") ||
+    normSub.includes("ART") ||
+    normSub.includes("MUSIC") ||
+    normDept.includes("SPORT") ||
+    normDept.includes("PRACTICAL") ||
+    normDept.includes("OTHER")
+  ) {
+    return "group_3";
+  }
+
+  // Group 2: Sciences, Mathematics, Technology, Commercial
+  if (
+    normSub.includes("MATH") ||
+    normSub.includes("BIOLOGY") ||
+    normSub.includes("BIOLOGIE") ||
+    normSub.includes("PHYSIC") ||
+    normSub.includes("PHYSIQUE") ||
+    normSub.includes("CHEMISTRY") ||
+    normSub.includes("CHIMIE") ||
+    normSub.includes("COMPUTER") ||
+    normSub.includes("INFORMATIQUE") ||
+    normSub.includes("ICT") ||
+    normSub.includes("ACCOUNTING") ||
+    normSub.includes("COMPTABILITE") ||
+    normSub.includes("MAILING") ||
+    normSub.includes("COMMERCE") ||
+    normSub.includes("SECRETAR") ||
+    normSub.includes("BUREAUTIQUE") ||
+    normSub.includes("TECHNOLOGY") ||
+    normSub.includes("SCIENCES") ||
+    normDept.includes("SCIENCE") ||
+    normDept.includes("MATH") ||
+    normDept.includes("COMMERCE") ||
+    normDept.includes("TECH")
+  ) {
+    return "group_2";
+  }
+
+  // Group 1: Languages, Humanities, Social Sciences, General / First Group Subjects
+  return "group_1";
+}
+
+export function getCbaAppreciationLabel(mark: number | null): string {
+  if (mark === null) return "Not acquired";
+  if (mark >= 17) return "Expert";
+  if (mark >= 13) return "Acquired";
+  if (mark >= 10) return "Skill in the process of Acquisition";
+  return "Not acquired";
+}
+
 export interface StreamReportCardContext {
   school: School;
   term: Term & { academic_year: { name: string } };
@@ -171,6 +250,8 @@ export interface StreamReportCardContext {
   streamMarks: AssessmentMark[];
   dbCompetencies: any[];
   actualClassSize: number;
+  maleEnrolment?: number;
+  femaleEnrolment?: number;
   studentAverages: Array<{ studentId: string; average: number }>;
   classProfile: {
     classAverage: number;
@@ -321,7 +402,14 @@ export async function getStudentReportCard(
       assignedSubjectIds.add(ta.subject_id);
       const teacher = ta.teacher as { full_name?: string } | null;
       if (teacher?.full_name) {
-        teacherNameMap.set(ta.subject_id, teacher.full_name);
+        const existing = teacherNameMap.get(ta.subject_id);
+        if (existing) {
+          if (!existing.split(" / ").includes(teacher.full_name)) {
+            teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+          }
+        } else {
+          teacherNameMap.set(ta.subject_id, teacher.full_name);
+        }
       }
     });
 
@@ -376,10 +464,35 @@ export async function getStudentReportCard(
     dbCompetencies = fetchedComps || [];
   }
 
-  // 9. Build per-subject rows
+  // 9. Build per-subject rows and class-wide benchmarks
   let totalCoef = 0;
   let totalWeightedScore = 0;
   let subjectsPassed = 0;
+  let seqATotalWeighted = 0;
+  let seqATotalCoef = 0;
+  let seqBTotalWeighted = 0;
+  let seqBTotalCoef = 0;
+
+  // Pre-calculate class-wide student term scores for each subject to determine subject ranks & averages
+  const classSubjectScoresMap = new Map<string, number[]>();
+  for (const sub of allSubjects) {
+    const studentScores = new Map<string, { a: number | null; b: number | null }>();
+    for (const m of streamMarks || []) {
+      if (m.subject_id === sub.id && m.status === "present" && m.normalized_score_20 !== null) {
+        const existing = studentScores.get(m.student_id) || { a: null, b: null };
+        if (m.sequence_id === seqA?.id) existing.a = Number(m.normalized_score_20);
+        else if (m.sequence_id === seqB?.id) existing.b = Number(m.normalized_score_20);
+        studentScores.set(m.student_id, existing);
+      }
+    }
+    const termScores: number[] = [];
+    studentScores.forEach(({ a, b }) => {
+      if (a !== null && b !== null) termScores.push(parseFloat(((a + b) / 2).toFixed(2)));
+      else if (a !== null) termScores.push(a);
+      else if (b !== null) termScores.push(b);
+    });
+    classSubjectScoresMap.set(sub.id, termScores);
+  }
 
   const subjectRows: SubjectRowData[] = allSubjects.map((sub) => {
     const studentSeqAMark = streamMarks!.find(
@@ -411,6 +524,15 @@ export async function getStudentReportCard(
     const coef = streamSubjectConfig?.coefficient ?? (Number(sub.default_coefficient) || 2);
     const weighted = termAvg !== null ? parseFloat((termAvg * coef).toFixed(2)) : null;
 
+    if (scoreA !== null) {
+      seqATotalWeighted += scoreA * coef;
+      seqATotalCoef += coef;
+    }
+    if (scoreB !== null) {
+      seqBTotalWeighted += scoreB * coef;
+      seqBTotalCoef += coef;
+    }
+
     if (termAvg !== null) {
       totalCoef += coef;
       totalWeightedScore += weighted || 0;
@@ -421,15 +543,20 @@ export async function getStudentReportCard(
 
     const gradeInfo = getGradeAppreciation(termAvg);
 
-    // Compute min and max across class for this subject
-    const subjectScoresInClass = streamMarks!
-      .filter((m) => m.subject_id === sub.id && m.status === "present" && m.normalized_score_20 !== null)
-      .map((m) => Number(m.normalized_score_20));
-
+    // Compute min, max, average, and rank across class for this subject
+    const classScores = classSubjectScoresMap.get(sub.id) || [];
     const minClassScore =
-      subjectScoresInClass.length > 0 ? Math.min(...subjectScoresInClass) : 8.0;
+      classScores.length > 0 ? Math.min(...classScores) : (termAvg ?? 8.0);
     const maxClassScore =
-      subjectScoresInClass.length > 0 ? Math.max(...subjectScoresInClass) : 18.5;
+      classScores.length > 0 ? Math.max(...classScores) : (termAvg ?? 18.5);
+    const subjectAverage =
+      classScores.length > 0
+        ? parseFloat((classScores.reduce((sum, v) => sum + v, 0) / classScores.length).toFixed(2))
+        : termAvg;
+    const subjectRank =
+      termAvg !== null
+        ? 1 + classScores.filter((val) => val > termAvg).length
+        : null;
 
     // Get competencies (prioritize class-specific competency set by teacher)
     const classSpecificComps = dbCompetencies?.filter(
@@ -448,6 +575,9 @@ export async function getStudentReportCard(
         : DEFAULT_CBA_COMPETENCIES[sub.name.toUpperCase()] || [
             `Demonstrate required competencies in ${sub.name} for Term ${term!.term_number}.`,
           ];
+
+    const deptName = (sub as any).department?.name || null;
+    const subjectGroup = determineSubjectGroup(sub.name, deptName);
 
     return {
       subjectId: sub.id,
@@ -469,6 +599,10 @@ export async function getStudentReportCard(
           : termAvg !== null && termAvg >= 10
           ? "Satisfactory progress"
           : "Needs remediation",
+      subjectRank,
+      subjectAverage,
+      departmentName: deptName,
+      subjectGroup,
     };
   });
 
@@ -640,6 +774,30 @@ export async function getStudentReportCard(
   const studentIndex = studentAverages.findIndex((s) => s.studentId === student.id);
   const calculatedRank = studentIndex >= 0 ? studentIndex + 1 : 1;
 
+  let maleCount = sharedContext?.maleEnrolment ?? 0;
+  let femaleCount = sharedContext?.femaleEnrolment ?? 0;
+
+  if (sharedContext?.maleEnrolment === undefined) {
+    if (sharedContext?.enrolmentsMap) {
+      for (const enr of sharedContext.enrolmentsMap.values()) {
+        const g = enr.student?.gender;
+        if (g === "M") maleCount++;
+        else if (g === "F") femaleCount++;
+      }
+    } else {
+      const { data: genderRows } = await supabase
+        .from("enrolments")
+        .select("student:students(gender)")
+        .eq("class_stream_id", classStream.id)
+        .eq("status", "active");
+      for (const r of genderRows || []) {
+        const g = (r.student as { gender?: string } | null)?.gender;
+        if (g === "M") maleCount++;
+        else if (g === "F") femaleCount++;
+      }
+    }
+  }
+
   return {
     school: {
       name: school.name || "GOVERNMENT BILINGUAL HIGH SCHOOL",
@@ -651,6 +809,8 @@ export async function getStudentReportCard(
       regionalDelegation: "NORTH WEST REGION",
       divisionalDelegation: "MEZAM DIVISION",
       subsystem: school.subsystem || "anglophone",
+      motto: school.motto || null,
+      reportCardTemplate: school.report_card_template || "cba_grouped_classic",
     },
     term: {
       id: term.id,
@@ -668,13 +828,15 @@ export async function getStudentReportCard(
       residenceStatus: student.residence_status,
       guardianName: student.guardian_name,
       guardianPhone: student.guardian_phone,
-      isRepeater: false,
+      isRepeater: Boolean(enrolmentData?.is_repeater ?? student?.is_repeater ?? false),
     },
     classInfo: {
       className: classStream.class?.name || "Form 2",
       streamName: classStream.name || "Form 2 A",
       classEnrolment: actualClassSize,
-      classMasterName: classStream.class_master?.full_name || "M. Class Master",
+      maleEnrolment: maleCount,
+      femaleEnrolment: femaleCount,
+      classMasterName: classStream.class_master?.full_name || "The Principal / Administration",
     },
     subjects: subjectRows,
     summary: {
@@ -687,6 +849,8 @@ export async function getStudentReportCard(
       cbaAppreciation: overallGrade.cba,
       rank: calculatedRank,
       rankingEnabled: school.ranking_mode === "enabled",
+      seqAAverage: seqATotalCoef > 0 ? parseFloat((seqATotalWeighted / seqATotalCoef).toFixed(2)) : null,
+      seqBAverage: seqBTotalCoef > 0 ? parseFloat((seqBTotalWeighted / seqBTotalCoef).toFixed(2)) : null,
     },
     classProfile,
     discipline,
@@ -785,7 +949,14 @@ export async function getClassStreamReportCards(
     assignedSubjectIds.add(ta.subject_id);
     const teacher = ta.teacher as { full_name?: string } | null;
     if (teacher?.full_name) {
-      teacherNameMap.set(ta.subject_id, teacher.full_name);
+      const existing = teacherNameMap.get(ta.subject_id);
+      if (existing) {
+        if (!existing.split(" / ").includes(teacher.full_name)) {
+          teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+        }
+      } else {
+        teacherNameMap.set(ta.subject_id, teacher.full_name);
+      }
     }
   });
 
@@ -907,6 +1078,14 @@ export async function getClassStreamReportCards(
     successRate: passRate,
   };
 
+  let maleCount = 0;
+  let femaleCount = 0;
+  for (const e of sorted) {
+    const g = (e.student as { gender?: string } | null)?.gender;
+    if (g === "M") maleCount++;
+    else if (g === "F") femaleCount++;
+  }
+
   const sharedContext: StreamReportCardContext = {
     school,
     term,
@@ -917,6 +1096,8 @@ export async function getClassStreamReportCards(
     streamMarks,
     dbCompetencies: dbCompetenciesData || [],
     actualClassSize: enrolledStudentIds.length,
+    maleEnrolment: maleCount,
+    femaleEnrolment: femaleCount,
     studentAverages,
     classProfile,
     enrolmentsMap,

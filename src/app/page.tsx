@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Users, BookOpen, Wallet, ClipboardList, CheckCircle2, GraduationCap } from "lucide-react";
+import { Users, BookOpen, Wallet, ClipboardList, CheckCircle2, GraduationCap, MessageCircle } from "lucide-react";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { BRAND, DESIGN_TOKENS } from "@/lib/design-tokens";
 
@@ -107,10 +107,16 @@ export default function LandingPage() {
               {/* CTAs */}
               <div className="flex flex-col sm:flex-row items-center gap-3 pt-1 w-full sm:w-auto justify-center">
                 <Link href="/register" className={BTN_PRIMARY}>
-                  Get started
+                  Get started — Register your school
                 </Link>
-                <a href="#features" className={BTN_SECONDARY}>
-                  Explore features
+                <a
+                  href="https://wa.me/237670000000?text=Hello%20Nsei%20Skul%20Team,%20I%20would%20like%20a%20demonstration%20for%20our%20school."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={BTN_SECONDARY + " gap-2"}
+                >
+                  <MessageCircle className="w-4 h-4 text-[#2A7C13]" />
+                  <span>Chat on WhatsApp / Demo</span>
                 </a>
               </div>
 

@@ -130,31 +130,42 @@ export default async function BulkReportCardsPage({
     );
   }
 
-  // Verify Class Master authorization
+  // Verify authorization
   const roleCode = context.role?.code || "teacher";
-  const isClassMaster = Boolean(context.isClassMaster || roleCode === "class_master");
-  const isAdmin = !roleCode || roleCode === "school_admin" || roleCode === "principal" || roleCode === "superadmin";
+  const isAdmin =
+    !roleCode ||
+    roleCode === "school_admin" ||
+    roleCode === "principal" ||
+    roleCode === "superadmin" ||
+    Boolean(context.hasPermission("school.settings.manage")) ||
+    Boolean(context.hasPermission("academics.manage"));
 
-  if (isClassMaster && !isAdmin) {
-    const teacherAssignments = await getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id);
-    const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
+  if (!isAdmin) {
+    const isClassMasterOfStream = selectedStream.class_master_id === context.user.id;
 
-    const hasAuthority =
-      selectedStream.class_master_id === context.user.id || assignedStreamIds.has(selectedStream.id);
-
-    if (!hasAuthority) {
+    if (!isClassMasterOfStream) {
       return (
-        <div className="mx-auto max-w-2xl py-12 text-center space-y-3">
-          <h1 className="text-base font-bold text-red-700">Access Denied</h1>
-          <p className="text-xs text-[#525E4B]">
-            You can only export report cards for the class group you supervise as Class Master.
-          </p>
-          <Link
-            href="/dashboard/academics/report-cards"
-            className="text-xs font-semibold text-[#2A7C13] underline"
-          >
-            Back to Report Cards Hub
-          </Link>
+        <div className="mx-auto max-w-2xl py-12 text-center space-y-4">
+          <div className="p-8 rounded-[10px] bg-white border border-[#E8DFC9] shadow-sm space-y-3">
+            <div className="w-12 h-12 rounded-full bg-[#FFF8CF] text-[#B45309] flex items-center justify-center mx-auto">
+              <Lock className="w-6 h-6" />
+            </div>
+            <h1 className="text-lg font-bold text-[#142010]">Batch Export Restricted</h1>
+            <p className="text-xs text-[#525E4B] max-w-md mx-auto leading-relaxed">
+              Exporting batch PDFs and printing official report cards is restricted to School Administrators and the designated Class Master (<em>Professeur Principal</em>) for {selectedStream.name}.
+            </p>
+            <p className="text-xs text-[#525E4B]">
+              As a subject teacher, you can inspect individual student mark entry on the report card hub.
+            </p>
+            <div className="pt-2">
+              <Link
+                href="/dashboard/academics/report-cards"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-semibold shadow-xs"
+              >
+                Back to Report Cards Hub
+              </Link>
+            </div>
+          </div>
         </div>
       );
     }

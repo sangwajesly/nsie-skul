@@ -10,6 +10,7 @@ import {
   getSchoolSequences,
 } from "@/lib/academic/service";
 import { getSchoolStaffMemberships } from "@/lib/admin/service";
+import { TeacherAssignmentsList } from "./TeacherAssignmentsList";
 import {
   Users,
   UserCog,
@@ -63,27 +64,31 @@ export default async function DashboardPage() {
         : [])
     : await getEnrolledStudents(schoolId, activeYear?.id || "");
 
-  const activeSequence = sequences.find((s) => s.is_open_for_marks) || sequences[0] || null;
+  // Active assessment window is strictly derived from sequences open for marks
+  const openSequences = sequences.filter((s) => s.is_open_for_marks);
+  const activeSequence = openSequences.length > 0 ? openSequences[openSequences.length - 1] : null;
 
   // ── TEACHER DASHBOARD VIEW ──
   if (isTeacher) {
     const assignedStudentsCount = enrolledStudents.length;
+    const displayRoleName =
+      roleCode === "class_master" && !tenantContext?.isClassMaster ? "Teacher" : roleName;
 
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Welcome header */}
-        <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-6 shadow-sm">
+        <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-4 sm:p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1.5">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[11px] font-bold uppercase tracking-wider">
                   <GraduationCap className="w-3.5 h-3.5" />
-                  {roleName}
+                  {displayRoleName}
                 </span>
-                {tenantContext?.isClassMaster && (
+                {tenantContext?.isClassMaster && (tenantContext.masteredStreamNames?.length ?? 0) > 0 && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-[11px] font-bold uppercase tracking-wider">
                     <Star className="w-3.5 h-3.5 text-[#B45309]" />
-                    Class Master · {tenantContext.masteredStreamNames?.join(", ") || "Supervised Class"}
+                    Class Master · {tenantContext.masteredStreamNames?.join(", ")}
                   </span>
                 )}
                 {tenantContext?.isHod && (
@@ -102,10 +107,14 @@ export default async function DashboardPage() {
               </h1>
               <p className="text-[13px] text-[#777777] mt-1 flex flex-wrap items-center gap-2">
                 <span>{activeYear?.name || "Academic year not set"}</span>
-                {activeSequence && (
+                {activeSequence ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF8CF] text-[#4A3D00] text-[11px] font-semibold rounded-[4px] border border-[#FBE6C2]">
                     <Sparkles className="w-3 h-3 text-[#B45309]" />
                     Active Assessment: {activeSequence.name}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#F5F5F0] text-[#666666] text-[11px] font-medium rounded-[4px] border border-[#E0E0DB]">
+                    Assessment Windows Closed
                   </span>
                 )}
               </p>
@@ -179,10 +188,12 @@ export default async function DashboardPage() {
               <ClipboardCheck className="w-4 h-4 text-[#2A7C13]" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Current Test</span>
             </div>
-            <div className="text-lg font-extrabold text-[#191919] truncate leading-tight mt-1">
-              {activeSequence ? `Seq ${activeSequence.sequence_number}` : "Term 1"}
+            <div className={`text-lg font-extrabold truncate leading-tight mt-1 ${activeSequence ? "text-[#191919]" : "text-[#777777]"}`}>
+              {activeSequence ? `Seq ${activeSequence.sequence_number}` : "None"}
             </div>
-            <div className="text-[11px] text-[#2A7C13] font-semibold mt-0.5">Marks Entry Open</div>
+            <div className={`text-[11px] font-semibold mt-0.5 ${activeSequence ? "text-[#2A7C13]" : "text-[#888888]"}`}>
+              {activeSequence ? "Marks Entry Open" : "Marks Window Closed"}
+            </div>
           </div>
 
           <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
@@ -199,7 +210,7 @@ export default async function DashboardPage() {
 
         {/* My Teaching Assignments Section */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2.5">
             <h2 className="text-[13px] font-bold text-[#555555] uppercase tracking-wider">
               My Teaching Assignments &amp; Quick Mark Entry
             </h2>
@@ -208,61 +219,10 @@ export default async function DashboardPage() {
             </span>
           </div>
 
-          {teacherAssignments.length === 0 ? (
-            <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-6 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full bg-[#F5F5F0] text-[#888888] flex items-center justify-center mx-auto">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <h3 className="font-bold text-[15px] text-[#191919]">No Teaching Classes Assigned Yet</h3>
-              <p className="text-xs text-[#666666] max-w-md mx-auto">
-                Your Head of Department or School Principal assigns teachers to specific class streams and subjects.
-                Once assigned, your subjects will appear right here with one-click access to marks entry, Excel upload, and roll call.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {teacherAssignments.map((assignment) => (
-                <div
-                  key={assignment.id}
-                  className="bg-white border border-[#E5E5DF] hover:border-[#2A7C13] rounded-[10px] p-4 transition-all shadow-2xs space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <span className="px-2 py-0.5 rounded-[4px] bg-[#F5F5F0] text-[#555555] font-mono text-[10px] font-bold uppercase">
-                        {assignment.class_stream?.stream_tag || "Stream"}
-                      </span>
-                      <h3 className="font-bold text-[15px] text-[#191919] mt-1">
-                        {assignment.class_stream?.name || "Class Group"}
-                      </h3>
-                      <div className="text-xs font-semibold text-[#2A7C13] flex items-center gap-1.5 mt-0.5">
-                        <span>{assignment.subject?.name || "Subject"}</span>
-                        <span className="text-[#888888] font-mono text-[11px] font-normal">
-                          ({assignment.subject?.code}) · Coef {assignment.subject?.default_coefficient ?? 2}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#F0F0EC] flex items-center gap-2">
-                    <Link
-                      href={`/dashboard/academics/marks?classStreamId=${assignment.class_stream_id}&subjectId=${assignment.subject_id}`}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#191919] hover:bg-[#333333] text-white text-xs font-semibold transition-colors"
-                    >
-                      <ClipboardCheck className="w-3.5 h-3.5" />
-                      <span>Enter Marks</span>
-                    </Link>
-                    <Link
-                      href={`/dashboard/attendance?classStreamId=${assignment.class_stream_id}`}
-                      className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EBEBE6] text-[#191919] text-xs font-medium transition-colors"
-                    >
-                      <CalendarCheck className="w-3.5 h-3.5" />
-                      <span>Roll Call</span>
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <TeacherAssignmentsList
+            assignments={teacherAssignments}
+            masteredStreamIds={tenantContext?.isClassMaster ? (tenantContext.masteredStreamNames || []) : []}
+          />
         </div>
 
         {/* Common Teacher Actions */}

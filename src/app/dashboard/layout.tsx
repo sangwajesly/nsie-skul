@@ -4,6 +4,7 @@ import { getActiveAcademicYear } from "@/lib/academic/service";
 import { signOutAction } from "@/app/auth/actions";
 import { redirect } from "next/navigation";
 import DashboardNavigation from "./DashboardNavigation";
+import { MobileNavDrawer } from "./MobileNavDrawer";
 import { LogOut } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -92,19 +93,18 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
       {/* Main content wrapper */}
       <div className="flex-1 flex flex-col min-w-0 print:block print:w-full">
         {/* Mobile Header */}
-        <div className="md:hidden flex items-center justify-between h-14 px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20 print:hidden">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs flex-shrink-0 overflow-hidden">
-              {tenantContext.school.logo_url ? (
-                <img
-                  src={tenantContext.school.logo_url}
-                  alt={schoolName}
-                  className="w-full h-full object-contain p-0.5 bg-white"
-                />
-              ) : (
-                schoolName.charAt(0)
-              )}
-            </div>
+        <div className="md:hidden flex items-center justify-between h-14 px-3 sm:px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20 print:hidden">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <MobileNavDrawer
+              schoolName={schoolName}
+              logoUrl={tenantContext.school.logo_url}
+              academicYearLabel={academicYearLabel}
+              userFullName={userFullName}
+              userRole={userRole}
+              roleCode={tenantContext.role.code}
+              isClassMaster={tenantContext.isClassMaster}
+              isHod={tenantContext.isHod}
+            />
             <div className="overflow-hidden">
               <span className="font-bold text-xs text-[#191919] truncate block">{schoolName}</span>
               <span className="text-[10px] text-[#888888] truncate block">{academicYearLabel}</span>

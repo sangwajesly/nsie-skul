@@ -1,27 +1,34 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import { loginAction } from "@/app/auth/actions";
-import { GraduationCap, ArrowRight, Lock, Mail } from "lucide-react";
+import { GraduationCap, ArrowRight, Lock, Mail, Loader2, CheckCircle2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/dashboard";
+  const [isNavigating, setIsNavigating] = useState(false);
 
-  // When the action returns a redirectTo, navigate client-side.
-  // This avoids redirect() inside a Server Action throwing React error #441.
+  // Pre-warm the target destination route assets so transition is fast
+  useEffect(() => {
+    router.prefetch(returnUrl);
+  }, [router, returnUrl]);
+
+  // When the action returns a redirectTo, smoothly transition
   useEffect(() => {
     if (state && "redirectTo" in state) {
-      router.push(state.redirectTo);
+      setIsNavigating(true);
+      router.replace(state.redirectTo);
     }
   }, [state, router]);
 
   const errorMsg = state && "error" in state ? state.error : null;
+  const isBusy = isPending || isNavigating;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
@@ -46,6 +53,13 @@ function LoginForm() {
             </div>
           )}
 
+          {isNavigating && (
+            <div className="p-3 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#166534]" />
+              <span>Signed in! Preparing your school dashboard…</span>
+            </div>
+          )}
+
           <form action={formAction} className="space-y-4">
             {/* Hidden returnUrl */}
             <input type="hidden" name="returnUrl" value={returnUrl} />
@@ -66,9 +80,10 @@ function LoginForm() {
                   name="email"
                   type="email"
                   required
+                  disabled={isBusy}
                   autoComplete="email"
                   placeholder="admin@school.cm"
-                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
                 />
               </div>
             </div>
@@ -97,20 +112,35 @@ function LoginForm() {
                   name="password"
                   type="password"
                   required
+                  disabled={isBusy}
                   autoComplete="current-password"
                   placeholder="••••••••"
-                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all"
+                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
                 />
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={isPending}
-              className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50"
+              disabled={isBusy}
+              className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
             >
-              {isPending ? "Signing in…" : "Sign in to Dashboard"}
-              {!isPending && <ArrowRight className="w-4 h-4" />}
+              {isNavigating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Loading Dashboard…</span>
+                </>
+              ) : isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>Signing in…</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign in to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
         </div>

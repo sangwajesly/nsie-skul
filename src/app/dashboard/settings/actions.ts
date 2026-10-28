@@ -116,6 +116,8 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   const ranking_mode = (formData.get("ranking_mode") as string) || "enabled";
   const result_approval_workflow = (formData.get("result_approval_workflow") as string) || "hod";
   const receipt_prefix = (formData.get("receipt_prefix") as string) || "REC";
+  const matricule_format = (formData.get("matricule_format") as string)?.trim() || "{CODE}-{YEAR}-{SEQ:4}";
+  const report_card_template = (formData.get("report_card_template") as string) || "cba_grouped_classic";
   const logo_url = (formData.get("logo_url") as string) || null;
 
   const supabase = await createClient();
@@ -132,6 +134,8 @@ export async function updateSchoolSettingsAction(formData: FormData) {
       ranking_mode,
       result_approval_workflow,
       receipt_prefix,
+      matricule_format,
+      report_card_template,
       logo_url,
       updated_at: new Date().toISOString(),
     })
@@ -161,6 +165,37 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/academics/report-cards");
   revalidatePath("/dashboard/finance");
+}
+
+export async function setSchoolReportCardTemplateAction(formData: FormData) {
+  const context = await requirePermission("school.settings.manage");
+  const schoolId = context.school.id;
+  const report_card_template = (formData.get("report_card_template") as string) || "cba_grouped_classic";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("schools")
+    .update({
+      report_card_template,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", schoolId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  await supabase.from("audit_logs").insert({
+    school_id: schoolId,
+    user_id: context.user.id,
+    action: "UPDATE_REPORT_CARD_TEMPLATE",
+    resource_type: "school",
+    resource_id: schoolId,
+    details: { report_card_template },
+  });
+
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/settings");
 }
 
 export async function updateStaffRoleAction(formData: FormData) {

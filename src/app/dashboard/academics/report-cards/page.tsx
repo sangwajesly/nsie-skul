@@ -13,6 +13,7 @@ import {
   BookOpen,
   AlertCircle,
   Lock,
+  Eye,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,13 @@ export default async function ReportCardsHubPage({
   const roleCode = context?.role?.code || "teacher";
   const canViewReportCards = Boolean(context?.hasPermission("report_cards.view"));
   const isClassMaster = Boolean(context?.isClassMaster || roleCode === "class_master");
-  const isAdmin = !roleCode || roleCode === "school_admin" || roleCode === "principal" || roleCode === "superadmin";
+  const isAdmin =
+    !roleCode ||
+    roleCode === "school_admin" ||
+    roleCode === "principal" ||
+    roleCode === "superadmin" ||
+    Boolean(context?.hasPermission("school.settings.manage")) ||
+    Boolean(context?.hasPermission("academics.manage"));
 
   // Access check: only Class Masters, HODs and Administrators can view report cards
   if (!canViewReportCards) {
@@ -73,10 +80,11 @@ export default async function ReportCardsHubPage({
 
   const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
 
-  // Class Masters see only their designated class stream; Admins see all
-  const visibleStreams = isClassMaster
-    ? allStreams.filter((s) => s.class_master_id === context?.user?.id || assignedStreamIds.has(s.id))
-    : allStreams;
+  // School Administrators and Principals see all class streams in the school.
+  // Teachers and Class Masters see their assigned / supervised class groups.
+  const visibleStreams = isAdmin
+    ? allStreams
+    : allStreams.filter((s) => s.class_master_id === context?.user?.id || assignedStreamIds.has(s.id));
 
   const defaultStreamId = params.classStreamId || (visibleStreams[0]?.id ?? undefined);
   const selectedStream = visibleStreams.find((s) => s.id === defaultStreamId) || null;
@@ -85,6 +93,11 @@ export default async function ReportCardsHubPage({
   const isAuthorized = isAdmin || (selectedStream && (
     selectedStream.class_master_id === context?.user?.id || assignedStreamIds.has(selectedStream.id)
   ));
+
+  const isStreamClassMaster = Boolean(
+    selectedStream?.class_master_id && selectedStream.class_master_id === context?.user?.id
+  );
+  const canPrintReportCards = isAdmin || isStreamClassMaster;
 
   const enrolments =
     selectedStream && activeYear && isAuthorized
@@ -144,7 +157,7 @@ export default async function ReportCardsHubPage({
       <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">
-            Choose a Class and Term
+            Class &amp; Term Filter
           </span>
           <span className="text-xs text-[#525E4B]">
             Class: <strong className="text-[#142010]">{selectedStream?.name || "None selected"}</strong>
@@ -217,15 +230,22 @@ export default async function ReportCardsHubPage({
               </div>
             </div>
 
-            {enrolments.length > 0 && selectedStream && (
-              <Link
-                href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
-                title="Print all report cards or export as one combined PDF file"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Export Class Batch (Single PDF)</span>
-              </Link>
+            {canPrintReportCards ? (
+              enrolments.length > 0 && selectedStream && (
+                <Link
+                  href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                  title="Print all report cards or export as one combined PDF file"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Export Class Batch (Single PDF)</span>
+                </Link>
+              )
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#4A3D00] text-xs font-semibold shrink-0">
+                <Eye className="w-4 h-4 text-[#B45309]" />
+                <span>Teacher Inspection Mode (View Only)</span>
+              </div>
             )}
           </div>
 
@@ -242,7 +262,7 @@ export default async function ReportCardsHubPage({
                 <span className="text-xs text-[#525E4B]">
                   {enrolments.length} students
                 </span>
-                {enrolments.length > 0 && selectedStream && (
+                {canPrintReportCards && enrolments.length > 0 && selectedStream && (
                   <Link
                     href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors"
@@ -261,7 +281,7 @@ export default async function ReportCardsHubPage({
                     <th className="py-2.5 px-3">Admission No.</th>
                     <th className="py-2.5 px-3">Student Name</th>
                     <th className="py-2.5 px-3 text-center">Gender</th>
-                    <th className="py-2.5 px-3 text-right">Report Card</th>
+                    <th className="py-2.5 px-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F5EFE0]">
@@ -288,9 +308,9 @@ export default async function ReportCardsHubPage({
                         <td className="py-2.5 px-3 text-right">
                           <Link
                             href={`/dashboard/academics/report-cards/${e.student_id}?termNumber=${selectedTermNumber}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs transition-colors shadow-xs"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs transition-colors shadow-xs"
                           >
-                            <Printer className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                             <span>View Report Card</span>
                           </Link>
                         </td>
