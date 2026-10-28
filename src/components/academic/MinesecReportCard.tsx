@@ -361,11 +361,6 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
           </div>
         </div>
       </div>
-
-      {/* Software attribution */}
-      <div className="pt-1 text-right text-[7px] text-zinc-400 font-mono">
-        Generated via Nsei Skul Management System
-      </div>
     </div>
   );
 }

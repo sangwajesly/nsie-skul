@@ -11,6 +11,15 @@ import { getGradeAppreciation } from "@/lib/academic/grading";
 import { MarksImportModal } from "./MarksImportModal";
 import { ParsedMarkRow, generateMarksCsvTemplate } from "@/lib/academic/marks-import";
 import {
+  buildSheetKey,
+  saveLocalDraft,
+  getLocalDraft,
+  enqueueSyncItem,
+  removeSyncItem,
+  getPendingSyncCount,
+} from "@/lib/academic/offline-marks-db";
+import { MarksSyncStatusBadge, SyncState } from "@/components/academics/MarksSyncStatusBadge";
+import {
   Save,
   Lock,
   Unlock,
@@ -28,6 +37,9 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  WifiOff,
+  RefreshCw,
+  HardDrive,
 } from "lucide-react";
 
 interface StudentRow {
@@ -106,6 +118,29 @@ export function MarksGridClient({
   const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
   const bottomCardRef = useRef<HTMLDivElement>(null);
 
+  // ── Offline-First & Local Storage State ───────────────────────────────
+  const sheetKey = buildSheetKey(academicYearId, sequenceId, classStreamId, subjectId);
+  const [isOnline, setIsOnline] = useState<boolean>(true);
+  const [syncState, setSyncState] = useState<SyncState>("synced");
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [isSyncingManual, setIsSyncingManual] = useState<boolean>(false);
+  const [restoredMessage, setRestoredMessage] = useState<string | null>(null);
+
+  // Keep latest mutable references to avoid stale closure in background timers
+  const studentsRef = useRef<StudentRow[]>(students);
+  const maxMarksRef = useRef<number>(maxMarks);
+  const competencyRef = useRef<string>(competency);
+  const isSyncingRef = useRef<boolean>(false);
+  const localSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const backgroundFlushTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    studentsRef.current = students;
+    maxMarksRef.current = maxMarks;
+    competencyRef.current = competency;
+  });
+
   // Permission calculation:
   // HOD and Administrator can ALWAYS edit marks (in draft, submitted, or approved states)
   // Teachers can edit when status is 'draft' or 'rejected' (reopened for corrections)
@@ -114,19 +149,270 @@ export function MarksGridClient({
   const isFinalApproved = currentStatus === "approved";
   const isReopened = currentStatus === "rejected";
 
-  const handleScoreChange = useCallback((index: number, val: string) => {
-    const num = val === "" ? null : parseFloat(val);
-    setStudents((prev) => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        score: isNaN(num as number) ? null : num,
-        status: num !== null && num > 0 ? "present" : updated[index].status,
-      };
-      return updated;
-    });
-    setIsDirty(true);
-  }, []);
+  /**
+   * Flush pending mutations from IndexedDB outbox to the server in the background.
+   */
+  const flushPendingSync = useCallback(
+    async (isManual = false): Promise<boolean> => {
+      if (typeof window === "undefined") return false;
+      if (!navigator.onLine) {
+        setSyncState("pending_offline");
+        if (isManual) {
+          setMessage({
+            type: "error",
+            text: "You are currently offline. Marks are saved safely on your device and will sync automatically when you reconnect.",
+          });
+        }
+        return false;
+      }
+
+      if (isSyncingRef.current) return false;
+      isSyncingRef.current = true;
+      setSyncState("syncing_cloud");
+      if (isManual) setIsSyncingManual(true);
+
+      try {
+        const res = await saveSequenceMarksAction({
+          academicYearId,
+          termId,
+          sequenceId,
+          classStreamId,
+          subjectId,
+          maxMarks: maxMarksRef.current,
+          competencyDescription: competencyRef.current,
+          marks: studentsRef.current.map((s) => ({
+            studentId: s.studentId,
+            score: s.score,
+            status: s.status,
+            remarks: s.remarks,
+          })),
+        });
+
+        if (res?.error) {
+          setSyncState("pending_offline");
+          if (isManual) setMessage({ type: "error", text: res.error });
+          return false;
+        } else {
+          await removeSyncItem(sheetKey);
+          const remaining = await getPendingSyncCount();
+          setPendingCount(remaining);
+          setSyncState("synced");
+          setIsDirty(false);
+          setLastSyncedAt(new Date());
+          if (isManual) {
+            setMessage({
+              type: "success",
+              text: "All marks successfully synchronized with the cloud!",
+            });
+          }
+          return true;
+        }
+      } catch (err: any) {
+        console.warn("[OfflineSync] Network error syncing marks:", err);
+        setSyncState("pending_offline");
+        if (isManual) {
+          setMessage({
+            type: "error",
+            text: "Network connection was interrupted. Marks remain saved safely on your device.",
+          });
+        }
+        return false;
+      } finally {
+        isSyncingRef.current = false;
+        if (isManual) setIsSyncingManual(false);
+      }
+    },
+    [academicYearId, termId, sequenceId, classStreamId, subjectId, sheetKey]
+  );
+
+  /**
+   * Schedule a debounced background sync to send queued changes to the server.
+   */
+  const scheduleBackgroundFlush = useCallback(() => {
+    if (backgroundFlushTimerRef.current) {
+      clearTimeout(backgroundFlushTimerRef.current);
+    }
+    backgroundFlushTimerRef.current = setTimeout(() => {
+      flushPendingSync(false);
+    }, 1500);
+  }, [flushPendingSync]);
+
+  /**
+   * Local-First Persistence:
+   * 1. Instantly writes to IndexedDB (zero lag, <2ms).
+   * 2. Enqueues mutation to background outbox.
+   * 3. Schedules non-blocking background flush if online.
+   */
+  const scheduleLocalPersistAndSync = useCallback(
+    (updatedStudents: StudentRow[], currentMaxMarks: number, currentComp: string) => {
+      setIsDirty(true);
+      setSyncState("saving_local");
+
+      if (localSaveTimerRef.current) {
+        clearTimeout(localSaveTimerRef.current);
+      }
+
+      localSaveTimerRef.current = setTimeout(async () => {
+        const draftPayload = {
+          sheetKey,
+          academicYearId,
+          termId,
+          sequenceId,
+          classStreamId,
+          subjectId,
+          maxMarks: currentMaxMarks,
+          competencyDescription: currentComp,
+          marks: updatedStudents.map((s) => ({
+            studentId: s.studentId,
+            score: s.score,
+            status: s.status,
+            remarks: s.remarks,
+          })),
+          updatedAt: Date.now(),
+          isSynced: false,
+        };
+
+        // Instant local persistence
+        await saveLocalDraft(draftPayload);
+        await enqueueSyncItem({
+          ...draftPayload,
+          enqueuedAt: Date.now(),
+          retryCount: 0,
+        });
+
+        const count = await getPendingSyncCount();
+        setPendingCount(count);
+
+        if (navigator.onLine) {
+          setSyncState("pending_offline");
+          scheduleBackgroundFlush();
+        } else {
+          setSyncState("pending_offline");
+        }
+      }, 300);
+    },
+    [sheetKey, academicYearId, termId, sequenceId, classStreamId, subjectId, scheduleBackgroundFlush]
+  );
+
+  // Hydrate from IndexedDB on initial mount & listen for network status changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setIsOnline(navigator.onLine);
+
+    let isMounted = true;
+    async function checkOfflineCache() {
+      try {
+        const pending = await getPendingSyncCount();
+        if (isMounted) setPendingCount(pending);
+
+        const localDraft = await getLocalDraft(sheetKey);
+        if (!isMounted || !localDraft) return;
+
+        // If local draft has un-synced entries that differ from server initial
+        if (localDraft.marks && localDraft.marks.length > 0 && !localDraft.isSynced) {
+          const hasDifferences = localDraft.marks.some((dm) => {
+            const initMatch = initialStudents.find((s) => s.studentId === dm.studentId);
+            if (!initMatch) return false;
+            return (
+              initMatch.score !== dm.score ||
+              initMatch.status !== dm.status ||
+              (initMatch.remarks || "") !== (dm.remarks || "")
+            );
+          });
+
+          if (hasDifferences) {
+            setStudents((prev) =>
+              prev.map((s) => {
+                const dm = localDraft.marks.find((m) => m.studentId === s.studentId);
+                if (!dm) return s;
+                return {
+                  ...s,
+                  score: dm.score,
+                  status: dm.status,
+                  remarks: dm.remarks ?? s.remarks,
+                };
+              })
+            );
+            if (localDraft.maxMarks) setMaxMarks(localDraft.maxMarks);
+            if (localDraft.competencyDescription) setCompetency(localDraft.competencyDescription);
+
+            setIsDirty(true);
+            setSyncState("pending_offline");
+            setRestoredMessage(
+              "Found unsynced marks saved on this device. Restored your offline edits safely."
+            );
+
+            // Attempt background sync if online
+            if (navigator.onLine) {
+              setTimeout(() => {
+                flushPendingSync(false);
+              }, 1200);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[OfflineDB] Error checking offline cache:", err);
+      }
+    }
+
+    checkOfflineCache();
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      flushPendingSync(false);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncState("pending_offline");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    // Periodic retry background worker every 25 seconds
+    const intervalId = setInterval(() => {
+      if (navigator.onLine && pendingCount > 0 && !isSyncingRef.current) {
+        flushPendingSync(false);
+      }
+    }, 25000);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      clearInterval(intervalId);
+    };
+  }, [sheetKey, flushPendingSync, initialStudents]);
+
+  // Tab unload warning if pending unsynced changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingCount > 0 && isDirty) {
+        e.preventDefault();
+        e.returnValue = "You have unsynced marks. They are saved on this device, but leaving before sync may delay cloud updates.";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pendingCount, isDirty]);
+
+  const handleScoreChange = useCallback(
+    (index: number, val: string) => {
+      const num = val === "" ? null : parseFloat(val);
+      setStudents((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          score: isNaN(num as number) ? null : num,
+          status: num !== null && num > 0 ? "present" : updated[index].status,
+        };
+        scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
+        return updated;
+      });
+    },
+    [scheduleLocalPersistAndSync]
+  );
 
   const handleScoreKeyDown = useCallback((index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === "ArrowDown") {
@@ -148,30 +434,36 @@ export function MarksGridClient({
     }
   }, []);
 
-  const handleStatusChange = useCallback((index: number, newStatus: "present" | "absent" | "exempt") => {
-    setStudents((prev) => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        status: newStatus,
-        score: newStatus !== "present" ? null : updated[index].score,
-      };
-      return updated;
-    });
-    setIsDirty(true);
-  }, []);
+  const handleStatusChange = useCallback(
+    (index: number, newStatus: "present" | "absent" | "exempt") => {
+      setStudents((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          status: newStatus,
+          score: newStatus !== "present" ? null : updated[index].score,
+        };
+        scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
+        return updated;
+      });
+    },
+    [scheduleLocalPersistAndSync]
+  );
 
-  const handleRemarksChange = useCallback((index: number, rem: string) => {
-    setStudents((prev) => {
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        remarks: rem,
-      };
-      return updated;
-    });
-    setIsDirty(true);
-  }, []);
+  const handleRemarksChange = useCallback(
+    (index: number, rem: string) => {
+      setStudents((prev) => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          remarks: rem,
+        };
+        scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
+        return updated;
+      });
+    },
+    [scheduleLocalPersistAndSync]
+  );
 
   const handleToggleSelectAll = () => {
     if (selectedIds.size === students.length && students.length > 0) {
@@ -206,7 +498,7 @@ export function MarksGridClient({
       return s;
     });
     setStudents(updated);
-    setIsDirty(true);
+    scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
   };
 
   const handleApplyImportedMarks = (importedRows: ParsedMarkRow[]) => {
@@ -233,10 +525,10 @@ export function MarksGridClient({
     });
 
     setStudents(updated);
-    setIsDirty(true);
+    scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
     setMessage({
       type: "success",
-      text: `Successfully applied marks for ${appliedCount} students from file. Review the table below and click "Save Mark Sheet".`,
+      text: `Successfully applied marks for ${appliedCount} students from file. All marks are saved locally on your device.`,
     });
   };
 
@@ -261,40 +553,73 @@ export function MarksGridClient({
     document.body.removeChild(link);
   };
 
-  const handleSaveDraft = (silent = false) => {
+  const handleSaveDraft = (silent = false): Promise<boolean> => {
     setMessage(null);
     return new Promise<boolean>((resolve) => {
       startTransition(async () => {
-        const res = await saveSequenceMarksAction({
+        // 1. Immediately persist locally to IndexedDB
+        const draftPayload = {
+          sheetKey,
           academicYearId,
           termId,
           sequenceId,
           classStreamId,
           subjectId,
-          maxMarks,
-          competencyDescription: competency,
-          marks: students.map((s) => ({
+          maxMarks: maxMarksRef.current,
+          competencyDescription: competencyRef.current,
+          marks: studentsRef.current.map((s) => ({
             studentId: s.studentId,
             score: s.score,
             status: s.status,
             remarks: s.remarks,
           })),
+          updatedAt: Date.now(),
+          isSynced: false,
+        };
+
+        await saveLocalDraft(draftPayload);
+        await enqueueSyncItem({
+          ...draftPayload,
+          enqueuedAt: Date.now(),
+          retryCount: 0,
         });
 
-        if (res?.error) {
-          setMessage({ type: "error", text: res.error });
-          resolve(false);
-        } else {
-          setIsDirty(false);
+        const count = await getPendingSyncCount();
+        setPendingCount(count);
+
+        // 2. If offline, confirm local save on device
+        if (!navigator.onLine) {
+          setSyncState("pending_offline");
+          if (!silent) {
+            setMessage({
+              type: "success",
+              text: "Working Offline: Marks saved securely on your device. They will synchronize automatically with the cloud when your connection is restored.",
+            });
+          }
+          resolve(true);
+          return;
+        }
+
+        // 3. If online, flush pending sync immediately
+        const synced = await flushPendingSync(false);
+        if (synced) {
           if (!silent) {
             setMessage({
               type: "success",
               text: canApprove
-                ? "Marks changes saved."
-                : "Draft marks saved successfully. You can continue updating or submit to HOD when ready.",
+                ? "Marks changes saved to cloud."
+                : "Draft marks saved to cloud successfully. You can continue updating or submit to HOD when ready.",
             });
           }
           resolve(true);
+        } else {
+          if (!silent) {
+            setMessage({
+              type: "error",
+              text: "Network connection was interrupted. Marks remain saved safely on your device and will retry in the background.",
+            });
+          }
+          resolve(false);
         }
       });
     });
@@ -374,6 +699,15 @@ export function MarksGridClient({
   const handleConfirmSubmitToHod = async () => {
     setMessage(null);
     setShowSubmitModal(false);
+
+    // If offline, check if online before submitting to HOD
+    if (!navigator.onLine) {
+      setMessage({
+        type: "error",
+        text: "You are currently offline. Marks are saved safely on your device, but an active internet connection is required to submit to your Head of Department. Please reconnect and submit.",
+      });
+      return;
+    }
 
     // Save pending edits first
     const saved = await handleSaveDraft(true);
@@ -601,7 +935,11 @@ export function MarksGridClient({
               type="number"
               disabled={!canEdit}
               value={maxMarks}
-              onChange={(e) => setMaxMarks(parseFloat(e.target.value) || 20)}
+              onChange={(e) => {
+                const val = parseFloat(e.target.value) || 20;
+                setMaxMarks(val);
+                scheduleLocalPersistAndSync(studentsRef.current, val, competencyRef.current);
+              }}
               className="w-16 px-2 py-1 rounded-[5px] border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
             />
             <span className="text-[11px] text-[#788470]">
@@ -673,12 +1011,16 @@ export function MarksGridClient({
               <span className="ml-1 text-[#2A7C13] font-semibold">(Complete ✓)</span>
             )}
           </div>
-          {isDirty && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FCD34D]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#B45309] animate-pulse" />
-              Unsaved changes
-            </span>
-          )}
+          <div className="h-3.5 w-px bg-[#E8DFC9] hidden md:block" />
+          {/* Real-Time Device Storage & Cloud Sync Status Badge */}
+          <MarksSyncStatusBadge
+            isOnline={isOnline}
+            syncState={syncState}
+            pendingCount={pendingCount}
+            lastSyncedAt={lastSyncedAt}
+            onSyncNow={() => flushPendingSync(true)}
+            isSyncingManual={isSyncingManual}
+          />
         </div>
 
         <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E8DFC9]/70">
@@ -770,6 +1112,22 @@ export function MarksGridClient({
       )}
 
       {/* Notifications */}
+      {restoredMessage && (
+        <div className="p-3.5 rounded-[8px] bg-[#EBF7E5] border border-[#CCECC0] text-xs flex items-center justify-between gap-3 text-[#1B5E20]">
+          <div className="flex items-center gap-2">
+            <HardDrive className="w-4 h-4 text-[#2A7C13] shrink-0" />
+            <span className="font-semibold">{restoredMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRestoredMessage(null)}
+            className="text-[11px] font-bold text-[#2A7C13] hover:underline cursor-pointer"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {message && (
         <div
           className={`p-3 rounded-[6px] text-xs flex items-center gap-2 ${
@@ -811,8 +1169,10 @@ export function MarksGridClient({
             disabled={!canEdit}
             value={competency}
             onChange={(e) => {
-              setCompetency(e.target.value);
+              const val = e.target.value;
+              setCompetency(val);
               setIsDirty(true);
+              scheduleLocalPersistAndSync(studentsRef.current, maxMarksRef.current, val);
             }}
             placeholder="e.g. Résoudre un système de deux équations à deux inconnues / Express opinions on environmental preservation..."
             className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60 disabled:bg-[#F9F9F7]"
@@ -1138,12 +1498,22 @@ export function MarksGridClient({
         }`}
       >
         <div className="flex items-center gap-2.5 sm:gap-3.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full bg-[#142010]/95 backdrop-blur-md text-white border border-[#2A7C13]/40 shadow-2xl max-w-[calc(100vw-2rem)]">
-          {/* Progress & Dirty Indicator */}
+          {/* Progress & Sync Status Indicator */}
           <div className="flex items-center gap-2 pr-2.5 border-r border-white/20 text-xs shrink-0">
-            {isDirty ? (
-              <span className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]">
+            {!isOnline ? (
+              <span className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]" title="Working offline • Saved on device">
+                <WifiOff className="w-3.5 h-3.5" />
+                <span>Offline</span>
+              </span>
+            ) : syncState === "syncing_cloud" || isSyncingManual ? (
+              <span className="flex items-center gap-1.5 text-blue-300 font-semibold text-[11px]">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Syncing</span>
+              </span>
+            ) : isDirty || pendingCount > 0 ? (
+              <span className="flex items-center gap-1.5 text-amber-300 font-semibold text-[11px]" title="Saved on device">
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                <span>Unsaved</span>
+                <span>Device saved</span>
               </span>
             ) : (
               <span className="flex items-center gap-1.5 text-[#76C457] font-semibold text-[11px]">

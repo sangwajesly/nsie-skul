@@ -594,11 +594,6 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
           </div>
         </div>
       </div>
-
-      {/* Software attribution */}
-      <div className="pt-2 text-right text-[7.5px] text-zinc-400 font-mono">
-        Template: Cameroon CBA Grouped Classic &bull; Generated via Nsei Skul Management System
-      </div>
     </div>
   );
 }
