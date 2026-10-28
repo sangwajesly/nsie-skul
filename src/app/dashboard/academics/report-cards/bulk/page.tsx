@@ -6,7 +6,7 @@ import {
   getSchoolClasses,
   getSchoolTeacherAssignments,
 } from "@/lib/academic/service";
-import { getClassStreamReportCards } from "@/lib/academic/report-card-service";
+import { getClassStreamReportCards, checkAndRegisterTrialClass } from "@/lib/academic/report-card-service";
 import { createClient } from "@/lib/supabase/server";
 import { BulkReportCardsView } from "./BulkReportCardsView";
 import { Lock, MessageCircle, ShieldAlert } from "lucide-react";
@@ -192,6 +192,87 @@ export default async function BulkReportCardsPage({
     );
   }
 
+  // 4. Trial Limit Check: Allow up to 3 classes in trial mode; prompt for payment on the 4th
+  let trialClassInfo: { usedClassCount: number; maxTrialClasses: number } | null = null;
+  if (context.subscription?.isTrial) {
+    const trialCheck = await checkAndRegisterTrialClass(
+      schoolId,
+      context.user.id,
+      selectedStream.id,
+      selectedStream.name
+    );
+
+    if (!trialCheck.allowed) {
+      const schoolCode = context.school.code || context.school.slug;
+      const whatsappMsg = encodeURIComponent(
+        `Hello Nsei Skul Billing, I have sent payment for ${context.school.name} (Code: ${schoolCode}). Please activate our school license.`
+      );
+      const whatsappUrl = `https://wa.me/237682833601?text=${whatsappMsg}`;
+
+      return (
+        <div className="mx-auto max-w-xl py-12 px-4 text-center space-y-4">
+          <div className="p-8 rounded-[12px] bg-white border border-[#FCA5A5] shadow-sm space-y-4">
+            <div className="w-14 h-14 rounded-full bg-[#FEF2F2] text-[#DC2626] flex items-center justify-center mx-auto">
+              <ShieldAlert className="w-7 h-7" />
+            </div>
+            <h1 className="text-xl font-extrabold text-[#991B1B]">
+              Trial Class Limit Reached (3 of 3 Classes Used)
+            </h1>
+            <p className="text-xs text-[#525E4B] max-w-md mx-auto leading-relaxed">
+              Your trial allows generating complete report cards for up to <strong>3 classes</strong>.
+              You have already generated report cards for: <strong>{trialCheck.usedStreamNames.join(", ")}</strong>.
+            </p>
+            <p className="text-xs text-[#666666] max-w-md mx-auto">
+              To generate report cards for <strong>{selectedStream.name}</strong> and additional classes without trial watermarks, please activate your school license.
+            </p>
+
+            <div className="p-4 rounded-[8px] bg-[#FFFDF5] border border-[#E8DFC9] max-w-sm mx-auto text-left space-y-2 text-xs">
+              <div className="font-bold text-[#142010] flex items-center justify-between">
+                <span>MTN Mobile Money:</span>
+                <span className="text-[10px] font-bold text-[#2A7C13] uppercase">Cameroon</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-[#F0EFEA]">
+                <span className="text-[#666666]">Number:</span>
+                <strong className="font-mono text-[#2A7C13] text-sm">682 833 601</strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-[#F0EFEA]">
+                <span className="text-[#666666]">Account Name:</span>
+                <strong className="text-[#142010]">Mbongih Jesly Sangwa</strong>
+              </div>
+              <div className="flex justify-between pt-1">
+                <span className="text-[#666666]">Reference Code:</span>
+                <strong className="font-mono text-[#2A7C13]">{schoolCode}</strong>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-bold shadow-xs transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Confirm on WhatsApp (Instant Activation)</span>
+              </a>
+              <Link
+                href="/dashboard/settings#license"
+                className="px-4 py-2 text-xs font-semibold text-[#525E4B] hover:text-[#142010]"
+              >
+                View Billing Details
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    trialClassInfo = {
+      usedClassCount: trialCheck.usedClassCount,
+      maxTrialClasses: trialCheck.maxTrialClasses,
+    };
+  }
+
   // Verify authorization
   const roleCode = context.role?.code || "teacher";
   const isAdmin =
@@ -278,6 +359,7 @@ export default async function BulkReportCardsPage({
         classStreamId={selectedStream.id}
         termNumber={requestedTermNumber}
         initialSortBy={params.sortBy}
+        isTrial={context.subscription?.isTrial}
       />
     </div>
   );

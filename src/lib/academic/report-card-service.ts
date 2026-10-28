@@ -1113,3 +1113,79 @@ export async function getClassStreamReportCards(
 
   return cards.filter((c): c is ReportCardFullData => c !== null);
 }
+
+/**
+ * Checks and registers trial class usage for report cards (limit: 3 classes).
+ * If the school has already generated report cards for 3 classes and requests a 4th,
+ * allowed returns false.
+ */
+export async function checkAndRegisterTrialClass(
+  schoolId: string,
+  userId: string,
+  streamId: string,
+  streamName?: string
+): Promise<{
+  allowed: boolean;
+  usedClassCount: number;
+  maxTrialClasses: number;
+  usedStreamNames: string[];
+}> {
+  const maxTrialClasses = 3;
+  const supabase = await createClient();
+
+  const { data: logs } = await supabase
+    .from("audit_logs")
+    .select("resource_id, details")
+    .eq("school_id", schoolId)
+    .eq("action", "report_card.generate")
+    .eq("resource_type", "class_stream");
+
+  const streamMap = new Map<string, string>();
+  if (logs) {
+    for (const log of logs) {
+      if (log.resource_id) {
+        const name = (log.details as { streamName?: string })?.streamName || "Class";
+        streamMap.set(log.resource_id, name);
+      }
+    }
+  }
+
+  // Already granted for this stream
+  if (streamMap.has(streamId)) {
+    return {
+      allowed: true,
+      usedClassCount: streamMap.size,
+      maxTrialClasses,
+      usedStreamNames: Array.from(streamMap.values()),
+    };
+  }
+
+  // Trial limit reached: cannot add a 4th class
+  if (streamMap.size >= maxTrialClasses) {
+    return {
+      allowed: false,
+      usedClassCount: streamMap.size,
+      maxTrialClasses,
+      usedStreamNames: Array.from(streamMap.values()),
+    };
+  }
+
+  // Under limit: record this class stream in trial history
+  await supabase.from("audit_logs").insert({
+    school_id: schoolId,
+    user_id: userId,
+    action: "report_card.generate",
+    resource_type: "class_stream",
+    resource_id: streamId,
+    details: { streamName: streamName || "Class" },
+  });
+
+  streamMap.set(streamId, streamName || "Class");
+
+  return {
+    allowed: true,
+    usedClassCount: streamMap.size,
+    maxTrialClasses,
+    usedStreamNames: Array.from(streamMap.values()),
+  };
+}

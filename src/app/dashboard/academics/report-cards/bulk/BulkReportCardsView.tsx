@@ -24,6 +24,7 @@ interface Props {
   termNumber: number;
   initialSortBy?: "rank" | "alphabetical";
   initialTemplate?: ReportCardTemplateType;
+  isTrial?: boolean;
 }
 
 export function BulkReportCardsView({
@@ -34,6 +35,7 @@ export function BulkReportCardsView({
   termNumber,
   initialSortBy = "rank",
   initialTemplate,
+  isTrial,
 }: Props) {
   const template: ReportCardTemplateType =
     initialTemplate ||
@@ -166,8 +168,18 @@ export function BulkReportCardsView({
           {sortedReportCards.map((rc) => (
             <div
               key={rc.student.id}
-              className="report-card-print-sheet bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-4 sm:p-6 print:p-0 print:border-none print:shadow-none"
+              className="report-card-print-sheet relative overflow-hidden bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-4 sm:p-6 print:p-0 print:border-none print:shadow-none"
             >
+              {isTrial && (
+                <div
+                  className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden z-20 select-none print:flex"
+                  aria-hidden="true"
+                >
+                  <div className="transform -rotate-35 text-[#9CA3AF]/40 text-4xl sm:text-6xl font-black uppercase tracking-widest whitespace-nowrap border-4 border-[#9CA3AF]/40 px-6 sm:px-10 py-3 sm:py-4 rounded-xl select-none print:text-neutral-400/40 print:border-neutral-400/40">
+                    TRIAL EVALUATION COPY
+                  </div>
+                </div>
+              )}
               {template === "traditional_classic" ? (
                 <TraditionalReportCard data={rc} />
               ) : template === "cba_grouped_classic" ? (
