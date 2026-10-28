@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="nseiBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#142010" />
+      <stop offset="100%" stop-color="#233a1b" />
+    </linearGradient>
+    <linearGradient id="nseiGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="100%" stop-color="#F59E0B" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background container with smooth rounded corners -->
+  <rect width="128" height="128" rx="28" fill="url(#nseiBg)" />
+  <rect x="2" y="2" width="124" height="124" rx="26" fill="none" stroke="#4ADE80" stroke-opacity="0.25" stroke-width="2" />
+
+  <!-- Mortarboard Diamond (Cap Top) -->
+  <polygon points="64,28 16,52 64,76 112,52" fill="#FFFFFF" />
+
+  <!-- Cap Skull Base -->
+  <path d="M36 62 L36 84 C36 96 48 104 64 104 C80 104 92 96 92 84 L92 62" fill="none" stroke="#4ADE80" stroke-width="6" stroke-linecap="round" />
+
+  <!-- Graduation Tassel Cord & Pendant -->
+  <path d="M102 58 L102 88 L96 94" fill="none" stroke="url(#nseiGold)" stroke-width="3.5" stroke-linecap="round" />
+  <circle cx="96" cy="97" r="4" fill="#F59E0B" />
+
+  <!-- Center Mortarboard Button -->
+  <circle cx="64" cy="52" r="4" fill="#4ADE80" />
+</svg>

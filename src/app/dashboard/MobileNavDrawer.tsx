@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, X, LogOut } from "lucide-react";
 import DashboardNavigation from "./DashboardNavigation";
+import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { signOutAction } from "@/app/auth/actions";
 
 interface Props {
@@ -113,6 +114,11 @@ export function MobileNavDrawer({
                 isHod={isHod}
                 onNavClick={() => setIsOpen(false)}
               />
+            </div>
+
+            {/* PWA Install Button inside Drawer */}
+            <div className="px-3 pb-2 pt-2 border-t border-[#EBEBE6] bg-white">
+              <PwaInstallButton variant="drawer" />
             </div>
 
             {/* User footer & sign out */}

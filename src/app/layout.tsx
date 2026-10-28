@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { PwaProvider } from "@/components/pwa/PwaProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,13 +13,38 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport: Viewport = {
+  themeColor: "#142010",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
   title: "Nsei Skul · School Management SaaS for Cameroon",
   description:
-    "Integrated school management platform for Anglophone secondary schools in Cameroon. Featuring 6-sequence evaluations, CBA report cards, and fee receipts in CFA Francs.",
+    "Integrated school management platform for secondary schools in Cameroon. Featuring 6-sequence evaluations, CBA report cards, and fee receipts in CFA Francs.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
+    ],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Nsei Skul",
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html
       lang="en"
@@ -26,7 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        {children}
+        <PwaProvider>{children}</PwaProvider>
       </body>
     </html>
   );

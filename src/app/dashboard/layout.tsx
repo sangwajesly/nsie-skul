@@ -5,6 +5,7 @@ import { signOutAction } from "@/app/auth/actions";
 import { redirect } from "next/navigation";
 import DashboardNavigation from "./DashboardNavigation";
 import { MobileNavDrawer } from "./MobileNavDrawer";
+import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { LogOut } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -58,6 +59,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           isClassMaster={tenantContext.isClassMaster}
           isHod={tenantContext.isHod}
         />
+
+        {/* PWA Install Button (Sidebar) */}
+        <div className="px-3 pb-2">
+          <PwaInstallButton variant="sidebar" />
+        </div>
 
         {/* User card */}
         <div className="p-3 border-t border-[#EBEBE6]">
