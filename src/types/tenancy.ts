@@ -1,5 +1,15 @@
 import { School, UserProfile, Role, Permission } from "./database";
 
+export interface SchoolSubscriptionInfo {
+  status: "trial" | "active" | "past_due" | "canceled";
+  plan: string;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  isExpired: boolean;
+  isTrial: boolean;
+  daysRemaining: number;
+}
+
 export interface ActiveTenantContext {
   user: UserProfile;
   school: School;
@@ -10,6 +20,7 @@ export interface ActiveTenantContext {
   isClassMaster?: boolean;
   masteredStreamNames?: string[];
   isHod?: boolean;
+  subscription?: SchoolSubscriptionInfo;
 }
 
 export interface UserSchoolOption {

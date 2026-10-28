@@ -14,6 +14,7 @@ import {
   CalendarCheck,
   Settings,
   History,
+  ShieldCheck,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -54,6 +55,9 @@ function isRouteActive(pathname: string, currentHash: string, href: string): boo
     }
     if (targetHash === "#staff") {
       return currentHash === "#staff";
+    }
+    if (targetHash === "#license") {
+      return currentHash === "#license";
     }
     if (targetHash === "#school-settings") {
       return currentHash === "#school-settings" || !currentHash;
@@ -252,6 +256,14 @@ export default function DashboardNavigation({
       {isAdmin && (
         <>
           <NavSection label="Administration" />
+          <NavLink
+            href="/dashboard/settings#license"
+            icon={ShieldCheck}
+            label="License & Billing"
+            sublabel="MTN MoMo payments & subscription"
+            currentHash={currentHash}
+            onNavClick={onNavClick}
+          />
           <NavLink
             href="/dashboard/settings#school-settings"
             icon={Settings}

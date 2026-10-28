@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { cookies } from "next/headers";
-import { ActiveTenantContext, UserSchoolOption } from "@/types/tenancy";
+import { ActiveTenantContext, UserSchoolOption, SchoolSubscriptionInfo } from "@/types/tenancy";
 import { School, UserProfile, Role, Permission } from "@/types/database";
 
 export const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
@@ -134,9 +134,9 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     }
   }
 
-  // 5. Dynamic Dual-Role Resolution:
-  // Check if staff member is appointed as a Class Master or HOD in this school
-  const [{ data: masteredStreams }, { data: hodDepartments }] = await Promise.all([
+  // 5. Dynamic Dual-Role Resolution & Subscription Status:
+  // Check if staff member is appointed as a Class Master or HOD, and fetch school license
+  const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }] = await Promise.all([
     supabase
       .from("class_streams")
       .select("id, name")
@@ -148,7 +148,54 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
       .eq("school_id", activeSchool.id)
       .eq("hod_user_id", authUser.id)
       .eq("status", "active"),
+    supabase
+      .from("school_subscriptions")
+      .select("*")
+      .eq("school_id", activeSchool.id)
+      .maybeSingle(),
   ]);
+
+  // Compute subscription state
+  const now = Date.now();
+  const trialEndsAt = subData?.trial_ends_at || null;
+  const currentPeriodEnd = subData?.current_period_end || null;
+  const subStatus = (subData?.status || "trial") as "trial" | "active" | "past_due" | "canceled";
+
+  let isExpired = false;
+  let daysRemaining = 0;
+
+  if (subStatus === "active") {
+    if (currentPeriodEnd) {
+      const diffMs = new Date(currentPeriodEnd).getTime() - now;
+      daysRemaining = Math.max(0, Math.ceil(diffMs / 86400000));
+      isExpired = diffMs <= 0;
+    } else {
+      daysRemaining = 365;
+      isExpired = false;
+    }
+  } else if (subStatus === "trial") {
+    if (trialEndsAt) {
+      const diffMs = new Date(trialEndsAt).getTime() - now;
+      daysRemaining = Math.max(0, Math.ceil(diffMs / 86400000));
+      isExpired = diffMs <= 0;
+    } else {
+      daysRemaining = 30;
+      isExpired = false;
+    }
+  } else {
+    isExpired = true;
+    daysRemaining = 0;
+  }
+
+  const subscription: SchoolSubscriptionInfo = {
+    status: subStatus,
+    plan: subData?.plan || "pilot",
+    trialEndsAt,
+    currentPeriodEnd,
+    isExpired,
+    isTrial: subStatus === "trial",
+    daysRemaining,
+  };
 
   // A teacher only has active Class Master status if assigned to at least one class stream
   const isClassMaster = Boolean(masteredStreams && masteredStreams.length > 0);
@@ -181,6 +228,7 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     isClassMaster,
     masteredStreamNames: masteredStreams?.map((s) => s.name) || [],
     isHod,
+    subscription,
   };
 });
 

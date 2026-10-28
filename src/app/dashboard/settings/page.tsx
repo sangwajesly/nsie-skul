@@ -7,6 +7,7 @@ import {
 } from "@/lib/admin/service";
 import SchoolSettingsClient from "./SchoolSettingsClient";
 import StaffRolesClient from "./StaffRolesClient";
+import { SchoolBillingSubscription } from "./SchoolBillingSubscription";
 import Link from "next/link";
 import { Settings, ShieldCheck, History } from "lucide-react";
 
@@ -69,6 +70,15 @@ export default async function SettingsPage() {
 
       {/* Main Settings Tabs / Sections */}
       <div className="space-y-8">
+        {/* School License & Local Billing */}
+        <div id="license">
+          <SchoolBillingSubscription
+            schoolName={school.name}
+            schoolCode={school.code || school.slug}
+            subscription={context.subscription}
+          />
+        </div>
+
         <SchoolSettingsClient school={school} />
 
         <StaffRolesClient
