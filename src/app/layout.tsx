@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nsei-sukul.klarifypath.com"),
-  title: "Nsei Sukul Management System · Best School Management for Cameroon",
+  title: "Nsei Sukul · Management Systems | Cameroon Secondary Education Platform",
   description:
     "Integrated school management platform for secondary schools in Cameroon. Featuring 6-sequence evaluations, CBA report cards, and fee receipts in CFA Francs.",
   manifest: "/manifest.json",

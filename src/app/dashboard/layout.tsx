@@ -46,8 +46,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             <div className="font-bold text-[13px] tracking-tight text-[#191919] truncate leading-tight">
               {schoolName}
             </div>
-            <div className="text-[10px] text-[#AAAAAA] font-medium truncate">
-              Nsei Sukul Management System
+            <div className="text-[10px] text-[#888888] font-semibold tracking-wide uppercase truncate">
+              Management Systems
             </div>
           </div>
         </div>

@@ -7,18 +7,25 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         {/* Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-3">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#142010]">
-            Reset Password
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#142010]">
+            Nsei Sukul
           </h1>
-          <p className="text-xs text-[#666666] mt-1">
-            Enter your institutional email address to receive password reset instructions.
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#788470] mt-0.5">
+            Management Systems
           </p>
         </div>
 
         <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-5">
+          <div className="pb-1">
+            <h2 className="text-base font-bold text-[#142010]">Reset Password</h2>
+            <p className="text-xs text-[#666666] mt-0.5">
+              Enter your institutional email address to receive password reset instructions.
+            </p>
+          </div>
+
           <form className="space-y-4">
             <div>
               <label
@@ -66,7 +73,7 @@ export default function ForgotPasswordPage() {
         </p>
 
         <p className="text-center text-[10px] text-[#AAAAAA] mt-4">
-          © {new Date().getFullYear()} Nsei Sukul Management System · Built for Cameroon Secondary Education
+          © {new Date().getFullYear()} Nsei Sukul · Management Systems · Built for Cameroon Secondary Education
         </p>
       </div>
     </div>

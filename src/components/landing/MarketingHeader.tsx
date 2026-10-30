@@ -25,7 +25,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
               {BRAND.name}
             </span>
             <span className="text-[10px] font-semibold text-[#788470] tracking-wide uppercase mt-0.5">
-              School Management System
+              {BRAND.systemTitle}
             </span>
           </div>
         </Link>

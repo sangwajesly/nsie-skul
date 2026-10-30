@@ -68,11 +68,11 @@ export function OnboardingClient({
             <GraduationCap className="w-5 h-5" />
           </div>
           <div>
-            <div className="font-extrabold text-[15px] tracking-tight text-[#142010]">
-              Nsei Sukul Management System
+            <div className="font-extrabold text-[15px] tracking-tight text-[#142010] leading-tight">
+              Nsei Sukul
             </div>
-            <div className="text-[10px] text-[#788470]">
-              Cameroon Secondary Education Platform
+            <div className="text-[10px] font-semibold text-[#788470] tracking-wide uppercase">
+              Management Systems
             </div>
           </div>
         </div>
@@ -97,7 +97,7 @@ export function OnboardingClient({
             Account Setup
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#142010]">
-            Welcome to Nsei Sukul Management System, {fullName}!
+            Welcome to Nsei Sukul, {fullName}!
           </h1>
           <p className="text-sm text-[#525E4B] max-w-lg mx-auto">
             Choose how you would like to get started. You can register your school as an administrator or join an existing school as a staff member.
@@ -450,7 +450,7 @@ export function OnboardingClient({
                   2
                 </span>
                 <p className="leading-relaxed">
-                  The administrator will navigate to <strong>Settings &gt; Staff &amp; Teachers</strong> on their Nsei Sukul Management System dashboard and assign you your teaching subjects and class groups.
+                  The administrator will navigate to <strong>Settings &gt; Staff &amp; Teachers</strong> on their Nsei Sukul dashboard and assign you your teaching subjects and class groups.
                 </p>
               </div>
 
@@ -516,7 +516,7 @@ export function OnboardingClient({
 
       {/* Footer */}
       <div className="max-w-4xl mx-auto w-full text-center text-[11px] text-[#888888] pt-6 border-t border-[#E8DFC9]">
-        &copy; {new Date().getFullYear()} Nsei Sukul Management System &middot; Secondary School Management Platform for Cameroon
+        &copy; {new Date().getFullYear()} Nsei Sukul &middot; Management Systems &middot; Built for Cameroon Secondary Education
       </div>
     </div>
   );

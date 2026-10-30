@@ -13,9 +13,14 @@ export function MarketingFooter() {
               <div className="w-7 h-7 rounded-[6px] bg-[#2A7C13] text-white flex items-center justify-center shadow-xs">
                 <GraduationCap className="w-4 h-4" />
               </div>
-              <span className="font-extrabold text-[16px] text-[#142010]">
-                {BRAND.name}
-              </span>
+              <div className="flex flex-col">
+                <span className="font-extrabold text-[16px] text-[#142010] leading-tight">
+                  {BRAND.name}
+                </span>
+                <span className="text-[10px] font-semibold text-[#788470] tracking-wide uppercase">
+                  {BRAND.systemTitle}
+                </span>
+              </div>
             </div>
             <p className="text-[12px] text-[#788470] leading-relaxed">
               Hybrid Cloud & Offline School Management System engineered specifically for Cameroonian Secondary Schools and Colleges.
@@ -135,7 +140,7 @@ export function MarketingFooter() {
         {/* Bottom Bar */}
         <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-[11.5px] text-[#788470]">
           <div>
-            © {new Date().getFullYear()} Nsei Sukul Management System. All rights reserved.
+            © {new Date().getFullYear()} Nsei Sukul · Management Systems. All rights reserved.
           </div>
           <div className="flex items-center gap-5">
             <Link href="/terms" className="hover:text-[#142010] transition-colors underline">Terms of Service</Link>

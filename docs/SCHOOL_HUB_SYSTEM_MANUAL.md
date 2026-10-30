@@ -3,7 +3,7 @@
 
 *Document Version:* 2.0  
 *Target Audience:* School Proprietors, Principals, IT Technicians, Field Deployment Engineers, Bursars & Academic Staff  
-*System URL (Cloud):* `https://nsei-skul.klarifypath.com`  
+*System URL (Cloud):* `https://nsei-sukul.klarifypath.com`  
 *Local Hub Default Address:* `http://192.168.1.100:3000` or `http://school.local:3000`
 
 ---
@@ -22,7 +22,7 @@ Nsei Sukul Managements System solves this with a **Tri-Hybrid Architecture** tha
 ```
                           ┌─────────────────────────────────────┐
                           │     CENTRAL CLOUD PLATFORM          │
-                          │   (nsei-skul.klarifypath.com)       │
+                          │   (nsei-sukul.klarifypath.com)       │
                           │     • Supabase Multi-Tenant         │
                           │     • Global Student Database       │
                           │     • Subscription & Cryptographic  │
@@ -106,13 +106,13 @@ Before heading to the school premises, ensure you have:
 - [ ] Cat6 LAN patch cord.
 - [ ] Wi-Fi router configured with School SSID (e.g., `GBHS_Staff_Network`) and password.
 - [ ] USB flash drive with installer files.
-- [ ] School Administrator credentials for `https://nsei-skul.klarifypath.com`.
+- [ ] School Administrator credentials for `https://nsei-sukul.klarifypath.com`.
 
 ---
 
 ### 3.2 Step 1: Register the School Hub in the Central Portal
 Every physical School Hub must be authenticated by the school's central administrator:
-1. Log in to `https://nsei-skul.klarifypath.com` as School Administrator.
+1. Log in to `https://nsei-sukul.klarifypath.com` as School Administrator.
 2. Navigate to **Dashboard → Settings**.
 3. Scroll down to the **School Hub Infrastructure** card.
 4. Click **"Register New School Hub Node"**:
@@ -138,7 +138,7 @@ Every physical School Hub must be authenticated by the school's central administ
 ### 3.4 Step 3: Install & Configure the Hub Software
 On the School Hub PC:
 
-1. Clone or copy the Nsei Sukul deployment bundle to `C:\nsei-skul\` (Windows) or `/opt/nsei-skul/` (Linux).
+1. Clone or copy the Nsei Sukul deployment bundle to `C:\nsei-sukul\` (Windows) or `/opt/nsei-sukul/` (Linux).
 2. Create the configuration file `.env.local` by copying `.env.hub`:
    ```bash
    cp .env.hub .env.local
@@ -153,12 +153,12 @@ On the School Hub PC:
    HUB_NODE_KEY=HUB-N100-GBHS-9872ABC
 
    # Central Sync Endpoint
-   CLOUD_SYNC_URL=https://nsei-skul.klarifypath.com/api/v1/hub/sync
+   CLOUD_SYNC_URL=https://nsei-sukul.klarifypath.com/api/v1/hub/sync
 
    # Local Database Credentials
    HUB_DB_USER=nsei_admin
    HUB_DB_PASSWORD=SecureSchoolPassword2026!
-   HUB_DB_NAME=nsei_skul_hub
+   HUB_DB_NAME=nsei_sukul_hub
 
    # Network Port
    PORT=3000
@@ -223,7 +223,7 @@ Connect the School Hub temporarily to internet (via phone tethering or modem) fo
 To protect your business and ensure schools maintain active subscription payments while still working 100% offline, Nsei Sukul Managements System uses a **Cryptographic Rolling Lease**:
 
 ### How the 30-Day Lease Works:
-1. **Initial Lease**: When the Hub syncs with `nsei-skul.klarifypath.com`, the cloud validates that the school has an active subscription.
+1. **Initial Lease**: When the Hub syncs with `nsei-sukul.klarifypath.com`, the cloud validates that the school has an active subscription.
 2. **Cryptographic Token**: The cloud issues a signed lease payload containing:
    - `school_id`
    - `hub_node_key`
@@ -274,7 +274,7 @@ $$\text{Receipt Number} = \text{SCHOOL\_CODE} - \text{ACADEMIC\_YEAR} - \text{DE
 Teachers have three flexible methods to input marks:
 
 #### Method 1: Entering Marks at Home (Remote Cloud Entry)
-1. At home, open `https://nsei-skul.klarifypath.com` on phone or laptop.
+1. At home, open `https://nsei-sukul.klarifypath.com` on phone or laptop.
 2. Select Class and Subject (e.g., *Form 3A — Mathematics*).
 3. Type student scores. Scores are saved to the cloud AND cached locally in the phone's browser storage.
 
@@ -352,21 +352,21 @@ set TIMESTAMP=%date:~10,4%-%date:~4,2%-%date:~7,2%_%time:~0,2%-%time:~3,2%
 if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
 
 echo Backing up School Hub Database to %BACKUP_DIR%...
-docker exec nsei-hub-db pg_dump -U nsei_admin nsei_skul_hub > "%BACKUP_DIR%\hub_backup_%TIMESTAMP%.sql"
+docker exec nsei-hub-db pg_dump -U nsei_admin nsei_sukul_hub > "%BACKUP_DIR%\hub_backup_%TIMESTAMP%.sql"
 echo Backup completed successfully at %TIMESTAMP%!
 ```
 
 ### 7.2 Database Restoration Procedure (Hardware Replacement)
 If the School Hub PC suffers hardware failure:
 1. Bring any replacement PC/laptop and install Docker Desktop.
-2. Copy the `nsei-skul` folder and plug in the backup USB drive.
+2. Copy the `nsei-sukul` folder and plug in the backup USB drive.
 3. Start the database:
    ```bash
    docker compose -f docker-compose.hub.yml up -d hub-db
    ```
 4. Restore the latest backup SQL file:
    ```bash
-   docker exec -i nsei-hub-db psql -U nsei_admin -d nsei_skul_hub < D:\NSEI_Backups\latest_backup.sql
+   docker exec -i nsei-hub-db psql -U nsei_admin -d nsei_sukul_hub < D:\NSEI_Backups\latest_backup.sql
    ```
 5. Start the application:
    ```bash
@@ -408,10 +408,10 @@ If the School Hub PC suffers hardware failure:
 | Service | Port / Protocol | URL / Command |
 |---|---|---|
 | **School Hub Web App** | TCP 3000 | `http://192.168.1.100:3000` |
-| **Local PostgreSQL 16** | TCP 5432 | `localhost:5432` (DB: `nsei_skul_hub`) |
+| **Local PostgreSQL 16** | TCP 5432 | `localhost:5432` (DB: `nsei_sukul_hub`) |
 | **LAN Ping Handshake** | HTTP GET | `/api/v1/hub/lan-ping` |
 | **Direct Wi-Fi Sync** | HTTP POST | `/api/v1/hub/lan-sync` |
-| **Cloud Bi-Directional Sync** | HTTPS POST | `https://nsei-skul.klarifypath.com/api/v1/hub/sync` |
+| **Cloud Bi-Directional Sync** | HTTPS POST | `https://nsei-sukul.klarifypath.com/api/v1/hub/sync` |
 | **Windows Start Script** | Batch | `start-school-hub.bat` |
 | **Linux Start Script** | Shell | `./start-school-hub.sh` |
 | **Docker Compose Config** | Docker | `docker-compose.hub.yml` |

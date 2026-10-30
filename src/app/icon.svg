@@ -17,7 +17,7 @@
   <!-- Mortarboard Diamond (Cap Top) -->
   <polygon points="64,28 16,52 64,76 112,52" fill="#FFFFFF" />
 
-  <!-- Cap Skull Base -->
+  <!-- Graduation Cap Base -->
   <path d="M36 62 L36 84 C36 96 48 104 64 104 C80 104 92 96 92 84 L92 62" fill="none" stroke="#4ADE80" stroke-width="6" stroke-linecap="round" />
 
   <!-- Graduation Tassel Cord & Pendant -->

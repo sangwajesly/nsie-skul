@@ -1,5 +1,5 @@
 // Service Worker for Nsei Sukul Offline Support
-const CACHE_NAME = "nsei-skul-v2";
+const CACHE_NAME = "nsei-sukul-v3";
 const OFFLINE_URLS = [
   "/dashboard",
   "/dashboard/students",

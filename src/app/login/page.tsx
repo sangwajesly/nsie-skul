@@ -37,14 +37,14 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Logo & Brand */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-4">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-3">
             <GraduationCap className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#142010]">
-            Nsei Sukul Management System
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#142010]">
+            Nsei Sukul
           </h1>
-          <p className="text-xs text-[#666666] mt-1">
-            Secondary School Management Platform · Sign in to continue
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#788470] mt-0.5">
+            Management Systems
           </p>
         </div>
 
@@ -176,7 +176,7 @@ function LoginForm() {
         </div>
 
         <p className="text-center text-[10px] text-[#AAAAAA] mt-2">
-          © {new Date().getFullYear()} Nsei Sukul Management System · Built for Cameroon Secondary Education
+          © {new Date().getFullYear()} Nsei Sukul · Management Systems · Built for Cameroon Secondary Education
         </p>
       </div>
     </div>

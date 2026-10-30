@@ -1,5 +1,5 @@
 /**
- * Shared IndexedDB access for NSEI Skul's offline (Hybrid) mode.
+ * Shared IndexedDB access for NSEI Sukul's offline (Hybrid) mode.
  *
  * Stores:
  *  - outbox: queued mutations created while offline / on flaky networks.

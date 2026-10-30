@@ -3,7 +3,8 @@
  * Locked in with Option A: Green & Cream Palette.
  */
 export const BRAND = {
-  name: "Nsei Sukul Management System",
+  name: "Nsei Sukul",
+  systemTitle: "Management Systems",
   tagline: "School Management, Simplified",
   domain: "nsei-sukul.klarifypath.com",
   url: "https://nsei-sukul.klarifypath.com",
