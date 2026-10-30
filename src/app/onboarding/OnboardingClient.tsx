@@ -69,7 +69,7 @@ export function OnboardingClient({
           </div>
           <div>
             <div className="font-extrabold text-[15px] tracking-tight text-[#142010]">
-              Nsei Skul
+              Nsei Sukul Management System
             </div>
             <div className="text-[10px] text-[#788470]">
               Cameroon Secondary Education Platform
@@ -97,7 +97,7 @@ export function OnboardingClient({
             Account Setup
           </span>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#142010]">
-            Welcome to Nsei Skul, {fullName}!
+            Welcome to Nsei Sukul Management System, {fullName}!
           </h1>
           <p className="text-sm text-[#525E4B] max-w-lg mx-auto">
             Choose how you would like to get started. You can register your school as an administrator or join an existing school as a staff member.
@@ -259,12 +259,12 @@ export function OnboardingClient({
                     name="subsystem"
                     required
                     disabled={isBusy}
-                    defaultValue="anglophone"
+                    defaultValue="bilingual"
                     className="w-full px-3 py-2 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13]"
                   >
-                    <option value="anglophone">General Anglophone (GCE Model)</option>
-                    <option value="bilingual">Bilingual Comprehensive (General &amp; Technical)</option>
-                    <option value="francophone">Francophone Subsystem (Probatoire / Baccalauréat)</option>
+                    <option value="bilingual">Comprehensive / Bilingual Institution</option>
+                    <option value="anglophone">English Curriculum (General &amp; Technical)</option>
+                    <option value="francophone">French Curriculum (Enseignement Général &amp; Technique)</option>
                   </select>
                 </div>
 
@@ -450,7 +450,7 @@ export function OnboardingClient({
                   2
                 </span>
                 <p className="leading-relaxed">
-                  The administrator will navigate to <strong>Settings &gt; Staff &amp; Teachers</strong> on their Nsei Skul dashboard and assign you your teaching subjects and class groups.
+                  The administrator will navigate to <strong>Settings &gt; Staff &amp; Teachers</strong> on their Nsei Sukul Management System dashboard and assign you your teaching subjects and class groups.
                 </p>
               </div>
 
@@ -503,7 +503,7 @@ export function OnboardingClient({
           </div>
 
           <a
-            href="https://wa.me/237670000000?text=Hello%20Nsei%20Skul%20Team,%20I%20need%20assistance%20onboarding%20our%20school."
+            href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20need%20assistance%20onboarding%20our%20school."
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
@@ -516,7 +516,7 @@ export function OnboardingClient({
 
       {/* Footer */}
       <div className="max-w-4xl mx-auto w-full text-center text-[11px] text-[#888888] pt-6 border-t border-[#E8DFC9]">
-        &copy; {new Date().getFullYear()} Nsei Skul &middot; Secondary School Management Platform for Cameroon
+        &copy; {new Date().getFullYear()} Nsei Sukul Management System &middot; Secondary School Management Platform for Cameroon
       </div>
     </div>
   );

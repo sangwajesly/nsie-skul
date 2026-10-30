@@ -6,12 +6,14 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { loginAction } from "@/app/auth/actions";
 import { GraduationCap, ArrowRight, Lock, Mail, Loader2, CheckCircle2 } from "lucide-react";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 function LoginForm() {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(loginAction, null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/dashboard";
+  const urlError = searchParams.get("error");
   const [isNavigating, setIsNavigating] = useState(false);
 
   // Pre-warm the target destination route assets so transition is fast
@@ -27,7 +29,7 @@ function LoginForm() {
     }
   }, [state, router]);
 
-  const errorMsg = state && "error" in state ? state.error : null;
+  const errorMsg = (state && "error" in state ? state.error : null) || urlError;
   const isBusy = isPending || isNavigating;
 
   return (
@@ -39,14 +41,14 @@ function LoginForm() {
             <GraduationCap className="w-6 h-6" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-[#142010]">
-            Nsei Skul
+            Nsei Sukul Management System
           </h1>
           <p className="text-xs text-[#666666] mt-1">
             Secondary School Management Platform · Sign in to continue
           </p>
         </div>
 
-        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-5">
+        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-4">
           {errorMsg && (
             <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
               {errorMsg}
@@ -59,6 +61,18 @@ function LoginForm() {
               <span>Signed in! Preparing your school dashboard…</span>
             </div>
           )}
+
+          {/* 1-Click Google Sign In */}
+          <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
+
+          {/* Clean Divider */}
+          <div className="relative flex items-center justify-center my-3">
+            <div className="border-t border-[#E8DFC9] w-full" />
+            <span className="bg-white px-2.5 text-[10.5px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
+              or with password
+            </span>
+            <div className="border-t border-[#E8DFC9] w-full" />
+          </div>
 
           <form action={formAction} className="space-y-4">
             {/* Hidden returnUrl */}
@@ -155,8 +169,14 @@ function LoginForm() {
           </Link>
         </p>
 
-        <p className="text-center text-[10px] text-[#AAAAAA] mt-4">
-          © {new Date().getFullYear()} Nsei Skul · Built for Cameroon Secondary Education
+        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-4">
+          <Link href="/terms" className="hover:text-[#2A7C13] hover:underline">Terms of Service</Link>
+          <span>•</span>
+          <Link href="/privacy" className="hover:text-[#2A7C13] hover:underline">Privacy Policy</Link>
+        </div>
+
+        <p className="text-center text-[10px] text-[#AAAAAA] mt-2">
+          © {new Date().getFullYear()} Nsei Sukul Management System · Built for Cameroon Secondary Education
         </p>
       </div>
     </div>

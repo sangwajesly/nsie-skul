@@ -37,7 +37,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
       
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
-        {/* Anglophone Subsystem Header (Left) */}
+        {/* English National Header (Left) */}
         <div className="col-span-5 text-center space-y-0.5 text-[9px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
           <div className="text-[8px] font-normal italic lowercase">Peace – Work – Fatherland</div>
@@ -84,8 +84,12 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
 
       {/* ── 2. TERM TITLE & METADATA BAR ─────────────────────────────────────── */}
       <div className="text-center py-2 border-b border-black flex items-center justify-between px-2">
-        <div className="w-16 h-16 border border-dashed border-black/60 flex items-center justify-center text-[8px] text-zinc-500 uppercase text-center p-1">
-          Student Photo
+        <div className="w-16 h-16 border border-dashed border-black/60 flex items-center justify-center text-[8px] text-zinc-500 uppercase text-center p-0.5 overflow-hidden bg-zinc-50">
+          {student.photoUrl ? (
+            <img src={student.photoUrl} alt={student.fullName} className="w-full h-full object-cover" />
+          ) : (
+            <span>Student Photo</span>
+          )}
         </div>
         <div className="text-center flex-1">
           <h2 className="text-sm sm:text-base font-black tracking-wider uppercase underline underline-offset-4">
@@ -116,7 +120,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
         <div className="grid grid-cols-12 border-b border-black/30 divide-x divide-black/30">
           <div className="col-span-5 p-1">
             <span className="font-bold">Date &amp; place of birth:</span>{" "}
-            <span>{student.dateOfBirth || "12/04/2011"} at {student.placeOfBirth || "Bamenda"}</span>
+            <span>{student.dateOfBirth || "—"} at {student.placeOfBirth || "—"}</span>
           </div>
           <div className="col-span-3 p-1">
             <span className="font-bold">Gender:</span>{" "}
@@ -181,49 +185,57 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-black/40">
-            {subjects.map((sub, idx) => (
-              <tr key={sub.subjectId} className="divide-x divide-black/30 align-top">
-                <td className="py-1 px-1.5 font-bold uppercase text-[9px] bg-zinc-50/50">
-                  {sub.subjectName}
-                  <div className="text-[7.5px] font-normal text-zinc-600 capitalize">{sub.teacherName}</div>
-                </td>
-                <td className="py-1 px-1.5 text-[8.5px] leading-tight">
-                  <ul className="list-disc pl-3 space-y-0.5">
-                    {sub.competencies.map((c, ci) => (
-                      <li key={ci}>{c}</li>
-                    ))}
-                  </ul>
-                </td>
-                <td className="py-1 px-1 text-center font-mono font-semibold">
-                  {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "-"}
-                </td>
-                <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-50/30">
-                  {sub.termAverage !== null ? sub.termAverage.toFixed(2) : "-"}
-                </td>
-                <td className="py-1 px-1 text-center font-mono font-bold">
-                  {sub.coefficient}
-                </td>
-                <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-50/30">
-                  {sub.weightedScore !== null ? sub.weightedScore.toFixed(2) : "-"}
-                </td>
-                <td className="py-1 px-1 text-center font-bold font-mono">
-                  <span className={`px-1 py-0.5 rounded text-[8.5px] ${
-                    sub.cba === "EXP" ? "bg-green-100 text-green-900" :
-                    sub.cba === "SA" ? "bg-emerald-50 text-emerald-800" :
-                    sub.cba === "SPA" ? "bg-amber-100 text-amber-900" :
-                    "bg-red-50 text-red-800"
-                  }`}>
-                    {sub.grade} ({sub.cba})
-                  </span>
-                </td>
-                <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                  [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
-                </td>
-                <td className="py-1 px-1.5 text-[8px] italic text-zinc-800">
-                  {sub.remarks}
+            {subjects.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="py-8 text-center text-zinc-500 italic text-[11px]">
+                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
                 </td>
               </tr>
-            ))}
+            ) : (
+              subjects.map((sub, idx) => (
+                <tr key={sub.subjectId} className="divide-x divide-black/30 align-top">
+                  <td className="py-1 px-1.5 font-bold uppercase text-[9px] bg-zinc-50/50">
+                    {sub.subjectName}
+                    <div className="text-[7.5px] font-normal text-zinc-600 capitalize">{sub.teacherName}</div>
+                  </td>
+                  <td className="py-1 px-1.5 text-[8.5px] leading-tight">
+                    <ul className="list-disc pl-3 space-y-0.5">
+                      {sub.competencies.map((c, ci) => (
+                        <li key={ci}>{c}</li>
+                      ))}
+                    </ul>
+                  </td>
+                  <td className="py-1 px-1 text-center font-mono font-semibold">
+                    {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "-"}
+                  </td>
+                  <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-50/30">
+                    {sub.termAverage !== null ? sub.termAverage.toFixed(2) : "-"}
+                  </td>
+                  <td className="py-1 px-1 text-center font-mono font-bold">
+                    {sub.coefficient}
+                  </td>
+                  <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-50/30">
+                    {sub.weightedScore !== null ? sub.weightedScore.toFixed(2) : "-"}
+                  </td>
+                  <td className="py-1 px-1 text-center font-bold font-mono">
+                    <span className={`px-1 py-0.5 rounded text-[8.5px] ${
+                      sub.cba === "EXP" ? "bg-green-100 text-green-900" :
+                      sub.cba === "SA" ? "bg-emerald-50 text-emerald-800" :
+                      sub.cba === "SPA" ? "bg-amber-100 text-amber-900" :
+                      "bg-red-50 text-red-800"
+                    }`}>
+                      {sub.grade} ({sub.cba})
+                    </span>
+                  </td>
+                  <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
+                    [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                  </td>
+                  <td className="py-1 px-1.5 text-[8px] italic text-zinc-800">
+                    {sub.remarks}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-black font-bold divide-x divide-black bg-zinc-100/90 text-center text-[10px]">
@@ -239,7 +251,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
                     {summary.studentAverage.toFixed(2)} / 20.00
                   </span>
                 </div>
-                {summary.rankingEnabled && summary.rank && (
+                {summary.rankingEnabled && summary.rank && summary.totalSubjects > 0 && (
                   <div className="mt-1">
                     <span className="inline-block px-1.5 py-0.5 rounded bg-black text-white text-[9px] font-mono font-bold whitespace-nowrap">
                       RANK: {formatOrdinalRank(summary.rank, classInfo.classEnrolment, school.subsystem)}

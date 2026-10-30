@@ -14,7 +14,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[Nsei Skul] Global Error:", error);
+    console.error("[Nsei Sukul] Global Error:", error);
   }, [error]);
 
   return (

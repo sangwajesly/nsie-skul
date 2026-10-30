@@ -41,7 +41,7 @@ export function ReportCardRenderer({
               TRIAL EVALUATION COPY
             </div>
             <div className="text-[11px] sm:text-xs font-bold tracking-wider mt-1 uppercase text-neutral-500/70 print:text-neutral-500/60">
-              NSEI School Management System
+              Nsei Sukul Management System
             </div>
           </div>
         </div>

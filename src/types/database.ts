@@ -240,6 +240,7 @@ export interface Student {
   guardian_name: string | null;
   guardian_phone: string | null;
   guardian_email: string | null;
+  photo_url?: string | null;
   is_repeater?: boolean;
   status: "active" | "withdrawn" | "transferred" | "graduated" | "dismissed";
   created_at: string;

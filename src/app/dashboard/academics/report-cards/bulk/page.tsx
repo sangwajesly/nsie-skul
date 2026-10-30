@@ -62,7 +62,7 @@ export default async function BulkReportCardsPage({
   if (context.subscription?.isExpired) {
     const schoolCode = context.school.code || context.school.slug;
     const whatsappMsg = encodeURIComponent(
-      `Hello Nsei Skul Billing, I have sent payment for ${context.school.name} (Code: ${schoolCode}). Please activate our school license.`
+      `Hello Nsei Sukul Billing, I have sent payment for ${context.school.name} (Code: ${schoolCode}). Please activate our school license.`
     );
     const whatsappUrl = `https://wa.me/237682833601?text=${whatsappMsg}`;
 
@@ -90,7 +90,7 @@ export default async function BulkReportCardsPage({
             </div>
             <div className="flex justify-between py-1 border-b border-[#F0EFEA]">
               <span className="text-[#666666]">Account Name:</span>
-              <strong className="text-[#142010]">Mbongih Jesly Sangwa</strong>
+              <strong className="text-[#142010]">Nsei Sukul Technologies</strong>
             </div>
             <div className="flex justify-between pt-1">
               <span className="text-[#666666]">Reference Code:</span>
@@ -205,7 +205,7 @@ export default async function BulkReportCardsPage({
     if (!trialCheck.allowed) {
       const schoolCode = context.school.code || context.school.slug;
       const whatsappMsg = encodeURIComponent(
-        `Hello Nsei Skul Billing, I have sent payment for ${context.school.name} (Code: ${schoolCode}). Please activate our school license.`
+        `Hello Nsei Sukul Billing, I have sent payment for ${context.school.name} (Code: ${schoolCode}). Please activate our school license.`
       );
       const whatsappUrl = `https://wa.me/237682833601?text=${whatsappMsg}`;
 
@@ -237,7 +237,7 @@ export default async function BulkReportCardsPage({
               </div>
               <div className="flex justify-between py-1 border-b border-[#F0EFEA]">
                 <span className="text-[#666666]">Account Name:</span>
-                <strong className="text-[#142010]">Mbongih Jesly Sangwa</strong>
+                <strong className="text-[#142010]">Nsei Sukul Technologies</strong>
               </div>
               <div className="flex justify-between pt-1">
                 <span className="text-[#666666]">Reference Code:</span>

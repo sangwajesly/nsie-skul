@@ -180,7 +180,7 @@ export default function StaffRolesClient({
           <div className="sm:col-span-2 lg:col-span-4">
             <h4 className="text-sm font-bold text-[#142010]">Add a Teacher or Staff Member</h4>
             <p className="mt-1 text-xs text-[#666666]">
-              They must create a Nsei Skul account first. Enter the same email address they used to register.
+              They must create a Nsei Sukul account first. Enter the same email address they used to register.
             </p>
             <p className="mt-1 text-[11px] text-[#2A7C13] font-medium">
               💡 Tip: Register all teaching faculty as &ldquo;Teacher / Academic Faculty&rdquo;. Class Master appointments, subjects taught, and department heads are assigned under Classes &amp; Subjects.
@@ -250,8 +250,8 @@ export default function StaffRolesClient({
         </form>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs border-collapse">
+      <div className="overflow-x-auto -mx-1 sm:mx-0">
+        <table className="w-full min-w-[620px] text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-[#E8DFC9] bg-[#F7F3E8] text-[#444444] font-semibold">
               <th className="py-2.5 px-3">Staff Name</th>

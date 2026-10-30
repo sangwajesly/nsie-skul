@@ -25,8 +25,12 @@ function getGradeRemark(mark: number | null): string {
   return "Very Poor";
 }
 
-function formatRank(rank: number | null | undefined, total: number): string {
+function formatRank(rank: number | null | undefined, total: number, subsystem?: string): string {
   if (!rank) return "—";
+  if (subsystem === "francophone") {
+    const suffix = rank === 1 ? "er" : "e";
+    return `${rank}${suffix} / ${total}`;
+  }
   const j = rank % 10;
   const k = rank % 100;
   let suffix = "th";
@@ -60,7 +64,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
     <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
-        {/* Anglophone Subsystem Header (Left) */}
+        {/* English National Header (Left) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
           <div className="text-[7.5px] font-normal italic lowercase">Peace – Work – Fatherland</div>
@@ -126,11 +130,18 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
       <div className="border-b-2 border-black text-[9.5px]">
         {/* Row 1: Full Name */}
         <div className="p-1.5 border-b border-black/40 flex items-center justify-between bg-zinc-50/50">
-          <div>
-            <span className="font-bold text-zinc-700 uppercase">Student Name:</span>{" "}
-            <span className="font-black uppercase text-[12px] tracking-wide text-black ml-1.5">
-              {student.fullName}
-            </span>
+          <div className="flex items-center gap-2">
+            {student.photoUrl && (
+              <div className="w-9 h-9 rounded border border-black/50 overflow-hidden shrink-0 bg-white">
+                <img src={student.photoUrl} alt={student.fullName} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div>
+              <span className="font-bold text-zinc-700 uppercase">Student Name:</span>{" "}
+              <span className="font-black uppercase text-[12px] tracking-wide text-black ml-1.5">
+                {student.fullName}
+              </span>
+            </div>
           </div>
           <div className="text-[9px] text-zinc-600 font-mono">
             Matricule / Reg No: <strong className="text-black text-[10.5px]">{student.matricule}</strong>
@@ -197,66 +208,74 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-black/40">
-            {subjects.map((sub, idx) => {
-              const letterGrade = getLetterGrade(sub.termAverage);
-              const remark = getGradeRemark(sub.termAverage);
-              return (
-                <tr
-                  key={sub.subjectId}
-                  className={`divide-x divide-black/30 align-middle ${
-                    idx % 2 === 1 ? "bg-zinc-50/40" : "bg-white"
-                  }`}
-                >
-                  <td className="py-1.5 px-2 font-bold uppercase text-[9.5px]">
-                    <div>{sub.subjectName}</div>
-                    <div className="text-[8px] font-normal italic text-zinc-600 capitalize">
-                      {sub.teacherName}
-                    </div>
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-semibold">
-                    {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "//"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-semibold">
-                    {sub.seqBMark !== null ? sub.seqBMark.toFixed(1) : "//"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-black text-[10px] bg-zinc-100/60">
-                    {sub.termAverage !== null ? sub.termAverage.toFixed(1) : "//"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-bold">{sub.coefficient}</td>
-                  <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-100/60">
-                    {sub.weightedScore !== null ? sub.weightedScore.toFixed(1) : "//"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-black text-[10px]">
-                    <span
-                      className={`px-1 py-0.2 rounded ${
-                        letterGrade === "A" || letterGrade === "B"
-                          ? "bg-green-100 text-green-900 font-black"
-                          : letterGrade === "E" || letterGrade === "F"
-                          ? "bg-red-100 text-red-900 font-black"
-                          : "text-black"
-                      }`}
-                    >
-                      {letterGrade}
-                    </span>
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono font-semibold text-[9px]">
-                    {sub.subjectRank ? `${sub.subjectRank}` : "—"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono text-zinc-700">
-                    {sub.subjectAverage !== null && sub.subjectAverage !== undefined ? sub.subjectAverage.toFixed(1) : "—"}
-                  </td>
-                  <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                    [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
-                  </td>
-                  <td className="py-1 px-2 text-[8.5px]">
-                    <div className="font-semibold text-zinc-800">{remark}</div>
-                    <div className="text-[7.5px] text-zinc-500 italic mt-0.5 border-t border-dotted border-zinc-300 pt-0.5">
-                      Signature: ____________
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
+            {subjects.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="py-8 text-center text-zinc-500 italic text-[11px]">
+                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
+                </td>
+              </tr>
+            ) : (
+              subjects.map((sub, idx) => {
+                const letterGrade = getLetterGrade(sub.termAverage);
+                const remark = getGradeRemark(sub.termAverage);
+                return (
+                  <tr
+                    key={sub.subjectId}
+                    className={`divide-x divide-black/30 align-middle ${
+                      idx % 2 === 1 ? "bg-zinc-50/40" : "bg-white"
+                    }`}
+                  >
+                    <td className="py-1.5 px-2 font-bold uppercase text-[9.5px]">
+                      <div>{sub.subjectName}</div>
+                      <div className="text-[8px] font-normal italic text-zinc-600 capitalize">
+                        {sub.teacherName}
+                      </div>
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-semibold">
+                      {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "//"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-semibold">
+                      {sub.seqBMark !== null ? sub.seqBMark.toFixed(1) : "//"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-black text-[10px] bg-zinc-100/60">
+                      {sub.termAverage !== null ? sub.termAverage.toFixed(1) : "//"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-bold">{sub.coefficient}</td>
+                    <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-100/60">
+                      {sub.weightedScore !== null ? sub.weightedScore.toFixed(1) : "//"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-black text-[10px]">
+                      <span
+                        className={`px-1 py-0.2 rounded ${
+                          letterGrade === "A" || letterGrade === "B"
+                            ? "bg-green-100 text-green-900 font-black"
+                            : letterGrade === "E" || letterGrade === "F"
+                            ? "bg-red-100 text-red-900 font-black"
+                            : "text-black"
+                        }`}
+                      >
+                        {letterGrade}
+                      </span>
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono font-semibold text-[9px]">
+                      {sub.subjectRank ? `${sub.subjectRank}` : "—"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono text-zinc-700">
+                      {sub.subjectAverage !== null && sub.subjectAverage !== undefined ? sub.subjectAverage.toFixed(1) : "—"}
+                    </td>
+                    <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
+                      [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                    </td>
+                    <td className="py-1 px-2 text-[8.5px]">
+                      <div className="font-semibold text-zinc-800">{remark}</div>
+                      <div className="text-[7.5px] text-zinc-500 italic mt-0.5 border-t border-dotted border-zinc-300 pt-0.5">
+                        Signature: ____________
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>
@@ -295,7 +314,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
             <div className="flex justify-between border-b border-black pb-1 bg-zinc-200/60 p-1 rounded">
               <span className="font-sans font-black text-[10px]">CLASS RANK / POSITION:</span>
               <span className="font-black text-[12px] text-black">
-                {formatRank(summary.rank, totalCount)}
+                {summary.totalSubjects > 0 ? formatRank(summary.rank, totalCount, school.subsystem) : "—"}
               </span>
             </div>
 

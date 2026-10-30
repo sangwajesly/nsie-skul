@@ -17,7 +17,10 @@ import {
   LayoutGrid,
   FileText,
   Award,
+  Eye,
 } from "lucide-react";
+import { ReportCardSampleModal } from "@/components/academic/ReportCardSampleModal";
+import type { ReportCardTemplateType } from "@/components/academic/ReportCardRenderer";
 
 interface Props {
   school: School;
@@ -38,6 +41,14 @@ export default function SchoolSettingsClient({ school }: Props) {
   const [logoError, setLogoError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isSampleModalOpen, setIsSampleModalOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<ReportCardTemplateType>("cba_grouped_classic");
+
+  const openSamplePreview = (template: ReportCardTemplateType, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPreviewTemplate(template);
+    setIsSampleModalOpen(true);
+  };
 
   const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -214,10 +225,10 @@ export default function SchoolSettingsClient({ school }: Props) {
                 disabled
                 value={
                   school.subsystem === "anglophone"
-                    ? "English-speaking system"
+                    ? "English Curriculum"
                     : school.subsystem === "francophone"
-                    ? "French-speaking system"
-                    : "Bilingual system"
+                    ? "French Curriculum"
+                    : "Bilingual Curriculum"
                 }
                 className="w-full px-3 py-2 border border-[#E8DFC9] rounded-[5px] bg-[#F7F3E8] text-[#777777] cursor-not-allowed"
               />
@@ -352,74 +363,128 @@ export default function SchoolSettingsClient({ school }: Props) {
               </p>
               <input type="hidden" name="report_card_template" value={reportCardTemplate} />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
-                <button
-                  type="button"
+                {/* 1. Traditional */}
+                <div
                   onClick={() => setReportCardTemplate("traditional_classic")}
-                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     reportCardTemplate === "traditional_classic"
                       ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
                       : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5 text-[#2A7C13]" />
-                      Traditional Numerical System
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-[#2A7C13]" />
+                        Traditional Numerical System
+                      </span>
+                      {reportCardTemplate === "traditional_classic" && (
+                        <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#666666] leading-tight">
+                      Classic Cameroon secondary score sheet with Sequence marks, Term marks, Coefficients, Weighted Totals, Grades (A-F), Class Rankings, and Teacher Remarks, without Competency descriptors.
+                    </p>
+                  </div>
+
+                  <div className="pt-2.5 mt-2.5 border-t border-[#E8DFC9]/70 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => openSamplePreview("traditional_classic", e)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2A7C13] hover:text-[#20600E] hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Sample</span>
+                    </button>
                     {reportCardTemplate === "traditional_classic" && (
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      <span className="text-[10px] font-extrabold text-[#2A7C13] uppercase tracking-wider">
+                        Active Choice
+                      </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#666666] leading-tight">
-                    Classic Cameroon secondary score sheet with Sequence marks, Term marks, Coefficients, Weighted Totals, Grades (A-F), Class Rankings, and Teacher Remarks, without Competency descriptors.
-                  </p>
-                </button>
+                </div>
 
-                <button
-                  type="button"
+                {/* 2. Grouped Classic CBA */}
+                <div
                   onClick={() => setReportCardTemplate("cba_grouped_classic")}
-                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     reportCardTemplate === "cba_grouped_classic"
                       ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
                       : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
-                      <LayoutGrid className="w-3.5 h-3.5 text-[#2A7C13]" />
-                      Grouped Classic CBA (APC)
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                        <LayoutGrid className="w-3.5 h-3.5 text-[#2A7C13]" />
+                        Grouped Classic CBA (APC)
+                      </span>
+                      {reportCardTemplate === "cba_grouped_classic" && (
+                        <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#666666] leading-tight">
+                      Clean subject groups (Languages/General, Sciences, Practical), sequence marks, term marks, coefficients, class averages &amp; ranks, min/max benchmarks, and dual summary/discipline matrices.
+                    </p>
+                  </div>
+
+                  <div className="pt-2.5 mt-2.5 border-t border-[#E8DFC9]/70 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => openSamplePreview("cba_grouped_classic", e)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2A7C13] hover:text-[#20600E] hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Sample</span>
+                    </button>
                     {reportCardTemplate === "cba_grouped_classic" && (
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      <span className="text-[10px] font-extrabold text-[#2A7C13] uppercase tracking-wider">
+                        Active Choice
+                      </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#666666] leading-tight">
-                    Clean subject groups (Languages/General, Sciences, Practical), sequence marks, term marks, coefficients, class averages &amp; ranks, min/max benchmarks, and dual summary/discipline matrices.
-                  </p>
-                </button>
+                </div>
 
-                <button
-                  type="button"
+                {/* 3. MINESEC Standard Grid */}
+                <div
                   onClick={() => setReportCardTemplate("cba_ministry_standard")}
-                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer ${
+                  className={`p-3.5 rounded-[6px] border text-left transition-all cursor-pointer flex flex-col justify-between ${
                     reportCardTemplate === "cba_ministry_standard"
                       ? "bg-[#F0FDF4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
                       : "bg-white border-[#D5CBB2] hover:bg-[#F9F6ED]"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-[#2A7C13]" />
-                      MINESEC Official CBA Grid
-                    </span>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs text-[#142010] flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-[#2A7C13]" />
+                        MINESEC Official CBA Grid
+                      </span>
+                      {reportCardTemplate === "cba_ministry_standard" && (
+                        <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      )}
+                    </div>
+                    <p className="text-[11px] text-[#666666] leading-tight">
+                      Full official MINESEC national syllabus competencies table with bulleted competency objectives evaluated per subject and institutional stamps.
+                    </p>
+                  </div>
+
+                  <div className="pt-2.5 mt-2.5 border-t border-[#E8DFC9]/70 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={(e) => openSamplePreview("cba_ministry_standard", e)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2A7C13] hover:text-[#20600E] hover:underline"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      <span>Preview Sample</span>
+                    </button>
                     {reportCardTemplate === "cba_ministry_standard" && (
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                      <span className="text-[10px] font-extrabold text-[#2A7C13] uppercase tracking-wider">
+                        Active Choice
+                      </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-[#666666] leading-tight">
-                    Full official MINESEC national syllabus competencies table with bulleted competency objectives evaluated per subject and institutional stamps.
-                  </p>
-                </button>
+                </div>
               </div>
             </div>
           </div>
@@ -532,21 +597,41 @@ export default function SchoolSettingsClient({ school }: Props) {
         </div>
 
         {/* Submit Bar */}
-        <div className="flex items-center justify-between pt-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
           <div className="flex items-center gap-1.5 text-xs text-[#777777]">
-            <ShieldCheck className="w-4 h-4 text-[#2A7C13]" />
+            <ShieldCheck className="w-4 h-4 text-[#2A7C13] shrink-0" />
             <span>Changes are committed directly with audit logging</span>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="px-5 py-2.5 rounded-[5px] bg-[#2A7C13] text-white font-semibold text-xs hover:bg-[#236810] shadow-sm transition-all disabled:opacity-50"
+            className="w-full sm:w-auto px-5 py-2.5 rounded-[5px] bg-[#2A7C13] text-white font-semibold text-xs hover:bg-[#236810] shadow-sm transition-all disabled:opacity-50 cursor-pointer text-center"
           >
             {loading ? "Saving Parameters..." : "Save Settings Changes"}
           </button>
         </div>
       </form>
+
+      {/* Interactive Report Card Sample Modal */}
+      <ReportCardSampleModal
+        isOpen={isSampleModalOpen}
+        onClose={() => setIsSampleModalOpen(false)}
+        selectedTemplate={previewTemplate}
+        onApplyTemplate={(tmpl) => {
+          setReportCardTemplate(tmpl);
+          setStatusMessage({
+            type: "success",
+            text: `Report card layout changed to "${
+              tmpl === "traditional_classic"
+                ? "Traditional Numerical System"
+                : tmpl === "cba_grouped_classic"
+                ? "Grouped Classic CBA (APC)"
+                : "MINESEC Official CBA Grid"
+            }". Don't forget to save changes below.`,
+          });
+        }}
+      />
     </div>
   );
 }

@@ -166,8 +166,8 @@ export default async function AttendancePage({ searchParams }: AttendancePagePro
       {/* KPI Stats Grid — hidden for unassigned teachers */}
       {(!isTeacher || teacherAssignments.length > 0) && (
       <>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3.5 sm:p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
           <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
             Present in This Class
           </div>

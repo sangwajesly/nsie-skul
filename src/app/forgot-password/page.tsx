@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
         </p>
 
         <p className="text-center text-[10px] text-[#AAAAAA] mt-4">
-          © {new Date().getFullYear()} Nsei Skul · Built for Cameroon Secondary Education
+          © {new Date().getFullYear()} Nsei Sukul Management System · Built for Cameroon Secondary Education
         </p>
       </div>
     </div>

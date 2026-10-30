@@ -159,16 +159,16 @@ export function AcademicsViewClient({
           <button
             type="button"
             onClick={() => handleTabChange("classes")}
-            className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               activeTab === "classes"
                 ? "border-[#191919] text-[#191919] font-bold"
                 : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
             }`}
           >
-            <Layers className={`w-4 h-4 ${activeTab === "classes" ? "text-[#191919]" : "text-[#777777]"}`} />
+            <Layers className={`w-4 h-4 shrink-0 ${activeTab === "classes" ? "text-[#191919]" : "text-[#777777]"}`} />
             <span>Classes &amp; Groups</span>
             <span
-              className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono shrink-0 ${
                 activeTab === "classes"
                   ? "bg-[#191919] text-white font-bold"
                   : "bg-[#EAEAE6] text-[#555555]"
@@ -183,16 +183,16 @@ export function AcademicsViewClient({
             <button
               type="button"
               onClick={() => handleTabChange("teachers")}
-              className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 activeTab === "teachers"
                   ? "border-[#191919] text-[#191919] font-bold"
-                  : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
+                : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
               }`}
             >
-              <Users className={`w-4 h-4 ${activeTab === "teachers" ? "text-[#191919]" : "text-[#777777]"}`} />
+              <Users className={`w-4 h-4 shrink-0 ${activeTab === "teachers" ? "text-[#191919]" : "text-[#777777]"}`} />
               <span>Teacher Allocations</span>
               <span
-                className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono shrink-0 ${
                   activeTab === "teachers"
                     ? "bg-[#191919] text-white font-bold"
                     : "bg-[#EAEAE6] text-[#555555]"
@@ -207,16 +207,16 @@ export function AcademicsViewClient({
           <button
             type="button"
             onClick={() => handleTabChange("departments")}
-            className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+            className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
               activeTab === "departments"
                 ? "border-[#191919] text-[#191919] font-bold"
                 : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
             }`}
           >
-            <Building2 className={`w-4 h-4 ${activeTab === "departments" ? "text-[#191919]" : "text-[#777777]"}`} />
+            <Building2 className={`w-4 h-4 shrink-0 ${activeTab === "departments" ? "text-[#191919]" : "text-[#777777]"}`} />
             <span>Departments &amp; Subjects</span>
             <span
-              className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono shrink-0 ${
                 activeTab === "departments"
                   ? "bg-[#191919] text-white font-bold"
                   : "bg-[#EAEAE6] text-[#555555]"
@@ -231,20 +231,20 @@ export function AcademicsViewClient({
             <button
               type="button"
               onClick={() => handleTabChange("sequences")}
-              className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+              className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 activeTab === "sequences"
                   ? "border-[#191919] text-[#191919] font-bold"
                   : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
               }`}
             >
-              <Sparkles className={`w-4 h-4 ${activeTab === "sequences" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
+              <Sparkles className={`w-4 h-4 shrink-0 ${activeTab === "sequences" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
               <span>Evaluation Windows</span>
               {openSequencesCount > 0 ? (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAF7E4] text-[#1F5C0E] border border-[#76C457]/30 font-bold">
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAF7E4] text-[#1F5C0E] border border-[#76C457]/30 font-bold shrink-0">
                   {openSequencesCount} Open
                 </span>
               ) : (
-                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAEAE6] text-[#777777]">
+                <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAEAE6] text-[#777777] shrink-0">
                   Closed
                 </span>
               )}

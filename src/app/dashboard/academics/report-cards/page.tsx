@@ -234,7 +234,7 @@ export default async function ReportCardsHubPage({
               enrolments.length > 0 && selectedStream && (
                 <Link
                   href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
                   title="Print all report cards or export as one combined PDF file"
                 >
                   <Printer className="w-4 h-4" />
@@ -275,7 +275,7 @@ export default async function ReportCardsHubPage({
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-xs text-left">
+              <table className="w-full min-w-[500px] text-xs text-left">
                 <thead>
                   <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                     <th className="py-2.5 px-3">Admission No.</th>

@@ -54,7 +54,7 @@ export function MobileNavDrawer({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="p-1.5 rounded-[5px] text-[#444444] hover:text-[#191919] hover:bg-[#F5F5F0] transition-colors focus:outline-none"
+        className="p-2 -ml-1 rounded-[6px] text-[#444444] hover:text-[#191919] hover:bg-[#F5F5F0] transition-colors focus:outline-none flex items-center justify-center min-w-[38px] min-h-[38px]"
         aria-label="Open navigation menu"
       >
         <Menu className="w-5 h-5" />
@@ -99,7 +99,8 @@ export function MobileNavDrawer({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded text-[#777777] hover:text-[#191919] hover:bg-black/5"
+                className="p-1.5 rounded-full text-[#777777] hover:text-[#191919] hover:bg-black/5 flex items-center justify-center min-w-[36px] min-h-[36px]"
+                aria-label="Close menu"
               >
                 <X className="w-4 h-4" />
               </button>

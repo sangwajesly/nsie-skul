@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               {schoolName}
             </div>
             <div className="text-[10px] text-[#AAAAAA] font-medium truncate">
-              Nsei Skul · School Management
+              Nsei Sukul Management System
             </div>
           </div>
         </div>
@@ -116,13 +116,13 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               <span className="text-[10px] text-[#888888] truncate block">{academicYearLabel}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-[#555555] font-semibold px-2 py-0.5 rounded bg-[#F1F1ED]">{userRole}</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <span className="text-[11px] text-[#555555] font-semibold px-2 py-0.5 rounded bg-[#F1F1ED] hidden sm:inline-block max-w-[120px] truncate">{userRole}</span>
             <form action={signOutAction}>
               <button
                 type="submit"
                 title="Sign out"
-                className="p-1.5 text-[#888888] hover:text-[#C2410C]"
+                className="p-2 text-[#888888] hover:text-[#C2410C] rounded-[4px] hover:bg-red-50 flex items-center justify-center min-w-[36px] min-h-[36px]"
               >
                 <LogOut className="w-4 h-4" />
               </button>
@@ -137,7 +137,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse shrink-0" />
               <span>
-                <strong>School License Expired:</strong> Report card printing and bulk PDF exports are paused. To activate your school license, send payment via MTN MoMo <strong>682 833 601</strong> (Mbongih Jesly Sangwa).
+                <strong>School License Expired:</strong> Report card printing and bulk PDF exports are paused. To activate your school license, send payment via MTN MoMo <strong>682 833 601</strong> (Nsei Sukul Technologies).
               </span>
             </div>
             <a

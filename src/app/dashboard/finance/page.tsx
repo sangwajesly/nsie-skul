@@ -11,6 +11,7 @@ import {
 import { createFeeStructureAction } from "@/app/finance/actions";
 import { formatFCFA } from "@/lib/finance/receipt-utils";
 import { PaymentModalClient } from "./PaymentModalClient";
+import { FinanceSyncBadge } from "@/components/finance/FinanceSyncBadge";
 import {
   Coins,
   Plus,
@@ -78,7 +79,8 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <FinanceSyncBadge schoolId={schoolId} />
           <span className="px-3 py-1 rounded-[4px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-xs font-bold">
             Academic year: {activeYear?.name || "Not set"}
           </span>
@@ -311,7 +313,7 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full min-w-[650px] text-xs text-left">
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                 <th className="py-2.5 px-3">Admission No.</th>
@@ -368,12 +370,27 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
                     <td className="py-2.5 px-3 text-right">
                       {Number(b.balance) > 0 ? (
                         <PaymentModalClient
+                          schoolId={schoolId}
+                          schoolName={context?.school?.name || "School"}
+                          schoolCode={context?.school?.code || null}
+                          schoolAddress={context?.school?.address || null}
+                          schoolPhone={context?.school?.phone || null}
+                          schoolLogoUrl={context?.school?.logo_url || null}
+                          receiptPrefix={context?.school?.receipt_prefix || context?.school?.code || "REC"}
+                          academicYearName={activeYear?.name || "2026"}
                           studentBillId={b.id}
                           studentId={b.student_id}
                           academicYearId={academicYearId}
-                          studentName={`${b.student?.last_name} ${b.student?.first_name}`}
+                          studentName={`${b.student?.last_name || ""} ${b.student?.first_name || ""}`.trim()}
+                          studentFirstName={b.student?.first_name || ""}
+                          studentLastName={b.student?.last_name || ""}
                           matricule={b.student?.matricule || ""}
+                          residenceStatus={(b.student?.residence_status as "day" | "boarding") || "day"}
+                          classStreamName={b.class_stream?.name || null}
+                          totalBilled={Number(b.total_billed)}
+                          totalPaid={Number(b.total_paid)}
                           balance={Number(b.balance)}
+                          receivedByName={context?.user?.full_name || "Bursar"}
                         />
                       ) : (
                         <span className="text-xs font-semibold text-[#1F5C0E]">Paid in full</span>

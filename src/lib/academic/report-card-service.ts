@@ -63,6 +63,7 @@ export interface ReportCardFullData {
     guardianName: string | null;
     guardianPhone: string | null;
     isRepeater: boolean;
+    photoUrl?: string | null;
   };
   classInfo: {
     className: string;
@@ -358,7 +359,19 @@ export async function getStudentReportCard(
     classEnrolmentCount = count || 1;
   }
 
-  // 6. Fetch Subjects for this stream & department
+  // 6. Fetch All Marks for this Term in this Stream (needed to determine evaluated subjects & class stats)
+  let streamMarks = sharedContext?.streamMarks || null;
+  if (!streamMarks) {
+    const seqIds = sequences.map((s) => s.id);
+    const { data: streamMarksData } = await supabase
+      .from("assessment_marks")
+      .select("*")
+      .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
+      .eq("class_stream_id", classStream.id);
+    streamMarks = (streamMarksData as AssessmentMark[]) || [];
+  }
+
+  // 7. Fetch Subjects strictly assigned to this class group (by teacher assignment or recorded marks)
   let allSubjects = sharedContext?.allSubjects || null;
   let teacherNameMap = sharedContext?.teacherNameMap || new Map<string, string>();
 
@@ -366,7 +379,6 @@ export async function getStudentReportCard(
     const [
       { data: subjectsData },
       { data: teacherAssignmentsData },
-      { data: classSubjectsData },
     ] = await Promise.all([
       supabase
         .from("subjects")
@@ -383,48 +395,59 @@ export async function getStudentReportCard(
         .select(
           `
           subject_id,
+          academic_year_id,
           teacher:user_profiles (full_name)
         `
         )
         .eq("school_id", schoolId)
-        .eq("academic_year_id", term.academic_year_id)
-        .eq("class_stream_id", classStream.id),
-      supabase
-        .from("class_subjects")
-        .select("subject_id, coefficient, max_marks")
         .eq("class_stream_id", classStream.id),
     ]);
 
     const rawSubjects = subjectsData || [];
     const assignedSubjectIds = new Set<string>();
 
+    // 7a. Subjects assigned to a teacher for this class
     (teacherAssignmentsData || []).forEach((ta: any) => {
-      assignedSubjectIds.add(ta.subject_id);
-      const teacher = ta.teacher as { full_name?: string } | null;
-      if (teacher?.full_name) {
-        const existing = teacherNameMap.get(ta.subject_id);
-        if (existing) {
-          if (!existing.split(" / ").includes(teacher.full_name)) {
-            teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+      if (ta.subject_id) {
+        if (!ta.academic_year_id || !term.academic_year_id || ta.academic_year_id === term.academic_year_id) {
+          assignedSubjectIds.add(ta.subject_id);
+        }
+        const teacher = ta.teacher as { full_name?: string } | null;
+        if (teacher?.full_name) {
+          const existing = teacherNameMap.get(ta.subject_id);
+          if (existing) {
+            if (!existing.split(" / ").includes(teacher.full_name)) {
+              teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+            }
+          } else {
+            teacherNameMap.set(ta.subject_id, teacher.full_name);
           }
-        } else {
-          teacherNameMap.set(ta.subject_id, teacher.full_name);
         }
       }
     });
 
-    (classSubjectsData || []).forEach((cs) => {
-      assignedSubjectIds.add(cs.subject_id);
+    // If year filter yielded 0, include any teacher assignment for this class stream
+    if (assignedSubjectIds.size === 0 && teacherAssignmentsData && teacherAssignmentsData.length > 0) {
+      teacherAssignmentsData.forEach((ta: any) => {
+        if (ta.subject_id) assignedSubjectIds.add(ta.subject_id);
+      });
+    }
+
+    // 7b. Subjects that have assessment marks entered for this class stream
+    (streamMarks || []).forEach((m) => {
+      if (m.subject_id) {
+        assignedSubjectIds.add(m.subject_id);
+      }
     });
 
-    // Only include subjects assigned to this class group!
-    // Falls back to raw subjects only if no assignments exist at all in the school yet.
+    // CRITICAL: Strictly include ONLY subjects assigned to this class!
+    // NEVER fall back to all school subjects (rawSubjects).
     allSubjects = assignedSubjectIds.size > 0
       ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
-      : rawSubjects;
+      : [];
   }
 
-  // 6b. Fetch stream-specific class_subjects for custom coefficients and max marks
+  // 7c. Fetch stream-specific class_subjects for custom coefficients and max marks
   let classSubjectMap = sharedContext?.classSubjectMap || null;
   if (!classSubjectMap) {
     const { data: classSubjectsData } = await supabase
@@ -439,18 +462,6 @@ export async function getStudentReportCard(
         max_marks: Number(cs.max_marks),
       });
     });
-  }
-
-  // 7. Fetch All Marks for this Term in this Stream
-  let streamMarks = sharedContext?.streamMarks || null;
-  if (!streamMarks) {
-    const seqIds = sequences.map((s) => s.id);
-    const { data: streamMarksData } = await supabase
-      .from("assessment_marks")
-      .select("*")
-      .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
-      .eq("class_stream_id", classStream.id);
-    streamMarks = (streamMarksData as AssessmentMark[]) || [];
   }
 
   // 8. Fetch stored competencies if any
@@ -808,7 +819,7 @@ export async function getStudentReportCard(
       email: school.email || "info@school.cm",
       regionalDelegation: "NORTH WEST REGION",
       divisionalDelegation: "MEZAM DIVISION",
-      subsystem: school.subsystem || "anglophone",
+      subsystem: school.subsystem || "bilingual",
       motto: school.motto || null,
       reportCardTemplate: school.report_card_template || "cba_grouped_classic",
     },
@@ -829,6 +840,7 @@ export async function getStudentReportCard(
       guardianName: student.guardian_name,
       guardianPhone: student.guardian_phone,
       isRepeater: Boolean(enrolmentData?.is_repeater ?? student?.is_repeater ?? false),
+      photoUrl: (student as any).photo_url || null,
     },
     classInfo: {
       className: classStream.class?.name || "Form 2",
@@ -927,7 +939,7 @@ export async function getClassStreamReportCards(
     supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
     supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
     supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
-    supabase.from("teacher_assignments").select("subject_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
+    supabase.from("teacher_assignments").select("subject_id, academic_year_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
     supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
     supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
     supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
@@ -941,34 +953,6 @@ export async function getClassStreamReportCards(
   const sequences = sequencesData || [];
   const seqIds = sequences.map((s) => s.id);
 
-  // 2b. Filter strictly to subjects assigned to this class group
-  const assignedSubjectIds = new Set<string>();
-  const teacherNameMap = new Map<string, string>();
-
-  (teacherAssignmentsData || []).forEach((ta: any) => {
-    assignedSubjectIds.add(ta.subject_id);
-    const teacher = ta.teacher as { full_name?: string } | null;
-    if (teacher?.full_name) {
-      const existing = teacherNameMap.get(ta.subject_id);
-      if (existing) {
-        if (!existing.split(" / ").includes(teacher.full_name)) {
-          teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
-        }
-      } else {
-        teacherNameMap.set(ta.subject_id, teacher.full_name);
-      }
-    }
-  });
-
-  (classSubjectsData || []).forEach((cs) => {
-    assignedSubjectIds.add(cs.subject_id);
-  });
-
-  const rawSubjects = subjectsData || [];
-  const streamSubjects = assignedSubjectIds.size > 0
-    ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
-    : rawSubjects;
-
   // Fetch assessment marks for this stream and sequences
   const { data: streamMarksData } = await supabase
     .from("assessment_marks")
@@ -977,6 +961,47 @@ export async function getClassStreamReportCards(
     .eq("class_stream_id", classStreamId);
 
   const streamMarks = (streamMarksData as AssessmentMark[]) || [];
+
+  // 2b. Filter strictly to subjects assigned to this class group (by teacher assignment or entered marks)
+  const assignedSubjectIds = new Set<string>();
+  const teacherNameMap = new Map<string, string>();
+
+  (teacherAssignmentsData || []).forEach((ta: any) => {
+    if (ta.subject_id) {
+      if (!ta.academic_year_id || !term.academic_year_id || ta.academic_year_id === term.academic_year_id) {
+        assignedSubjectIds.add(ta.subject_id);
+      }
+      const teacher = ta.teacher as { full_name?: string } | null;
+      if (teacher?.full_name) {
+        const existing = teacherNameMap.get(ta.subject_id);
+        if (existing) {
+          if (!existing.split(" / ").includes(teacher.full_name)) {
+            teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+          }
+        } else {
+          teacherNameMap.set(ta.subject_id, teacher.full_name);
+        }
+      }
+    }
+  });
+
+  if (assignedSubjectIds.size === 0 && teacherAssignmentsData && teacherAssignmentsData.length > 0) {
+    teacherAssignmentsData.forEach((ta: any) => {
+      if (ta.subject_id) assignedSubjectIds.add(ta.subject_id);
+    });
+  }
+
+  // Include subjects with marks entered for this stream
+  (streamMarks || []).forEach((m) => {
+    if (m.subject_id) assignedSubjectIds.add(m.subject_id);
+  });
+
+  const rawSubjects = subjectsData || [];
+  // STRICT: Only include subjects assigned to this class group!
+  // NEVER fall back to all school subjects (rawSubjects).
+  const streamSubjects = assignedSubjectIds.size > 0
+    ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
+    : [];
 
   // Build lookups and maps
   const classSubjectMap = new Map<string, { coefficient: number; max_marks: number }>();

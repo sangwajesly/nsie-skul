@@ -1,12 +1,12 @@
 /**
- * Nsei Skul - Central Application & API Version Manifest
+ * Nsei Sukul - Central Application & API Version Manifest
  * Standardized semantic release and domain compliance specification.
  */
 
 export const APP_CONFIG = {
-  name: "Nsei Skul",
+  name: "Nsei Sukul Managements System",
   version: "1.0.0-rc.1",
-  releaseName: "Bamenda Pilot (2026)",
+  releaseName: "Cameroon National Release (2026)",
   apiVersion: "v1",
   buildDate: "2026-10-17",
   environment: process.env.NODE_ENV || "development",
@@ -15,7 +15,7 @@ export const APP_CONFIG = {
     framework: "Competency-Based Approach (6-Sequence System)",
     sequencesPerYear: 6,
     termsPerYear: 3,
-    subsystems: ["anglophone", "francophone", "bilingual"],
+    subsystems: ["english_section", "french_section", "bilingual"],
     accountingCurrency: "XAF (FCFA)",
   },
   supportedApiVersions: ["v1"],

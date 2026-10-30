@@ -3,9 +3,13 @@
  * Locked in with Option A: Green & Cream Palette.
  */
 export const BRAND = {
-  name: "Nsei Skul",
+  name: "Nsei Sukul Management System",
   tagline: "School Management, Simplified",
-  supportEmail: "contact@nseiskul.com",
+  domain: "nsei-sukul.klarifypath.com",
+  url: "https://nsei-sukul.klarifypath.com",
+  supportEmail: "contact@nseisukul.com",
+  whatsappPhone: "+237682833601",
+  whatsappUrl: "https://wa.me/237682833601",
 };
 
 export const DESIGN_TOKENS = {

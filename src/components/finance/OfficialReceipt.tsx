@@ -7,6 +7,11 @@ interface OfficialReceiptProps {
   payment: FeePayment;
   bill?: StudentBill;
   student: Student;
+  /**
+   * Set when the receipt was issued on a device without internet. Shows a
+   * provisional notice and the time the displayed balance was last refreshed.
+   */
+  provisional?: { balanceAsOf: string } | null;
 }
 
 export function OfficialReceipt({
@@ -14,6 +19,7 @@ export function OfficialReceipt({
   payment,
   bill,
   student,
+  provisional = null,
 }: OfficialReceiptProps) {
   const amountInWords = numberToWordsFCFA(Number(payment.amount));
   const totalBilled = bill ? Number(bill.total_billed) : Number(payment.amount);
@@ -77,6 +83,17 @@ export function OfficialReceipt({
           </div>
         </div>
       </div>
+
+      {provisional && (
+        <div className="px-3 py-1.5 border-b border-black bg-zinc-100 text-[9.5px] leading-snug">
+          <strong className="uppercase tracking-wide">Provisional receipt, issued offline.</strong>{" "}
+          Valid proof of payment. It will be verified automatically when this device reconnects. Balance shown as of{" "}
+          <span className="font-mono">
+            {new Date(provisional.balanceAsOf).toLocaleString("en-GB", { dateStyle: "short", timeStyle: "short" })}
+          </span>
+          .
+        </div>
+      )}
 
       {/* ── Student Information Matrix ─────────────────────────────────────────── */}
       <div className="border-b border-black text-[11px]">
@@ -165,7 +182,7 @@ export function OfficialReceipt({
 
       {/* ── Document Footer ────────────────────────────────────────────────── */}
       <div className="mt-4 pt-2 border-t border-black text-center text-[8px] text-zinc-500">
-        Nsei Skul Bursary Engine · Official Receipt Document · Fees once paid are non-refundable.
+        Nsei Sukul Management System Bursary Engine · Official Receipt Document · Fees once paid are non-refundable.
       </div>
     </div>
   );

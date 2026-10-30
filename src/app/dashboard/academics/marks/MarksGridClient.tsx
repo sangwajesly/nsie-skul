@@ -17,6 +17,11 @@ import {
   enqueueSyncItem,
   removeSyncItem,
   getPendingSyncCount,
+  detectLocalHub,
+  syncDirectToLocalHub,
+  syncAllDraftsToLocalHub,
+  getStoredHubHost,
+  saveStoredHubHost,
 } from "@/lib/academic/offline-marks-db";
 import { MarksSyncStatusBadge, SyncState } from "@/components/academics/MarksSyncStatusBadge";
 import {
@@ -40,6 +45,10 @@ import {
   WifiOff,
   RefreshCw,
   HardDrive,
+  Radio,
+  Server,
+  X,
+  Wifi,
 } from "lucide-react";
 
 interface StudentRow {
@@ -127,6 +136,14 @@ export function MarksGridClient({
   const [isSyncingManual, setIsSyncingManual] = useState<boolean>(false);
   const [restoredMessage, setRestoredMessage] = useState<string | null>(null);
 
+  // ── School Hub Direct LAN Transfer State ───────────────────────────
+  const [isHubReachable, setIsHubReachable] = useState<boolean>(false);
+  const [hubName, setHubName] = useState<string>("School LAN Hub");
+  const [isTransferringHub, setIsTransferringHub] = useState<boolean>(false);
+  const [showHubModal, setShowHubModal] = useState<boolean>(false);
+  const [customHubHost, setCustomHubHost] = useState<string>("");
+  const [bulkTransferStatus, setBulkTransferStatus] = useState<{ message: string; success: boolean } | null>(null);
+
   // Keep latest mutable references to avoid stale closure in background timers
   const studentsRef = useRef<StudentRow[]>(students);
   const maxMarksRef = useRef<number>(maxMarks);
@@ -150,17 +167,132 @@ export function MarksGridClient({
   const isReopened = currentStatus === "rejected";
 
   /**
+   * Check reachability of on-premise School Hub on the local Wi-Fi.
+   */
+  const checkHubReachability = useCallback(async () => {
+    try {
+      const hub = await detectLocalHub();
+      if (hub.reachable) {
+        setIsHubReachable(true);
+        if (hub.hubName) setHubName(hub.hubName);
+      } else {
+        setIsHubReachable(false);
+      }
+    } catch {
+      setIsHubReachable(false);
+    }
+  }, []);
+
+  /**
+   * Direct transfer of current mark sheet to School Hub over local school Wi-Fi.
+   */
+  const handleTransferToHub = useCallback(async () => {
+    setIsTransferringHub(true);
+    try {
+      const res = await syncDirectToLocalHub({
+        academicYearId,
+        termId,
+        sequenceId,
+        classStreamId,
+        subjectId,
+        maxMarks: maxMarksRef.current,
+        competencyDescription: competencyRef.current,
+        marks: studentsRef.current.map((s) => ({
+          studentId: s.studentId,
+          score: s.score,
+          status: s.status,
+          remarks: s.remarks,
+        })),
+      });
+
+      if (res.success) {
+        setSyncState("synced_hub");
+        setIsHubReachable(true);
+        setMessage({ type: "success", text: res.message });
+      } else {
+        setMessage({ type: "error", text: res.message });
+      }
+    } catch (err: any) {
+      setMessage({
+        type: "error",
+        text: err.message || "Failed to transfer marks to School Hub over Wi-Fi.",
+      });
+    } finally {
+      setIsTransferringHub(false);
+    }
+  }, [academicYearId, termId, sequenceId, classStreamId, subjectId]);
+
+  /**
+   * Bulk transfer of all cached mark sheets on device to School Hub over Wi-Fi.
+   */
+  const handleBulkTransferToHub = useCallback(async () => {
+    setIsTransferringHub(true);
+    setBulkTransferStatus(null);
+    try {
+      const res = await syncAllDraftsToLocalHub();
+      setBulkTransferStatus({ success: res.success, message: res.message });
+      if (res.success) {
+        setIsHubReachable(true);
+        setSyncState("synced_hub");
+      }
+    } catch (err: any) {
+      setBulkTransferStatus({
+        success: false,
+        message: err.message || "Bulk transfer encountered an error.",
+      });
+    } finally {
+      setIsTransferringHub(false);
+    }
+  }, []);
+
+  /**
    * Flush pending mutations from IndexedDB outbox to the server in the background.
    */
   const flushPendingSync = useCallback(
     async (isManual = false): Promise<boolean> => {
       if (typeof window === "undefined") return false;
+
+      // When phone has no internet, attempt direct School Hub sync over local Wi-Fi
       if (!navigator.onLine) {
+        if (isManual) {
+          setIsSyncingManual(true);
+          try {
+            const hubRes = await syncDirectToLocalHub({
+              academicYearId,
+              termId,
+              sequenceId,
+              classStreamId,
+              subjectId,
+              maxMarks: maxMarksRef.current,
+              competencyDescription: competencyRef.current,
+              marks: studentsRef.current.map((s) => ({
+                studentId: s.studentId,
+                score: s.score,
+                status: s.status,
+                remarks: s.remarks,
+              })),
+            });
+            setIsSyncingManual(false);
+
+            if (hubRes.success) {
+              setSyncState("synced_hub");
+              setIsHubReachable(true);
+              setMessage({
+                type: "success",
+                text: `No internet, but ${hubRes.message}`,
+              });
+              return true;
+            }
+          } catch {
+            setIsSyncingManual(false);
+          }
+        }
+
         setSyncState("pending_offline");
         if (isManual) {
           setMessage({
             type: "error",
-            text: "You are currently offline. Marks are saved safely on your device and will sync automatically when you reconnect.",
+            text: "Offline: Marks are safely saved on your device. Connect to internet or school Wi-Fi to sync.",
           });
         }
         return false;
@@ -189,6 +321,38 @@ export function MarksGridClient({
         });
 
         if (res?.error) {
+          // Cloud error fallback: Try direct School Hub transfer if on school Wi-Fi
+          try {
+            const hubRes = await syncDirectToLocalHub({
+              academicYearId,
+              termId,
+              sequenceId,
+              classStreamId,
+              subjectId,
+              maxMarks: maxMarksRef.current,
+              competencyDescription: competencyRef.current,
+              marks: studentsRef.current.map((s) => ({
+                studentId: s.studentId,
+                score: s.score,
+                status: s.status,
+                remarks: s.remarks,
+              })),
+            });
+            if (hubRes.success) {
+              setSyncState("synced_hub");
+              setIsHubReachable(true);
+              if (isManual) {
+                setMessage({
+                  type: "success",
+                  text: `Cloud sync unavailable, but ${hubRes.message}`,
+                });
+              }
+              return true;
+            }
+          } catch {
+            // continue
+          }
+
           setSyncState("pending_offline");
           if (isManual) setMessage({ type: "error", text: res.error });
           return false;
@@ -209,6 +373,38 @@ export function MarksGridClient({
         }
       } catch (err: any) {
         console.warn("[OfflineSync] Network error syncing marks:", err);
+        // Fallback: Check if School Hub is reachable over local Wi-Fi
+        try {
+          const hubRes = await syncDirectToLocalHub({
+            academicYearId,
+            termId,
+            sequenceId,
+            classStreamId,
+            subjectId,
+            maxMarks: maxMarksRef.current,
+            competencyDescription: competencyRef.current,
+            marks: studentsRef.current.map((s) => ({
+              studentId: s.studentId,
+              score: s.score,
+              status: s.status,
+              remarks: s.remarks,
+            })),
+          });
+          if (hubRes.success) {
+            setSyncState("synced_hub");
+            setIsHubReachable(true);
+            if (isManual) {
+              setMessage({
+                type: "success",
+                text: `Cloud sync interrupted, but ${hubRes.message}`,
+              });
+            }
+            return true;
+          }
+        } catch {
+          // continue
+        }
+
         setSyncState("pending_offline");
         if (isManual) {
           setMessage({
@@ -356,25 +552,31 @@ export function MarksGridClient({
     }
 
     checkOfflineCache();
+    checkHubReachability();
+    const stored = getStoredHubHost();
+    if (stored) setCustomHubHost(stored);
 
     const handleOnline = () => {
       setIsOnline(true);
       flushPendingSync(false);
+      checkHubReachability();
     };
 
     const handleOffline = () => {
       setIsOnline(false);
       setSyncState("pending_offline");
+      checkHubReachability();
     };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
 
-    // Periodic retry background worker every 25 seconds
+    // Periodic retry & School Hub detection every 25 seconds
     const intervalId = setInterval(() => {
       if (navigator.onLine && pendingCount > 0 && !isSyncingRef.current) {
         flushPendingSync(false);
       }
+      checkHubReachability();
     }, 25000);
 
     return () => {
@@ -383,7 +585,7 @@ export function MarksGridClient({
       window.removeEventListener("offline", handleOffline);
       clearInterval(intervalId);
     };
-  }, [sheetKey, flushPendingSync, initialStudents]);
+  }, [sheetKey, flushPendingSync, checkHubReachability, initialStudents]);
 
   // Tab unload warning if pending unsynced changes
   useEffect(() => {
@@ -1020,6 +1222,11 @@ export function MarksGridClient({
             lastSyncedAt={lastSyncedAt}
             onSyncNow={() => flushPendingSync(true)}
             isSyncingManual={isSyncingManual}
+            isHubReachable={isHubReachable}
+            hubName={hubName}
+            onTransferToHub={handleTransferToHub}
+            isTransferringHub={isTransferringHub}
+            onOpenHubSettings={() => setShowHubModal(true)}
           />
         </div>
 
@@ -1275,7 +1482,7 @@ export function MarksGridClient({
         } bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden`}
       >
         <div className="overflow-x-auto">
-          <table className="w-full text-xs text-left">
+          <table className="w-full min-w-[720px] text-xs text-left">
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
                 <th className="py-2.5 px-3 w-16 text-center">
@@ -1682,6 +1889,150 @@ export function MarksGridClient({
         streamName={streamName}
         sequenceName={sequenceName}
       />
+
+      {/* School Hub LAN Direct Transfer & Settings Modal */}
+      {showHubModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-[12px] border border-[#E8DFC9] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-[#FAF8F5] border-b border-[#E8DFC9]">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-sky-100 flex items-center justify-center text-sky-700">
+                  <Server className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-[#142010]">School Hub Direct Wi-Fi Sync</h3>
+                  <p className="text-[11px] text-[#525E4B]">Peer-to-LAN transfer (zero internet required)</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHubModal(false)}
+                className="p-1 rounded-full text-[#788470] hover:text-[#142010] hover:bg-[#E8DFC9]/50 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 text-xs text-[#142010]">
+              {/* LAN Connection Status */}
+              <div className="flex items-center justify-between p-3 rounded-[8px] bg-[#FAF8F5] border border-[#E8DFC9]">
+                <div className="space-y-0.5">
+                  <span className="text-[11px] font-semibold text-[#525E4B]">School Hub Status:</span>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {isHubReachable ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-emerald-700 font-semibold">{hubName} (Connected)</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                        <span className="text-amber-700 font-semibold">Not Detected on Current Wi-Fi</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={checkHubReachability}
+                  className="px-2.5 py-1 text-[11px] font-semibold rounded-[4px] border border-[#E8DFC9] bg-white hover:bg-stone-50 transition-colors cursor-pointer"
+                >
+                  Scan Wi-Fi
+                </button>
+              </div>
+
+              {/* Information Callout */}
+              <div className="p-3 rounded-[8px] bg-sky-50/70 border border-sky-200 text-sky-900 space-y-1">
+                <p className="font-semibold flex items-center gap-1 text-[11px]">
+                  <Radio className="w-3.5 h-3.5 text-sky-700" />
+                  How does peer-to-LAN transfer work?
+                </p>
+                <p className="text-[11px] text-sky-800 leading-relaxed">
+                  When you enter marks online at home, they are automatically cached on this device. When you arrive at school, connect your phone to the school Wi-Fi router. Marks transfer directly into the school server PC without using internet or mobile data!
+                </p>
+              </div>
+
+              {/* Hub Host / IP Configuration */}
+              <div className="space-y-1.5">
+                <label className="block text-[11px] font-bold text-[#525E4B] uppercase tracking-wider">
+                  School Hub IP / Hostname:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={customHubHost}
+                    onChange={(e) => setCustomHubHost(e.target.value)}
+                    placeholder="e.g. 192.168.1.100:3000 or school.local:3000"
+                    className="flex-1 px-3 py-1.5 rounded-[6px] border border-[#E8DFC9] bg-white text-xs focus:outline-none focus:border-[#2A7C13]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      saveStoredHubHost(customHubHost);
+                      checkHubReachability();
+                    }}
+                    className="px-3 py-1.5 rounded-[6px] bg-[#142010] hover:bg-[#23351C] text-white text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    Save & Test
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#788470]">
+                  Leave blank to auto-scan standard subnet gateways (192.168.1.100, school.local).
+                </p>
+              </div>
+
+              {/* Status Alert if any */}
+              {bulkTransferStatus && (
+                <div
+                  className={`p-2.5 rounded-[6px] text-[11px] font-medium border ${
+                    bulkTransferStatus.success
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-amber-50 text-amber-800 border-amber-200"
+                  }`}
+                >
+                  {bulkTransferStatus.message}
+                </div>
+              )}
+
+              {/* Transfer Action Buttons */}
+              <div className="pt-2 border-t border-[#E8DFC9] space-y-2">
+                <button
+                  type="button"
+                  onClick={handleTransferToHub}
+                  disabled={isTransferringHub}
+                  className="w-full py-2 px-3 rounded-[6px] font-bold text-xs bg-sky-700 hover:bg-sky-800 disabled:opacity-50 text-white transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                >
+                  <Server className={`w-4 h-4 ${isTransferringHub ? "animate-pulse" : ""}`} />
+                  <span>{isTransferringHub ? "Transferring Current Sheet..." : "Transfer Current Subject Marks to Hub"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleBulkTransferToHub}
+                  disabled={isTransferringHub}
+                  className="w-full py-2 px-3 rounded-[6px] font-bold text-xs bg-[#FAF8F5] hover:bg-[#F2ECE1] disabled:opacity-50 text-[#142010] border border-[#E8DFC9] transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <HardDrive className="w-4 h-4 text-[#525E4B]" />
+                  <span>Transfer ALL Marksheets Cached on Device</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-5 py-2.5 bg-[#FAF8F5] border-t border-[#E8DFC9] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowHubModal(false)}
+                className="px-4 py-1.5 text-xs font-semibold rounded-[5px] border border-[#E8DFC9] bg-white hover:bg-stone-50 text-[#525E4B] transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

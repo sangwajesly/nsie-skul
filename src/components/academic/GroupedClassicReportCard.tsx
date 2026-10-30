@@ -21,8 +21,12 @@ function getAppreciationBadge(mark: number | null): { label: string; bg: string;
   return { label: "Not acquired", bg: "bg-red-50", text: "text-red-800" };
 }
 
-function formatRank(rank: number | null | undefined, total: number): string {
+function formatRank(rank: number | null | undefined, total: number, subsystem?: string): string {
   if (!rank) return "—";
+  if (subsystem === "francophone") {
+    const suffix = rank === 1 ? "er" : "e";
+    return `${rank}${suffix} / ${total}`;
+  }
   const j = rank % 10;
   const k = rank % 100;
   let suffix = "th";
@@ -44,10 +48,80 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
     discipline,
   } = data;
 
+  // Robust classifier to ensure NO subject is ever dropped
+  const classifySubjectGroup = (s: SubjectRowData): "group_1" | "group_2" | "group_3" => {
+    const raw = String(s.subjectGroup || "").toLowerCase().trim();
+    if (
+      raw === "group_1" || 
+      raw === "group1" || 
+      raw === "languages" || 
+      raw === "language" || 
+      raw === "arts" || 
+      raw === "humanities"
+    ) {
+      return "group_1";
+    }
+    if (
+      raw === "group_2" || 
+      raw === "group2" || 
+      raw === "sciences" || 
+      raw === "science" || 
+      raw === "math" || 
+      raw === "commercial"
+    ) {
+      return "group_2";
+    }
+    if (
+      raw === "group_3" || 
+      raw === "group3" || 
+      raw === "practical" || 
+      raw === "practicals" || 
+      raw === "sports" || 
+      raw === "other"
+    ) {
+      return "group_3";
+    }
+
+    // Dynamic fallback based on subject name or department name
+    const name = (s.subjectName || "").toUpperCase();
+    const dept = (s.departmentName || "").toUpperCase();
+
+    if (
+      name.includes("SPORT") ||
+      name.includes("PHYSICAL EDUCATION") ||
+      name.includes("EPS") ||
+      name.includes("MANUAL") ||
+      name.includes("ART") ||
+      name.includes("MUSIC") ||
+      dept.includes("SPORT") ||
+      dept.includes("PRACTICAL")
+    ) {
+      return "group_3";
+    }
+
+    if (
+      name.includes("MATH") ||
+      name.includes("PHYSIC") ||
+      name.includes("CHEM") ||
+      name.includes("BIO") ||
+      name.includes("COMPUTER") ||
+      name.includes("ICT") ||
+      name.includes("SCIENCE") ||
+      name.includes("ACCOUNT") ||
+      name.includes("COMMERCE") ||
+      dept.includes("SCIENCE") ||
+      dept.includes("MATH")
+    ) {
+      return "group_2";
+    }
+
+    return "group_1";
+  };
+
   // Split subjects by groups
-  const group1Subjects = subjects.filter((s) => s.subjectGroup === "group_1");
-  const group2Subjects = subjects.filter((s) => s.subjectGroup === "group_2");
-  const group3Subjects = subjects.filter((s) => s.subjectGroup === "group_3");
+  const group1Subjects = subjects.filter((s) => classifySubjectGroup(s) === "group_1");
+  const group2Subjects = subjects.filter((s) => classifySubjectGroup(s) === "group_2");
+  const group3Subjects = subjects.filter((s) => classifySubjectGroup(s) === "group_3");
 
   const calcGroupTotals = (rows: SubjectRowData[]) => {
     let coef = 0;
@@ -74,7 +148,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
     <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
-        {/* Anglophone Subsystem Header (Left) */}
+        {/* English National Header (Left) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
           <div className="text-[7.5px] font-normal italic lowercase">Peace – Work – Fatherland</div>
@@ -152,11 +226,18 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
       <div className="border-b-2 border-black text-[9.5px]">
         {/* Row 1: Full Name */}
         <div className="p-1.5 border-b border-black/40 flex items-center justify-between bg-zinc-50/50">
-          <div>
-            <span className="font-bold text-zinc-700 uppercase">Noms et Prénoms / Full name:</span>{" "}
-            <span className="font-black uppercase text-[12px] tracking-wide text-black ml-1.5">
-              {student.fullName}
-            </span>
+          <div className="flex items-center gap-2">
+            {student.photoUrl && (
+              <div className="w-9 h-9 rounded border border-black/50 overflow-hidden shrink-0 bg-white">
+                <img src={student.photoUrl} alt={student.fullName} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div>
+              <span className="font-bold text-zinc-700 uppercase">Noms et Prénoms / Full name:</span>{" "}
+              <span className="font-black uppercase text-[12px] tracking-wide text-black ml-1.5">
+                {student.fullName}
+              </span>
+            </div>
           </div>
           <div className="text-[9px] text-zinc-600 font-mono">
             Matr. / Reg No: <strong className="text-black text-[10.5px]">{student.matricule}</strong>
@@ -219,8 +300,16 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
             </tr>
           </thead>
           <tbody className="divide-y divide-black/40">
-            {/* ── GROUP 1: FIRST GROUP SUBJECTS / LANGUAGES & HUMANITIES ── */}
-            {group1Subjects.length > 0 && (
+            {subjects.length === 0 ? (
+              <tr>
+                <td colSpan={11} className="py-8 text-center text-zinc-500 italic text-[11px]">
+                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
+                </td>
+              </tr>
+            ) : (
+              <>
+                {/* ── GROUP 1: FIRST GROUP SUBJECTS / LANGUAGES & HUMANITIES ── */}
+                {group1Subjects.length > 0 && (
               <>
                 <tr className="bg-zinc-100 font-extrabold uppercase text-[8.5px] border-y border-black">
                   <td colSpan={11} className="py-0.5 px-2 tracking-wider text-black">
@@ -259,7 +348,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                           : "—"}
                       </td>
                       <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                        [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                        [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
                       <td className="py-0.5 px-1.5 text-center">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
@@ -324,7 +413,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                           : "—"}
                       </td>
                       <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                        [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                        [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
                       <td className="py-0.5 px-1.5 text-center">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
@@ -389,7 +478,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                           : "—"}
                       </td>
                       <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                        [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                        [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
                       <td className="py-0.5 px-1.5 text-center">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
@@ -413,6 +502,8 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                 </tr>
               </>
             )}
+              </>
+            )}
           </tbody>
 
           {/* ── GRAND TOTAL ROW ── */}
@@ -431,9 +522,9 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                       {summary.studentAverage.toFixed(2)} / 20.00
                     </span>
                   </div>
-                  {summary.rankingEnabled && summary.rank && (
+                  {summary.rankingEnabled && summary.rank && summary.totalSubjects > 0 && (
                     <span className="px-2 py-0.5 rounded bg-black text-white text-[9px] font-mono font-bold">
-                      RANK: {formatRank(summary.rank, totalCount)}
+                      RANK: {formatRank(summary.rank, totalCount, school.subsystem)}
                     </span>
                   )}
                 </div>
@@ -468,7 +559,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
             <div className="flex justify-between pt-0.5">
               <span className="text-zinc-700">Term Rank / Rang:</span>
               <span className="font-mono font-bold text-black">
-                {summary.rankingEnabled && summary.rank ? formatRank(summary.rank, totalCount) : "—"}
+                {summary.rankingEnabled && summary.rank ? formatRank(summary.rank, totalCount, school.subsystem) : "—"}
               </span>
             </div>
             <div className="flex justify-between pt-0.5">

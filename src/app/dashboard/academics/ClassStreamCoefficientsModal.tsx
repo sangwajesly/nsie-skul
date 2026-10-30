@@ -75,7 +75,7 @@ export function ClassStreamCoefficientsModal({
                 Subject Coefficients: {streamName}
               </h3>
               <p className="text-[11px] text-[#777777]">
-                Set the weight (coefficient) of each subject specifically for {streamName}.
+                Set the weight (coefficient) of each subject specifically for {streamName}. Only subjects assigned to a teacher for this class in &quot;Teacher Allocations&quot; (or with recorded marks) will appear on student report cards.
               </p>
             </div>
           </div>

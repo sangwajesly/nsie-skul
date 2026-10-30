@@ -157,13 +157,15 @@ export async function createSchoolAction(
     .single();
 
   if (academicYear) {
-    // 7. Seed 3 Official Terms
+    const isFrench = subsystem === "francophone";
+
+    // 7. Seed 3 Official Terms (Trimestres)
     const termsData = [
       {
         school_id: newSchool.id,
         academic_year_id: academicYear.id,
         term_number: 1,
-        name: "First Term",
+        name: isFrench ? "1er Trimestre" : "First Term",
         start_date: "2026-09-01",
         end_date: "2026-12-18",
         is_active: true,
@@ -172,7 +174,7 @@ export async function createSchoolAction(
         school_id: newSchool.id,
         academic_year_id: academicYear.id,
         term_number: 2,
-        name: "Second Term",
+        name: isFrench ? "2e Trimestre" : "Second Term",
         start_date: "2027-01-05",
         end_date: "2027-03-26",
         is_active: false,
@@ -181,7 +183,7 @@ export async function createSchoolAction(
         school_id: newSchool.id,
         academic_year_id: academicYear.id,
         term_number: 3,
-        name: "Third Term",
+        name: isFrench ? "3e Trimestre" : "Third Term",
         start_date: "2027-04-12",
         end_date: "2027-06-30",
         is_active: false,
@@ -198,13 +200,13 @@ export async function createSchoolAction(
       const term2 = createdTerms.find((t) => t.term_number === 2) || createdTerms[1];
       const term3 = createdTerms.find((t) => t.term_number === 3) || createdTerms[2];
 
-      // 8. Seed 6 Official Evaluation Sequences (2 per term)
+      // 8. Seed 6 Official Evaluation Sequences (2 per term / trimestre)
       const sequencesData = [
         {
           school_id: newSchool.id,
           term_id: term1.id,
           sequence_number: 1,
-          name: "Sequence 1",
+          name: isFrench ? "1ère Séquence" : "Sequence 1",
           start_date: "2026-09-01",
           end_date: "2026-10-25",
           is_open_for_marks: true,
@@ -213,7 +215,7 @@ export async function createSchoolAction(
           school_id: newSchool.id,
           term_id: term1.id,
           sequence_number: 2,
-          name: "Sequence 2",
+          name: isFrench ? "2e Séquence" : "Sequence 2",
           start_date: "2026-10-26",
           end_date: "2026-12-18",
           is_open_for_marks: false,
@@ -222,7 +224,7 @@ export async function createSchoolAction(
           school_id: newSchool.id,
           term_id: term2.id,
           sequence_number: 3,
-          name: "Sequence 3",
+          name: isFrench ? "3e Séquence" : "Sequence 3",
           start_date: "2027-01-05",
           end_date: "2027-02-15",
           is_open_for_marks: false,
@@ -231,7 +233,7 @@ export async function createSchoolAction(
           school_id: newSchool.id,
           term_id: term2.id,
           sequence_number: 4,
-          name: "Sequence 4",
+          name: isFrench ? "4e Séquence" : "Sequence 4",
           start_date: "2027-02-16",
           end_date: "2027-03-26",
           is_open_for_marks: false,
@@ -240,7 +242,7 @@ export async function createSchoolAction(
           school_id: newSchool.id,
           term_id: term3.id,
           sequence_number: 5,
-          name: "Sequence 5",
+          name: isFrench ? "5e Séquence" : "Sequence 5",
           start_date: "2027-04-12",
           end_date: "2027-05-20",
           is_open_for_marks: false,
@@ -249,7 +251,7 @@ export async function createSchoolAction(
           school_id: newSchool.id,
           term_id: term3.id,
           sequence_number: 6,
-          name: "Sequence 6",
+          name: isFrench ? "6e Séquence" : "Sequence 6",
           start_date: "2027-05-21",
           end_date: "2027-06-30",
           is_open_for_marks: false,

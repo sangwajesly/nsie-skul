@@ -267,8 +267,8 @@ export function MarksImportModal({
                 </div>
               </div>
 
-              <div className="border border-[#E5E5DF] rounded-[6px] overflow-hidden max-h-56 overflow-y-auto">
-                <table className="w-full text-xs text-left">
+              <div className="border border-[#E5E5DF] rounded-[6px] overflow-x-auto max-h-56 overflow-y-auto">
+                <table className="w-full min-w-[500px] text-xs text-left">
                   <thead className="bg-[#FAFAF8] text-[#777777] text-[10px] font-bold uppercase sticky top-0 border-b border-[#E5E5DF]">
                     <tr>
                       <th className="py-2 px-3">Matricule</th>

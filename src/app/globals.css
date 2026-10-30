@@ -27,10 +27,23 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Prevent iOS Safari auto-zoom when focusing inputs on screens < 768px */
+@media screen and (max-width: 767px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 @media print {
   @page {
     size: A4 portrait;
-    margin: 5mm 6mm;
+    margin: 0mm; /* Suppresses browser default headers/footers (URL, page title, date) */
   }
 
   body, html {
@@ -51,6 +64,35 @@ html {
     display: none !important;
   }
 
+  /* When printing from the offline receipt portal overlay */
+  body.nsei-print-portal-active > *:not(#nsei-print-portal) {
+    display: none !important;
+  }
+  body.nsei-print-portal-active #nsei-print-portal {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* When printing a sample report card preview (from modal or showcase) */
+  body.printing-sample-report-card > *:not(#sample-report-card-print-target) {
+    display: none !important;
+  }
+  body.printing-sample-report-card #sample-report-card-print-target {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 5mm 6mm !important;
+    box-sizing: border-box !important;
+    background: white !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
   /* Clean print sheets */
   .report-card-print-sheet {
     page-break-after: always !important;
@@ -58,7 +100,8 @@ html {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 5mm 6mm !important;
+    box-sizing: border-box !important;
     border: none !important;
     box-shadow: none !important;
     width: 100% !important;

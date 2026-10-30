@@ -1,0 +1,54 @@
+# ==============================================================================
+# Nsei Sukul Managements System — School Hub (On-Premise LAN Server)
+# Runs a complete offline School Management System on a local computer.
+# Teachers and bursars access the system over school Wi-Fi without internet.
+# ==============================================================================
+
+version: '3.8'
+
+services:
+  # 1. Local Database (PostgreSQL 16)
+  hub-db:
+    image: postgres:16-alpine
+    container_name: nsei-hub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${HUB_DB_USER:-nsei_admin}
+      POSTGRES_PASSWORD: ${HUB_DB_PASSWORD:-nsei_secure_pass_2026}
+      POSTGRES_DB: ${HUB_DB_NAME:-nsei_skul_hub}
+    volumes:
+      - hub_pgdata:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nsei_admin -d nsei_skul_hub"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. NSEI Skul Application Server
+  hub-app:
+    image: node:20-alpine
+    container_name: nsei-hub-app
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - .:/app
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - NEXT_PUBLIC_HUB_MODE=true
+      - HUB_NODE_KEY=${HUB_NODE_KEY}
+      - CLOUD_SYNC_URL=${CLOUD_SYNC_URL:-https://nsei-skul.klarifypath.com/api/v1/hub/sync}
+      - DATABASE_URL=postgresql://${HUB_DB_USER:-nsei_admin}:${HUB_DB_PASSWORD:-nsei_secure_pass_2026}@hub-db:5432/${HUB_DB_NAME:-nsei_skul_hub}
+    ports:
+      - "3000:3000"
+    depends_on:
+      hub-db:
+        condition: service_healthy
+    command: sh -c "npm install --omit=dev && npm run build && npm run start"
+
+volumes:
+  hub_pgdata:
+    name: nsei_hub_pgdata

@@ -39,7 +39,7 @@ export default async function SelectSchoolPage({ searchParams }: SelectSchoolPag
             <GraduationCap className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-[#687064]">Nsei Skul</p>
+            <p className="text-xs font-semibold text-[#687064]">Nsei Sukul Management System</p>
             <h1 className="text-xl font-bold">Choose a school</h1>
           </div>
         </div>

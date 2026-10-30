@@ -177,11 +177,11 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-[10px] bg-[#142010] p-1 flex items-center justify-center shadow-xs shrink-0 overflow-hidden">
-                  <img src="/icons/icon-192.svg" alt="Nsei Skul" className="w-full h-full object-contain" />
+                  <img src="/icons/icon-192.svg" alt="Nsei Sukul" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <h3 className="font-extrabold text-[15px] text-[#142010] tracking-tight">
-                    Install Nsei Skul
+                    Install Nsei Sukul
                   </h3>
                   <p className="text-[11px] text-[#2A7C13] font-semibold flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
@@ -202,7 +202,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
             {/* Description */}
             <p className="text-xs text-[#525E4B] leading-relaxed">
-              Add Nsei Skul to your home screen for instant access to student marks, attendance rolls, and class rosters without opening your browser.
+              Add Nsei Sukul Managements System to your home screen for instant access to student marks, attendance rolls, and class rosters without opening your browser.
             </p>
 
             {/* Feature Bullets */}

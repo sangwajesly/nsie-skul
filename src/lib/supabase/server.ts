@@ -14,7 +14,7 @@ export async function createClient() {
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
-      "[Nsei Skul] Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel Project > Settings > Environment Variables."
+      "[Nsei Sukul] Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel Project > Settings > Environment Variables."
     );
   }
 

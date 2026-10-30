@@ -2,7 +2,7 @@
  * DashboardPreview
  * ─────────────────────────────────────────────────────────
  * A static, illustrative preview of the product interface.
- * All records shown are sample data only — no real school or student.
+ * All records shown are sample data only - no real school or student.
  * Uses Option A: Green & Cream educational palette.
  */
 
@@ -94,7 +94,7 @@ export function DashboardPreview() {
             <div className="px-3 py-2 border-b border-[#E8DFC9] bg-[#FFF8CF]/20 flex items-center justify-between">
               <div>
                 <span className="text-[12px] font-bold text-[#142010]">
-                  Form 4 Science A — Mark Entry
+                  Form 4 Science A: Mark Entry
                 </span>
                 <span className="ml-2 text-[10px] text-[#525E4B]">Term 1 · Seq. 2</span>
               </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Enrolment } from "@/types/database";
 import {
@@ -23,6 +23,8 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  Camera,
+  Upload,
 } from "lucide-react";
 
 interface StreamOption {
@@ -59,6 +61,7 @@ export function StudentDirectoryClient({
 
   // Edit Student State
   const [editingEnrolment, setEditingEnrolment] = useState<Enrolment | null>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
   const [editForm, setEditForm] = useState({
     studentId: "",
     enrolmentId: "",
@@ -67,6 +70,9 @@ export function StudentDirectoryClient({
     lastName: "",
     classStreamId: "",
     gender: "M" as "M" | "F",
+    dateOfBirth: "",
+    placeOfBirth: "",
+    photoUrl: "",
     residenceStatus: "day" as "day" | "boarding",
     isRepeater: false,
     rollNumber: "",
@@ -135,6 +141,9 @@ export function StudentDirectoryClient({
       lastName: enrol.student?.last_name || "",
       classStreamId: enrol.class_stream_id || "",
       gender: (enrol.student?.gender as "M" | "F") || "M",
+      dateOfBirth: enrol.student?.date_of_birth || "",
+      placeOfBirth: enrol.student?.place_of_birth || "",
+      photoUrl: (enrol.student as any)?.photo_url || "",
       residenceStatus: (enrol.student?.residence_status as "day" | "boarding") || "day",
       isRepeater: Boolean(enrol.is_repeater ?? enrol.student?.is_repeater),
       rollNumber: enrol.roll_number !== null && enrol.roll_number !== undefined ? String(enrol.roll_number) : "",
@@ -143,6 +152,57 @@ export function StudentDirectoryClient({
     });
     setEditFieldErrors({});
     setEditGeneralError(null);
+  };
+
+  const handleEditPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setEditGeneralError("Please select an image file (PNG, JPG, WEBP).");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 320;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          updateEditField("photoUrl", dataUrl);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleClearEditPhoto = () => {
+    updateEditField("photoUrl", "");
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
   };
 
   const updateEditField = (field: string, value: any) => {
@@ -172,6 +232,9 @@ export function StudentDirectoryClient({
     formData.set("firstName", editForm.firstName);
     formData.set("lastName", editForm.lastName);
     formData.set("gender", editForm.gender);
+    formData.set("dateOfBirth", editForm.dateOfBirth);
+    formData.set("placeOfBirth", editForm.placeOfBirth);
+    formData.set("photoUrl", editForm.photoUrl);
     formData.set("residenceStatus", editForm.residenceStatus);
     formData.set("isRepeater", editForm.isRepeater ? "true" : "false");
     formData.set("rollNumber", editForm.rollNumber);
@@ -187,9 +250,10 @@ export function StudentDirectoryClient({
         setEditFieldErrors(res.fieldErrors);
       }
     } else {
+      const studentDisplayName = `${editForm.lastName} ${editForm.firstName}`.trim();
       setMessage({
         type: "success",
-        text: res?.message || `Student "${editForm.firstName} ${editForm.lastName}" updated successfully.`,
+        text: res?.message || `Student "${studentDisplayName}" updated successfully.`,
       });
       setEditingEnrolment(null);
       router.refresh();
@@ -333,7 +397,7 @@ export function StudentDirectoryClient({
             </p>
           </div>
         ) : (
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[720px] text-left border-collapse">
             <thead>
               <tr className="border-b border-[#E5E5DF] text-[11px] font-bold uppercase tracking-wider text-[#777777]">
                 <th className="py-2.5 px-2.5">Admission No.</th>
@@ -354,13 +418,43 @@ export function StudentDirectoryClient({
                     <td className="py-2.5 px-2.5 font-mono font-bold text-[#191919]">
                       {enrol.student?.matricule}
                     </td>
-                    <td className="py-2.5 px-2.5 font-semibold">
-                      <span>{enrol.student?.first_name} {enrol.student?.last_name}</span>
-                      {enrol.is_repeater && (
-                        <span className="ml-1.5 px-1.5 py-0.2 rounded-[3px] bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium">
-                          Repeater
-                        </span>
-                      )}
+                    <td className="py-2.5 px-2.5">
+                      <div className="flex items-center gap-2.5">
+                        {enrol.student?.photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={enrol.student.photo_url}
+                            alt=""
+                            className="w-8 h-8 rounded-full object-cover border border-[#D5D5CF] shrink-0"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-[#191919] text-white flex items-center justify-center font-bold text-[10px] shrink-0">
+                            {(enrol.student?.last_name?.[0] || "") + (enrol.student?.first_name?.[0] || "")}
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-1.5 font-semibold leading-tight">
+                            <span className="font-bold text-[#191919]">
+                              {enrol.student?.last_name}
+                            </span>
+                            <span className="font-medium text-[#191919]">
+                              {enrol.student?.first_name}
+                            </span>
+                            {enrol.is_repeater && (
+                              <span className="px-1.5 py-0.2 rounded-[3px] bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium">
+                                Repeater
+                              </span>
+                            )}
+                          </div>
+                          {(enrol.student?.date_of_birth || enrol.student?.place_of_birth) && (
+                            <p className="text-[10px] text-[#777777] font-normal leading-tight mt-0.5">
+                              {enrol.student.date_of_birth ? `Born: ${enrol.student.date_of_birth}` : ""}
+                              {enrol.student.date_of_birth && enrol.student.place_of_birth ? " at " : ""}
+                              {enrol.student.place_of_birth || ""}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="py-2.5 px-2.5">
                       <span className="px-1.5 py-0.5 rounded-[3px] bg-[#F1F1ED] text-[#555555] font-medium text-[11px]">
@@ -464,7 +558,7 @@ export function StudentDirectoryClient({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
           <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-[10px] bg-white shadow-2xl border border-[#E5E5DF] overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#EEEEEC] bg-[#FAFAF8]">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#EEEEEC] bg-[#FAFAF8]">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-[#191919] text-white flex items-center justify-center shrink-0">
                   <Pencil className="w-4 h-4" />
@@ -486,7 +580,7 @@ export function StudentDirectoryClient({
             </div>
 
             {/* Scrollable Form Body */}
-            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+            <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 text-xs">
               {/* General Error Banner */}
               {editGeneralError && (
                 <div className="flex items-start gap-2 p-3 rounded-[6px] bg-red-50 border border-red-200 text-red-800 text-xs">
@@ -554,53 +648,168 @@ export function StudentDirectoryClient({
                 )}
               </div>
 
-              {/* 3. First & Last Names */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.firstName}
-                    onChange={(e) => updateEditField("firstName", e.target.value)}
-                    required
-                    className={`w-full px-3 py-2 text-xs rounded-[5px] border bg-white focus:outline-none transition-colors ${
-                      editFieldErrors.firstName
-                        ? "border-red-400 focus:border-red-600 bg-red-50/20"
-                        : "border-[#D5D5CF] focus:border-[#191919]"
-                    }`}
-                  />
-                  {editFieldErrors.firstName && (
-                    <p className="text-[11px] text-red-600 font-medium mt-1">
-                      {editFieldErrors.firstName}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.lastName}
-                    onChange={(e) => updateEditField("lastName", e.target.value)}
-                    required
-                    className={`w-full px-3 py-2 text-xs rounded-[5px] border bg-white focus:outline-none transition-colors ${
-                      editFieldErrors.lastName
-                        ? "border-red-400 focus:border-red-600 bg-red-50/20"
-                        : "border-[#D5D5CF] focus:border-[#191919]"
-                    }`}
-                  />
-                  {editFieldErrors.lastName && (
-                    <p className="text-[11px] text-red-600 font-medium mt-1">
-                      {editFieldErrors.lastName}
-                    </p>
-                  )}
+              {/* 3. Photo & Names (Surname and 3, 4+ Given Names) */}
+              <div className="p-3.5 rounded-[8px] border border-[#E5E5DF] bg-[#FAF8F5]/50 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  {/* Photo Upload Box */}
+                  <div className="flex flex-col items-center sm:items-start shrink-0 space-y-1.5">
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777]">
+                      Student Photo <span className="font-normal text-[#888888] lowercase text-[10px]">(optional)</span>
+                    </label>
+                    <div className="relative w-20 h-24 rounded-[6px] border-2 border-dashed border-[#D5D5CF] bg-white flex flex-col items-center justify-center overflow-hidden group shadow-2xs">
+                      {editForm.photoUrl ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={editForm.photoUrl}
+                            alt="Passport preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleClearEditPhoto}
+                            className="absolute bottom-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-md transition-opacity cursor-pointer"
+                            title="Remove photo"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => editFileInputRef.current?.click()}
+                          className="w-full h-full flex flex-col items-center justify-center p-2 text-center text-[#777777] hover:text-[#191919] hover:bg-[#F3F3EF] transition-colors cursor-pointer"
+                        >
+                          <Camera className="w-5 h-5 text-[#999999] mb-1" />
+                          <span className="text-[10px] font-semibold leading-tight">Add Photo</span>
+                          <span className="text-[8px] text-[#888888] mt-0.5 font-normal">(optional)</span>
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      ref={editFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleEditPhotoUpload}
+                      className="hidden"
+                    />
+                    {editForm.photoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="text-[10px] text-[#2A7C13] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Upload className="w-2.5 h-2.5" />
+                        Change photo
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Surname and Multiple Given Names */}
+                  <div className="flex-1 w-full space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={editForm.lastName}
+                          onChange={(e) => updateEditField("lastName", e.target.value)}
+                          placeholder="e.g. FOMBAN or EMMANUEL"
+                          required
+                          className={`w-full px-3 py-2 text-xs font-semibold rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                            editFieldErrors.lastName
+                              ? "border-red-400 focus:border-red-600 bg-red-50/20"
+                              : "border-[#D5D5CF] focus:border-[#191919]"
+                          }`}
+                        />
+                        <p className="text-[10px] text-[#777777] mt-0.5">
+                          Enter as written on the birth certificate.
+                        </p>
+                        {editFieldErrors.lastName && (
+                          <p className="text-[11px] text-red-600 font-medium mt-1">
+                            {editFieldErrors.lastName}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555] mb-1">
+                          Other Names <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={editForm.firstName}
+                          onChange={(e) => updateEditField("firstName", e.target.value)}
+                          placeholder="e.g. Elvis Chi or Marie Paule"
+                          required
+                          className={`w-full px-3 py-2 text-xs rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                            editFieldErrors.firstName
+                              ? "border-red-400 focus:border-red-600 bg-red-50/20"
+                              : "border-[#D5D5CF] focus:border-[#191919]"
+                          }`}
+                        />
+                        <p className="text-[10px] text-[#777777] mt-0.5">
+                          Remaining names as written on the birth certificate.
+                        </p>
+                        {editFieldErrors.firstName && (
+                          <p className="text-[11px] text-red-600 font-medium mt-1">
+                            {editFieldErrors.firstName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Live Preview */}
+                    {(editForm.lastName || editForm.firstName) && (
+                      <div className="p-2 rounded-[5px] bg-[#FAF8F5] border border-[#E0E0D8] flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-1.5 py-0.5 rounded border border-[#76C457]/40">
+                            Student Record Display
+                          </span>
+                          <span className="font-bold text-[#142010] text-[13px]">
+                            {[editForm.lastName, editForm.firstName].filter(Boolean).join(" ")}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-[#777777]">
+                          As on Birth Certificate
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* 4. Gender & Residence */}
+              {/* 4. Date of Birth & Place of Birth */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
+                    Date of Birth <span className="font-normal text-[#888888] lowercase text-[10px]">(optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.dateOfBirth}
+                    onChange={(e) => updateEditField("dateOfBirth", e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                  />
+                  <p className="text-[10px] text-[#777777] mt-0.5">Prints on report card header.</p>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
+                    Place of Birth <span className="font-normal text-[#888888] lowercase text-[10px]">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.placeOfBirth}
+                    onChange={(e) => updateEditField("placeOfBirth", e.target.value)}
+                    placeholder="e.g. Bamenda, Bafoussam"
+                    className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                  />
+                  <p className="text-[10px] text-[#777777] mt-0.5">e.g. Born at Bamenda.</p>
+                </div>
+              </div>
+
+              {/* 5. Gender & Residence */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
@@ -632,7 +841,7 @@ export function StudentDirectoryClient({
                 </div>
               </div>
 
-              {/* 5. Academic Status (Repeater) */}
+              {/* 6. Academic Status (Repeater) */}
               <div className="p-3 rounded-[6px] border border-[#E5E5DF] bg-[#FAF8F2] space-y-1.5">
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#555555]">
                   Academic Repetition Status <span className="text-red-500">*</span>
@@ -668,7 +877,7 @@ export function StudentDirectoryClient({
                 </p>
               </div>
 
-              {/* 6. Roll Number */}
+              {/* 7. Roll Number */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
                   Class Roster Number (optional)
@@ -692,7 +901,7 @@ export function StudentDirectoryClient({
                 )}
               </div>
 
-              {/* 7. Guardian Information */}
+              {/* 8. Guardian Information */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-[#777777] mb-1">
@@ -720,19 +929,19 @@ export function StudentDirectoryClient({
                 </div>
               </div>
 
-              {/* Footer buttons inside form */}
+              {/* Footer buttons inside form with GREEN Save Changes button */}
               <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#EEEEEC]">
                 <button
                   type="button"
                   onClick={() => setEditingEnrolment(null)}
-                  className="px-4 py-2 rounded-[5px] border border-[#D5D5CF] text-[#444444] font-semibold hover:bg-[#FAFAF8] transition-colors"
+                  className="px-4 py-2 rounded-[5px] border border-[#D5D5CF] text-[#444444] font-semibold hover:bg-[#FAFAF8] transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isEditPending}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-[5px] font-semibold text-white bg-[#191919] hover:bg-[#333333] transition-colors shadow-xs disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-6 py-2 rounded-[6px] font-bold text-white bg-[#2A7C13] hover:bg-[#20600E] active:scale-[0.99] transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                 >
                   {isEditPending ? (
                     <>

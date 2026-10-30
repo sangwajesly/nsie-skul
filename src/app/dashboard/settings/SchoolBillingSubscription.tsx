@@ -31,7 +31,7 @@ export function SchoolBillingSubscription({
 
   const mtnNumber = "682833601";
   const mtnFormatted = "682 833 601";
-  const mtnAccountName = "Mbongih Jesly Sangwa";
+  const mtnAccountName = "Nsei Sukul Technologies";
 
   const isExpired = subscription?.isExpired ?? false;
   const isTrial = subscription?.isTrial ?? true;
@@ -51,7 +51,7 @@ export function SchoolBillingSubscription({
   };
 
   const whatsappMessage = encodeURIComponent(
-    `Hello Nsei Skul Billing, I have sent a subscription payment for ${schoolName} (Code: ${schoolCode}). Please activate our school license.`
+    `Hello Nsei Sukul Billing, I have sent a subscription payment for ${schoolName} (Code: ${schoolCode}). Please activate our school license.`
   );
   const whatsappUrl = `https://wa.me/237682833601?text=${whatsappMessage}`;
 

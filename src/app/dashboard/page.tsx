@@ -201,8 +201,14 @@ export default async function DashboardPage() {
               <FileText className="w-4 h-4 text-[#2A7C13]" />
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Subsystem</span>
             </div>
-            <div className="text-lg font-extrabold text-[#191919] capitalize mt-1">
-              {school?.subsystem || "Anglophone"}
+            <div className="text-lg font-extrabold text-[#191919] mt-1">
+              {school?.subsystem === "anglophone"
+                ? "English Curriculum"
+                : school?.subsystem === "francophone"
+                ? "French Curriculum"
+                : school?.subsystem === "bilingual"
+                ? "Bilingual Curriculum"
+                : "National Curriculum"}
             </div>
             <div className="text-[11px] text-[#AAAAAA] mt-0.5">CBA 20-pt grading</div>
           </div>
@@ -278,7 +284,7 @@ export default async function DashboardPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
 
       {/* Welcome header */}
-      <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-6 shadow-sm">
+      <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <p className="text-[12px] text-[#AAAAAA] font-medium mb-1">
@@ -296,8 +302,8 @@ export default async function DashboardPage() {
               )}
             </p>
           </div>
-          <div className="text-[11px] text-[#999999] text-right">
-            <div className="font-mono">Nsei Skul Platform</div>
+          <div className="text-[11px] text-[#999999] text-left sm:text-right">
+            <div className="font-mono">Nsei Sukul Platform</div>
             <div>School Management System</div>
           </div>
         </div>

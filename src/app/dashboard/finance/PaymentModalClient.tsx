@@ -10,25 +10,59 @@ import {
   X,
   Printer,
   CreditCard,
+  CloudOff,
 } from "lucide-react";
 import Link from "next/link";
+import { newMutationId, enqueueMutation, type FeePaymentMutation } from "@/lib/offline/outbox";
+import { nextOfflineReceiptNumber } from "@/lib/offline/device";
+import { ProvisionalReceiptOverlay } from "@/components/finance/ProvisionalReceipt";
 
 interface PaymentModalClientProps {
+  schoolId: string;
+  schoolName: string;
+  schoolCode?: string | null;
+  schoolAddress?: string | null;
+  schoolPhone?: string | null;
+  schoolLogoUrl?: string | null;
+  receiptPrefix?: string;
+  academicYearName?: string;
   studentBillId: string;
   studentId: string;
   academicYearId: string;
   studentName: string;
+  studentFirstName: string;
+  studentLastName: string;
   matricule: string;
+  residenceStatus?: "day" | "boarding";
+  classStreamName?: string | null;
+  totalBilled: number;
+  totalPaid: number;
   balance: number;
+  receivedByName?: string | null;
 }
 
 export function PaymentModalClient({
+  schoolId,
+  schoolName,
+  schoolCode,
+  schoolAddress,
+  schoolPhone,
+  schoolLogoUrl,
+  receiptPrefix = "REC",
+  academicYearName = "2026",
   studentBillId,
   studentId,
   academicYearId,
   studentName,
+  studentFirstName,
+  studentLastName,
   matricule,
+  residenceStatus = "day",
+  classStreamName,
+  totalBilled,
+  totalPaid,
   balance,
+  receivedByName,
 }: PaymentModalClientProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -37,13 +71,86 @@ export function PaymentModalClient({
   const [transactionRef, setTransactionRef] = useState("");
   const [termNumber, setTermNumber] = useState<number>(1);
   const [receiptResult, setReceiptResult] = useState<{ receiptNumber: string; paymentId: string } | null>(null);
+  const [provisionalResult, setProvisionalResult] = useState<FeePaymentMutation | null>(null);
+  const [showProvisionalOverlay, setShowProvisionalOverlay] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const saveOffline = async (clientMutationId: string) => {
+    try {
+      const cleanYear = academicYearName.split("/")[0] || "2026";
+      const { receiptNumber, deviceCode } = await nextOfflineReceiptNumber(
+        schoolId,
+        receiptPrefix || schoolCode || "REC",
+        cleanYear
+      );
+
+      const mutation: FeePaymentMutation = {
+        id: clientMutationId,
+        type: "fee_payment",
+        schoolId,
+        payload: {
+          clientMutationId,
+          studentBillId,
+          studentId,
+          academicYearId,
+          receiptNumber,
+          deviceCode,
+          amount,
+          paymentMethod,
+          transactionRef: transactionRef || null,
+          termNumber: (termNumber || 1) as 1 | 2 | 3,
+          remarks: null,
+          paymentDate: new Date().toISOString().split("T")[0],
+          clientRecordedAt: new Date().toISOString(),
+        },
+        receipt: {
+          schoolName,
+          schoolCode: schoolCode || null,
+          schoolAddress: schoolAddress || null,
+          schoolPhone: schoolPhone || null,
+          schoolLogoUrl: schoolLogoUrl || null,
+          studentName,
+          studentFirstName,
+          studentLastName,
+          matricule,
+          residenceStatus,
+          classStreamName: classStreamName || null,
+          totalBilled,
+          paidBeforeThisPayment: totalPaid,
+          balanceAsOf: new Date().toISOString(),
+          receivedByName: receivedByName || null,
+        },
+        status: "pending",
+        attempts: 0,
+        lastError: null,
+        createdAt: new Date().toISOString(),
+      };
+
+      await enqueueMutation(mutation);
+      setProvisionalResult(mutation);
+      return true;
+    } catch (err: any) {
+      setErrorMsg(err?.message || "Failed to save offline receipt to local storage.");
+      return false;
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
 
+    const clientMutationId = newMutationId();
+
+    // If completely offline, record directly to IndexedDB outbox
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      startTransition(async () => {
+        await saveOffline(clientMutationId);
+      });
+      return;
+    }
+
     const formData = new FormData();
+    formData.append("clientMutationId", clientMutationId);
     formData.append("studentBillId", studentBillId);
     formData.append("studentId", studentId);
     formData.append("academicYearId", academicYearId);
@@ -53,11 +160,17 @@ export function PaymentModalClient({
     formData.append("termNumber", termNumber.toString());
 
     startTransition(async () => {
-      const res = await recordFeePaymentAction(formData);
-      if (res?.error) {
-        setErrorMsg(res.error);
-      } else if (res?.receiptNumber && res?.paymentId) {
-        setReceiptResult({ receiptNumber: res.receiptNumber, paymentId: res.paymentId });
+      try {
+        const res = await recordFeePaymentAction(formData);
+        if (res?.error) {
+          setErrorMsg(res.error);
+        } else if (res?.receiptNumber && res?.paymentId) {
+          setReceiptResult({ receiptNumber: res.receiptNumber, paymentId: res.paymentId });
+        }
+      } catch (err: any) {
+        // Network timeout / connection drop: fall back seamlessly to offline outbox
+        console.warn("[Finance] Network payment failed, falling back to offline outbox:", err);
+        await saveOffline(clientMutationId);
       }
     });
   };
@@ -68,9 +181,10 @@ export function PaymentModalClient({
         onClick={() => {
           setIsOpen(true);
           setReceiptResult(null);
+          setProvisionalResult(null);
           setErrorMsg(null);
         }}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs transition-colors shadow-xs"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs transition-colors shadow-xs cursor-pointer"
       >
         <CreditCard className="w-3.5 h-3.5" />
         <span>Record Payment</span>
@@ -87,13 +201,13 @@ export function PaymentModalClient({
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="text-[#788470] hover:text-[#142010] p-1 rounded hover:bg-[#FFFDF5]"
+                className="text-[#788470] hover:text-[#142010] p-1 rounded hover:bg-[#FFFDF5] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Success State */}
+            {/* Online Success State */}
             {receiptResult ? (
               <div className="space-y-4 text-center py-3">
                 <div className="w-12 h-12 rounded-full bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center mx-auto">
@@ -115,7 +229,43 @@ export function PaymentModalClient({
                   </Link>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="px-4 py-2 rounded-[6px] border border-[#E8DFC9] text-xs font-semibold text-[#142010] hover:bg-[#FFFDF5]"
+                    className="px-4 py-2 rounded-[6px] border border-[#E8DFC9] text-xs font-semibold text-[#142010] hover:bg-[#FFFDF5] cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : provisionalResult ? (
+              /* Offline Provisional Success State */
+              <div className="space-y-4 text-center py-3">
+                <div className="w-12 h-12 rounded-full bg-[#FFF8CF] text-[#B45309] flex items-center justify-center mx-auto border border-[#FBE6C2]">
+                  <CloudOff className="w-6 h-6" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-base text-[#142010]">Payment Saved on Device (Offline)</h4>
+                  <p className="text-xs text-[#525E4B] mt-0.5">
+                    Provisional Receipt N°{" "}
+                    <strong className="font-mono text-[#B45309]">
+                      {provisionalResult.payload.receiptNumber}
+                    </strong>
+                  </p>
+                  <p className="text-[11px] text-[#788470] mt-1">
+                    Valid proof of payment. It will synchronize automatically with the cloud when your connection returns.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowProvisionalOverlay(true)}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    <span>Print Provisional Receipt</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsOpen(false)}
+                    className="px-4 py-2 rounded-[6px] border border-[#E8DFC9] text-xs font-semibold text-[#142010] hover:bg-[#FFFDF5] cursor-pointer"
                   >
                     Close
                   </button>
@@ -158,7 +308,7 @@ export function PaymentModalClient({
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block font-medium text-[#525E4B] mb-1">Payment Method</label>
                     <select
@@ -204,18 +354,18 @@ export function PaymentModalClient({
                   />
                 </div>
 
-                <div className="pt-2 flex items-center justify-end gap-2">
+                <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setIsOpen(false)}
-                    className="px-3.5 py-1.5 rounded-[5px] border border-[#E8DFC9] text-xs font-semibold text-[#142010] hover:bg-[#FFFDF5]"
+                    className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 rounded-[5px] border border-[#E8DFC9] text-xs font-semibold text-[#142010] hover:bg-[#FFFDF5] cursor-pointer text-center"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isPending || amount <= 0}
-                    className="px-4 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
+                    className="w-full sm:w-auto px-4 py-2 sm:py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50 cursor-pointer text-center"
                   >
                     {isPending ? "Saving Payment..." : "Save Payment"}
                   </button>
@@ -224,6 +374,14 @@ export function PaymentModalClient({
             )}
           </div>
         </div>
+      )}
+
+      {/* Provisional Receipt Print Overlay */}
+      {showProvisionalOverlay && provisionalResult && (
+        <ProvisionalReceiptOverlay
+          mutation={provisionalResult}
+          onClose={() => setShowProvisionalOverlay(false)}
+        />
       )}
     </>
   );

@@ -1,6 +1,6 @@
 {
-  "name": "Nsei Skul — School Management",
-  "short_name": "Nsei Skul",
+  "name": "Nsei Sukul Management System",
+  "short_name": "Nsei Sukul",
   "description": "Secondary school management platform for Cameroon: CBA marks entry, sequence assessments, and report cards.",
   "start_url": "/dashboard",
   "scope": "/",

@@ -28,7 +28,7 @@ export function PwaInstallButton({
       >
         <div className="flex items-center gap-2">
           <Smartphone className="w-4 h-4 text-[#2A7C13]" />
-          <span>Install Nsei Skul App</span>
+          <span>Install Nsei Sukul App</span>
         </div>
         <span className="text-[10px] font-bold uppercase tracking-wider bg-[#2A7C13] text-white px-1.5 py-0.5 rounded-[4px]">
           Install

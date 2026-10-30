@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerAction } from "@/app/auth/actions";
 import { GraduationCap, ArrowRight, Lock, Mail, User } from "lucide-react";
+import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -31,16 +32,28 @@ export default function RegisterPage() {
             Create Account
           </h1>
           <p className="text-xs text-[#666666] mt-1">
-            Set up your school or join as staff on Nsei Skul
+            Set up your school or join as staff on Nsei Sukul Management System
           </p>
         </div>
 
-        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-5">
+        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-4">
           {errorMsg && (
             <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
               {errorMsg}
             </div>
           )}
+
+          {/* 1-Click Google Sign Up */}
+          <GoogleSignInButton mode="signup" returnUrl="/onboarding" />
+
+          {/* Clean Divider */}
+          <div className="relative flex items-center justify-center my-3">
+            <div className="border-t border-[#E8DFC9] w-full" />
+            <span className="bg-white px-2.5 text-[10.5px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
+              or register with email
+            </span>
+            <div className="border-t border-[#E8DFC9] w-full" />
+          </div>
 
           <form action={formAction} className="space-y-4">
             <div>
@@ -122,6 +135,13 @@ export default function RegisterPage() {
               {isPending ? "Creating account…" : "Create Account"}
               {!isPending && <ArrowRight className="w-4 h-4" />}
             </button>
+
+            <p className="text-[11px] text-center text-[#888888] mt-3 leading-relaxed">
+              By creating an account, you agree to our{" "}
+              <Link href="/terms" className="text-[#2A7C13] underline font-medium hover:text-[#1e5c0e]">Terms of Service</Link>
+              {" "}and{" "}
+              <Link href="/privacy" className="text-[#2A7C13] underline font-medium hover:text-[#1e5c0e]">Privacy Policy</Link>.
+            </p>
           </form>
         </div>
 
@@ -135,8 +155,14 @@ export default function RegisterPage() {
           </Link>
         </p>
 
-        <p className="text-center text-[10px] text-[#AAAAAA] mt-4">
-          © {new Date().getFullYear()} Nsei Skul · Built for Cameroon Secondary Education
+        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-4">
+          <Link href="/terms" className="hover:text-[#2A7C13] hover:underline">Terms of Service</Link>
+          <span>•</span>
+          <Link href="/privacy" className="hover:text-[#2A7C13] hover:underline">Privacy Policy</Link>
+        </div>
+
+        <p className="text-center text-[10px] text-[#AAAAAA] mt-2">
+          © {new Date().getFullYear()} Nsei Sukul Management System · Built for Cameroon Secondary Education
         </p>
       </div>
     </div>
