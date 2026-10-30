@@ -8,6 +8,7 @@ import {
   getSchoolClasses,
   getSchoolTeacherAssignments,
   getSchoolSequences,
+  getHodScope,
 } from "@/lib/academic/service";
 import { getSchoolStaffMemberships } from "@/lib/admin/service";
 import { TeacherAssignmentsList } from "./TeacherAssignmentsList";
@@ -39,10 +40,12 @@ export default async function DashboardPage() {
   const roleName = tenantContext?.role?.name || "Staff";
 
   const isTeacher = roleCode === "teacher" || roleCode === "class_master";
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
+  const isHodUser = !isAdmin && (roleCode === "hod" || Boolean(tenantContext?.isHod));
 
   // Real data
   const activeYear = await getActiveAcademicYear(schoolId);
-  const [staff, subjects, departments, classes, teacherAssignments, sequences] = await Promise.all([
+  const [staff, rawSubjects, rawDepartments, classes, teacherAssignments, sequences, hodScope] = await Promise.all([
     getSchoolStaffMemberships(schoolId),
     getSchoolSubjects(schoolId),
     getSchoolDepartments(schoolId),
@@ -51,7 +54,19 @@ export default async function DashboardPage() {
       ? getSchoolTeacherAssignments(schoolId, activeYear.id, tenantContext.user.id)
       : Promise.resolve([]),
     getSchoolSequences(schoolId),
+    isHodUser && activeYear && tenantContext?.user?.id
+      ? getHodScope(schoolId, activeYear.id, tenantContext.user.id)
+      : Promise.resolve(null),
   ]);
+
+  // If HOD, scope subjects and departments to their assigned department
+  const subjects = hodScope
+    ? rawSubjects.filter((s) => hodScope.subjectIds.includes(s.id))
+    : rawSubjects;
+
+  const departments = hodScope
+    ? rawDepartments.filter((d) => hodScope.departmentIds.includes(d.id))
+    : rawDepartments;
 
   // Teachers only fetch enrolled students for their assigned class streams
   const assignedStreamIds = isTeacher
@@ -94,7 +109,7 @@ export default async function DashboardPage() {
                 {tenantContext?.isHod && (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold uppercase tracking-wider">
                     <Building2 className="w-3.5 h-3.5 text-[#1E40AF]" />
-                    Head of Department
+                    Head of Department{hodScope?.departmentNames?.[0] ? ` · ${hodScope.departmentNames[0]}` : ""}
                   </span>
                 )}
                 <span className="text-xs text-[#888888]">·</span>
@@ -265,6 +280,15 @@ export default async function DashboardPage() {
               title="Class Register"
               description="Check student matricules, class lists, and guardian numbers."
             />
+            {tenantContext?.isHod && (
+              <QuickAction
+                href="/dashboard/academics?tab=teachers"
+                icon={BookOpen}
+                color="blue"
+                title="HOD: Assign Teachers"
+                description={`Assign teachers to ${hodScope?.departmentNames?.[0] || "your department"} subjects.`}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -366,7 +390,7 @@ export default async function DashboardPage() {
           </div>
           <div className="text-3xl font-extrabold font-mono text-[#191919]">{subjectCount}</div>
           <div className="text-[11px] text-[#AAAAAA] mt-0.5">
-            {subjectCount === 0 ? "None configured yet" : "In curriculum"}
+            {isHodUser ? "In your department" : subjectCount === 0 ? "None configured yet" : "In curriculum"}
           </div>
         </div>
 
@@ -385,7 +409,9 @@ export default async function DashboardPage() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Departments</span>
           </div>
           <div className="text-3xl font-extrabold font-mono text-[#191919]">{departmentCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">Subject groups</div>
+          <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+            {isHodUser && hodScope?.departmentNames?.[0] ? hodScope.departmentNames[0] : "Subject groups"}
+          </div>
         </div>
       </div>
 

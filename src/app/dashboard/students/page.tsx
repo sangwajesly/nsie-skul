@@ -28,9 +28,12 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
   const params = await searchParams;
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
+  const roleCode = context?.role?.code || "teacher";
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
+  const isHod = !isAdmin && (roleCode === "hod" || Boolean(context?.isHod));
   const canManageStudents = Boolean(context?.hasPermission("students.manage"));
-  const canViewAllStudents = Boolean(context?.hasPermission("students.view_all"));
-  const isTeacher = !canViewAllStudents;
+  const canViewAllStudents = Boolean(context?.hasPermission("students.view_all")) || isAdmin || isHod;
+  const isTeacher = !isAdmin && !isHod && !canViewAllStudents;
 
   const activeYear = await getActiveAcademicYear(schoolId);
   const suggestedMatricule = canManageStudents && activeYear
@@ -90,6 +93,8 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
           <p className="text-[13px] text-[#666666] mt-1 max-w-xl">
             {canManageStudents
               ? "Add a student to the school year and find their class, admission number, and guardian contact here."
+              : isHod
+              ? "View enrolled students and class registers for all classes in your department."
               : isTeacher
               ? "View enrolled students and guardian contact details for your assigned class groups."
               : "View enrolled students, their class groups, matricules, and guardian contacts."}
@@ -138,11 +143,13 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
                 <Users className="w-4 h-4 text-[#555555]" />
                 <div>
                   <h2 className="text-[14px] font-bold text-[#191919]">
-                    {isTeacher ? "My Class Students" : "Enrolled Students"}
+                    {isTeacher ? "My Class Students" : isHod ? "Department Class Students" : "Enrolled Students"}
                   </h2>
                   <p className="text-[11px] text-[#777777]">
                     {isTeacher
                       ? "Students in classes assigned to you"
+                      : isHod
+                      ? `Class registers for ${activeYear?.name || "the current school year"}`
                       : `Students registered for ${activeYear?.name || "the current school year"}`}
                   </p>
                 </div>

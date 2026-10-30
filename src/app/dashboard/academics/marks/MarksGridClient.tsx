@@ -158,6 +158,28 @@ export function MarksGridClient({
     competencyRef.current = competency;
   });
 
+  // Synchronize internal state when props update (e.g., when changing class stream or sequence)
+  useEffect(() => {
+    setStudents(initialStudents);
+    setMaxMarks(initialMaxMarks);
+    setCompetency(initialCompetency || "");
+    setCurrentStatus(approvalStatus || (isApproved ? "approved" : "draft"));
+    setCurrentNotes(approvalNotes);
+    setCurrentApprover(approverName);
+    setCurrentApprovedAt(approvedAt);
+    setSelectedIds(new Set());
+    setIsDirty(false);
+  }, [
+    initialStudents,
+    initialMaxMarks,
+    initialCompetency,
+    approvalStatus,
+    isApproved,
+    approvalNotes,
+    approverName,
+    approvedAt,
+  ]);
+
   // Permission calculation:
   // HOD and Administrator can ALWAYS edit marks (in draft, submitted, or approved states)
   // Teachers can edit when status is 'draft' or 'rejected' (reopened for corrections)

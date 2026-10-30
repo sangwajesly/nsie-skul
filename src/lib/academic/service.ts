@@ -272,6 +272,87 @@ export async function getAssignedClassStreamIds(
 }
 
 /**
+ * Resolves the department IDs, subject IDs, and department names that an HOD is assigned to.
+ */
+export async function getHodScope(
+  schoolId: string,
+  academicYearId?: string,
+  hodUserId?: string
+): Promise<{ departmentIds: string[]; subjectIds: string[]; departmentNames: string[] }> {
+  if (!schoolId || !hodUserId) {
+    return { departmentIds: [], subjectIds: [], departmentNames: [] };
+  }
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("hod_assignments")
+    .select("department_id, subject_id, department:departments (id, name)")
+    .eq("school_id", schoolId)
+    .eq("hod_user_id", hodUserId)
+    .eq("status", "active");
+
+  if (academicYearId) {
+    query = query.eq("academic_year_id", academicYearId);
+  }
+
+  let { data: hodAssignments } = await query;
+
+  // Fallback: if no active HOD assignment tied to this specific year, check any active assignment in school
+  if ((!hodAssignments || hodAssignments.length === 0) && academicYearId) {
+    const fallback = await supabase
+      .from("hod_assignments")
+      .select("department_id, subject_id, department:departments (id, name)")
+      .eq("school_id", schoolId)
+      .eq("hod_user_id", hodUserId)
+      .eq("status", "active");
+    hodAssignments = fallback.data;
+  }
+
+  if (!hodAssignments?.length) {
+    return { departmentIds: [], subjectIds: [], departmentNames: [] };
+  }
+
+  const explicitSubjectIds = hodAssignments
+    .map((assignment) => assignment.subject_id)
+    .filter((subjectId): subjectId is string => Boolean(subjectId));
+
+  const departmentIds = [
+    ...new Set(hodAssignments.map((assignment) => assignment.department_id).filter(Boolean)),
+  ];
+
+  const departmentNames = [
+    ...new Set(
+      hodAssignments
+        .map((a) => (a.department as any)?.name)
+        .filter((name): name is string => Boolean(name))
+    ),
+  ];
+
+  const subjectQueries = [];
+  if (explicitSubjectIds.length > 0) {
+    subjectQueries.push(
+      supabase.from("subjects").select("id").eq("school_id", schoolId).in("id", explicitSubjectIds)
+    );
+  }
+  if (departmentIds.length > 0) {
+    subjectQueries.push(
+      supabase.from("subjects").select("id").eq("school_id", schoolId).in("department_id", departmentIds)
+    );
+  }
+
+  if (subjectQueries.length === 0) {
+    return { departmentIds, subjectIds: [], departmentNames };
+  }
+
+  const subjectResults = await Promise.all(subjectQueries);
+  const subjectIds = [
+    ...new Set(subjectResults.flatMap((result) => result.data?.map((subject) => subject.id) || [])),
+  ];
+
+  return { departmentIds, subjectIds, departmentNames };
+}
+
+/**
  * Lists active HOD assignments for a school in an academic year.
  */
 export async function getSchoolHodAssignments(

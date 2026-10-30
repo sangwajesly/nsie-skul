@@ -23,6 +23,8 @@ interface Props {
   streamName: string;
   subjects: SubjectOption[];
   currentConfigs: ClassSubjectConfig[];
+  buttonLabel?: string;
+  buttonClassName?: string;
 }
 
 export function ClassStreamCoefficientsModal({
@@ -30,6 +32,8 @@ export function ClassStreamCoefficientsModal({
   streamName,
   subjects,
   currentConfigs,
+  buttonLabel,
+  buttonClassName,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction, isPending] = useActionState(
@@ -54,11 +58,14 @@ export function ClassStreamCoefficientsModal({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-[#F1F1ED] hover:bg-[#EAEAE6] text-[#555555] border border-[#D5D5CF] transition-colors"
-        title="Configure subject coefficients for this class group"
+        className={
+          buttonClassName ||
+          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-semibold bg-[#FAFAF8] hover:bg-[#F5F5F0] text-[#191919] border border-[#D5D5CF] transition-colors shadow-2xs cursor-pointer select-none"
+        }
+        title={`Configure subject coefficients for ${streamName}`}
       >
-        <SlidersHorizontal className="w-3 h-3 text-[#666666]" />
-        <span>Coefs</span>
+        <SlidersHorizontal className="w-3 h-3 text-[#2A7C13]" />
+        <span>{buttonLabel || "Class Coefs"}</span>
       </button>
     );
   }

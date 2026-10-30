@@ -21,14 +21,24 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { TeacherAssignment } from "@/types/database";
+import { ClassStreamCoefficientsModal } from "./ClassStreamCoefficientsModal";
+
+interface ClassSubjectConfig {
+  class_stream_id: string;
+  subject_id: string;
+  coefficient: number;
+  max_marks: number;
+}
 
 interface Props {
   academicYearId: string;
   assignments: TeacherAssignment[];
   teachers: Array<{ id: string; name: string; email: string }>;
   classGroups: Array<{ id: string; name: string }>;
-  subjects: Array<{ id: string; name: string; code?: string }>;
+  subjects: Array<{ id: string; name: string; code?: string; default_coefficient?: number; default_max_marks?: number }>;
+  classSubjects?: ClassSubjectConfig[];
   canManage: boolean;
+  canManageAcademics?: boolean;
 }
 
 export function TeacherAssignmentsManager({
@@ -37,7 +47,9 @@ export function TeacherAssignmentsManager({
   teachers,
   classGroups,
   subjects,
+  classSubjects = [],
   canManage,
+  canManageAcademics = false,
 }: Props) {
   const [viewMode, setViewMode] = useState<"teacher" | "class" | "table">("teacher");
   const [searchTerm, setSearchTerm] = useState("");
@@ -119,6 +131,23 @@ export function TeacherAssignmentsManager({
     return new Set(assignments.map((a) => a.class_stream_id)).size;
   }, [assignments]);
 
+  const getSubjectCoef = (classStreamId: string, subjectId: string, defaultCoef?: number) => {
+    const found = classSubjects.find(
+      (cs) => cs.class_stream_id === classStreamId && cs.subject_id === subjectId
+    );
+    return found?.coefficient ?? defaultCoef ?? 2;
+  };
+
+  const modalSubjects = useMemo(() => {
+    return subjects.map((s) => ({
+      id: s.id,
+      name: s.name,
+      code: s.code || "",
+      default_coefficient: s.default_coefficient ?? 2,
+      default_max_marks: s.default_max_marks ?? 20,
+    }));
+  }, [subjects]);
+
   const handleRemove = (assignmentId: string) => {
     startTransition(async () => {
       const formData = new FormData();
@@ -159,7 +188,7 @@ export function TeacherAssignmentsManager({
 
       {/* Collapsible Assignment Form */}
       {canManage && (
-        <div className="rounded-[8px] border border-[#E5E5DF] bg-white overflow-hidden shadow-2xs">
+        <div className="rounded-[8px] border border-[#E5E5DF] bg-white shadow-2xs">
           <div
             onClick={() => setShowAssignForm((prev) => !prev)}
             className="flex items-center justify-between px-4 py-3 bg-[#FAFAF8] cursor-pointer hover:bg-[#F5F5F0] transition-colors border-b border-[#EEEEEC]"
@@ -184,6 +213,7 @@ export function TeacherAssignmentsManager({
                 teachers={teachers}
                 classGroups={classGroups}
                 subjects={subjects.map(({ id, name }) => ({ id, name }))}
+                existingAssignments={assignments}
               />
             </div>
           )}
@@ -362,14 +392,29 @@ export function TeacherAssignmentsManager({
                           <span className="font-semibold text-[#191919] block truncate">
                             {ta.subject?.name}
                           </span>
-                          <span className="text-[10px] text-[#666666] block truncate">
-                            Class: <strong className="text-[#191919]">{ta.class_stream?.name}</strong>
-                          </span>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-[10px] text-[#666666] truncate">
+                              Class: <strong className="text-[#191919]">{ta.class_stream?.name}</strong>
+                            </span>
+                            <span className="px-1.5 py-0.2 rounded-[3px] bg-[#EBF3FE] text-[#1E40AF] font-bold text-[10px] border border-[#BFDBFE]">
+                              Coef {getSubjectCoef(ta.class_stream_id, ta.subject_id, (ta.subject as any)?.default_coefficient)}
+                            </span>
+                          </div>
                         </div>
                       </div>
 
                       {canManage && (
-                        <div className="shrink-0">
+                        <div className="shrink-0 flex items-center gap-1.5">
+                          {canManageAcademics && (
+                            <ClassStreamCoefficientsModal
+                              streamId={ta.class_stream_id}
+                              streamName={ta.class_stream?.name || "Class"}
+                              subjects={modalSubjects}
+                              currentConfigs={classSubjects.filter((cs) => cs.class_stream_id === ta.class_stream_id)}
+                              buttonLabel="Coefs"
+                              buttonClassName="px-1.5 py-0.5 rounded text-[10px] font-semibold text-[#555555] hover:text-[#191919] hover:bg-[#EAEAE6] border border-[#D5D5CF] bg-white inline-flex items-center gap-1 cursor-pointer shrink-0"
+                            />
+                          )}
                           {isConfirming ? (
                             <div className="flex items-center gap-1">
                               <button
@@ -420,6 +465,15 @@ export function TeacherAssignmentsManager({
                 <div className="flex items-center gap-2">
                   <Building className="w-4 h-4 text-[#555555]" />
                   <h4 className="text-xs font-bold text-[#191919]">{group.streamName}</h4>
+                  {canManageAcademics && (
+                    <ClassStreamCoefficientsModal
+                      streamId={classId}
+                      streamName={group.streamName}
+                      subjects={modalSubjects}
+                      currentConfigs={classSubjects.filter((cs) => cs.class_stream_id === classId)}
+                      buttonLabel="Class Coefs"
+                    />
+                  )}
                 </div>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#F1F1ED] text-[#555555]">
                   {group.items.length} {group.items.length === 1 ? "Assigned Subject" : "Assigned Subjects"}
@@ -440,6 +494,9 @@ export function TeacherAssignmentsManager({
                           <span className="font-bold text-[#191919] truncate">{ta.subject?.name}</span>
                           <span className="px-1.5 py-0.2 rounded-[3px] bg-[#EAEAE6] text-[#555555] font-mono text-[10px]">
                             {ta.subject?.code}
+                          </span>
+                          <span className="px-1.5 py-0.2 rounded-[3px] bg-[#EBF3FE] text-[#1E40AF] font-bold text-[10px] border border-[#BFDBFE]">
+                            Coef {getSubjectCoef(ta.class_stream_id, ta.subject_id, (ta.subject as any)?.default_coefficient)}
                           </span>
                         </div>
                         <div className="text-[11px] text-[#2A7C13] font-medium flex items-center gap-1 truncate">
@@ -496,6 +553,7 @@ export function TeacherAssignmentsManager({
                 <th className="py-2.5 px-3">Class Group</th>
                 <th className="py-2.5 px-3">Subject Name</th>
                 <th className="py-2.5 px-3">Subject Code</th>
+                <th className="py-2.5 px-3">Class Coefficient</th>
                 <th className="py-2.5 px-3">Assigned Teacher</th>
                 {canManage && <th className="py-2.5 px-3 text-right">Actions</th>}
               </tr>
@@ -511,6 +569,23 @@ export function TeacherAssignmentsManager({
                     <td className="py-2.5 px-3">{ta.subject?.name}</td>
                     <td className="py-2.5 px-3 font-mono text-[11px] text-[#666666]">
                       {ta.subject?.code}
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-[4px] bg-[#EBF3FE] text-[#1E40AF] font-bold text-[11px] font-mono border border-[#BFDBFE]">
+                          Coef {getSubjectCoef(ta.class_stream_id, ta.subject_id, (ta.subject as any)?.default_coefficient)}
+                        </span>
+                        {canManageAcademics && (
+                          <ClassStreamCoefficientsModal
+                            streamId={ta.class_stream_id}
+                            streamName={ta.class_stream?.name || "Class"}
+                            subjects={modalSubjects}
+                            currentConfigs={classSubjects.filter((cs) => cs.class_stream_id === ta.class_stream_id)}
+                            buttonLabel="Edit"
+                            buttonClassName="px-1.5 py-0.5 rounded text-[10px] font-semibold text-[#555555] hover:text-[#191919] hover:bg-[#EAEAE6] border border-[#D5D5CF] bg-white inline-flex items-center gap-1 cursor-pointer shrink-0"
+                          />
+                        )}
+                      </div>
                     </td>
                     <td className="py-2.5 px-3 font-semibold text-[#1F5C0E]">
                       👤 {ta.teacher?.full_name}

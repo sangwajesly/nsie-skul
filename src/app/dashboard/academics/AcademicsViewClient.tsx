@@ -86,6 +86,8 @@ interface Props {
   canManageAssignments: boolean;
   canManageSettings: boolean;
   initialTab?: string;
+  isHodUser?: boolean;
+  hodDepartmentNames?: string[];
 }
 
 type TabKey = "classes" | "teachers" | "departments" | "sequences";
@@ -107,6 +109,8 @@ export function AcademicsViewClient({
   canManageAssignments,
   canManageSettings,
   initialTab = "classes",
+  isHodUser = false,
+  hodDepartmentNames = [],
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -151,6 +155,21 @@ export function AcademicsViewClient({
           </span>
         </div>
       </div>
+
+      {/* Head of Department Scope Banner */}
+      {isHodUser && (
+        <div className="flex items-center gap-2.5 p-3 rounded-[8px] bg-[#EFF6FF] border border-[#BFDBFE] text-[#1E40AF]">
+          <Building2 className="w-4 h-4 shrink-0 text-[#1E40AF]" />
+          <div className="text-xs">
+            <span className="font-bold">Head of Department Workspace: </span>
+            <span>
+              {hodDepartmentNames && hodDepartmentNames.length > 0
+                ? `Showing subjects and teaching allocations for ${hodDepartmentNames.join(", ")}.`
+                : "Showing subjects and teaching allocations for your assigned department."}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Primary Section Tabs */}
       <div className="border-b border-[#E5E5DF]">
@@ -274,7 +293,9 @@ export function AcademicsViewClient({
             teachers={teachingStaff}
             classGroups={classGroups}
             subjects={subjects}
+            classSubjects={classSubjects}
             canManage={canManageAssignments}
+            canManageAcademics={canManageAcademics}
           />
         )}
 

@@ -8,6 +8,7 @@ import {
   getSchoolSubjects,
   getEnrolledStudents,
   getSchoolTeacherAssignments,
+  getHodScope,
 } from "@/lib/academic/service";
 import {
   getMarksForSequence,
@@ -32,49 +33,76 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
   const context = await getTenantContext();
   const schoolId = context?.school?.id || "";
   const roleCode = context?.role?.code || "teacher";
-  const isTeacher = roleCode === "teacher" || roleCode === "class_master";
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
+  const isHodUser = !isAdmin && (roleCode === "hod" || Boolean(context?.isHod));
+  const isTeacher = !isAdmin && !isHodUser && (roleCode === "teacher" || roleCode === "class_master");
 
   // 1. Load active academic year, terms & sequences
   const activeYear = await getActiveAcademicYear(schoolId);
-  const [sequences, classesWithStreams, subjects, teacherAssignments, allSchoolAssignments] = await Promise.all([
+  const [sequences, classesWithStreams, rawSubjects, teacherAssignments, allSchoolAssignments, hodScope] = await Promise.all([
     getSchoolSequences(schoolId),
     getSchoolClasses(schoolId, activeYear?.id),
     getSchoolSubjects(schoolId),
-    isTeacher && activeYear && context?.user?.id
+    context?.user?.id && activeYear
       ? getSchoolTeacherAssignments(schoolId, activeYear.id, context.user.id)
       : Promise.resolve([]),
-    !isTeacher && activeYear
+    activeYear
       ? getSchoolTeacherAssignments(schoolId, activeYear.id)
       : Promise.resolve([]),
+    isHodUser && activeYear && context?.user?.id
+      ? getHodScope(schoolId, activeYear.id, context.user.id)
+      : Promise.resolve(null),
   ]);
+
+  // If HOD, restrict to subjects under their department (plus any subject they teach)
+  // If pure teacher, restrict to subjects they are assigned to teach
+  // If admin, show all school subjects
+  const subjects = hodScope && hodScope.subjectIds.length > 0
+    ? rawSubjects.filter((s) => hodScope.subjectIds.includes(s.id) || teacherAssignments.some((a) => a.subject_id === s.id))
+    : isTeacher && teacherAssignments.length > 0
+    ? rawSubjects.filter((s) => teacherAssignments.some((a) => a.subject_id === s.id))
+    : rawSubjects;
 
   const allStreams = classesWithStreams.flatMap((c) => c.streams);
 
   // Set of assigned stream IDs and subject IDs for the teacher
   const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
-  const assignedSubjectIds = new Set(teacherAssignments.map((a) => a.subject_id));
 
   // Build a map of class_stream_id -> Set<subject_id> for cross-filtering
   const streamToSubjects = new Map<string, Set<string>>();
-  for (const a of teacherAssignments) {
+  for (const a of (isTeacher ? teacherAssignments : allSchoolAssignments)) {
     if (!streamToSubjects.has(a.class_stream_id)) {
       streamToSubjects.set(a.class_stream_id, new Set());
     }
     streamToSubjects.get(a.class_stream_id)!.add(a.subject_id);
   }
 
-  // For teachers: only show assigned streams; for admins: show all
-  const visibleStreams = isTeacher && teacherAssignments.length > 0
-    ? allStreams.filter((s) => assignedStreamIds.has(s.id))
-    : allStreams;
+  // Streams visible in the dropdown:
+  // - Pure teachers: only show assigned streams
+  // - HOD: show all streams that have subjects in their department (fallback to all streams)
+  // - Admins: show all streams
+  let visibleStreams = allStreams;
+  if (isTeacher && teacherAssignments.length > 0) {
+    visibleStreams = allStreams.filter((s) => assignedStreamIds.has(s.id));
+  } else if (isHodUser && hodScope && hodScope.subjectIds.length > 0) {
+    const deptSubjectSet = new Set(hodScope.subjectIds);
+    const streamsWithDeptSubjects = allStreams.filter((s) => {
+      const streamSubjs = streamToSubjects.get(s.id);
+      if (streamSubjs) {
+        for (const subId of deptSubjectSet) {
+          if (streamSubjs.has(subId)) return true;
+        }
+      }
+      return false;
+    });
+    visibleStreams = streamsWithDeptSubjects.length > 0 ? streamsWithDeptSubjects : allStreams;
+  }
 
-  // Default selections: if teacher has assignments and no param specified, pick teacher's first assigned class and subject
+  // Default selections
   const defaultStreamId =
-    params.classStreamId ||
-    (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].class_stream_id : undefined);
-  const defaultSubjectId =
-    params.subjectId ||
-    (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].subject_id : undefined);
+    params.classStreamId && visibleStreams.some((s) => s.id === params.classStreamId)
+      ? params.classStreamId
+      : (isTeacher && teacherAssignments.length > 0 ? teacherAssignments[0].class_stream_id : visibleStreams[0]?.id);
 
   const selectedSequence =
     sequences.find((s) => s.id === params.sequenceId) ||
@@ -85,39 +113,72 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
   const selectedStream =
     visibleStreams.find((s) => s.id === defaultStreamId) || visibleStreams[0] || null;
 
-  // For teachers: cross-filter subjects by their assigned classes and subjects
-  // For administrators / HODs: filter subjects by those assigned to the selected class group (falling back to all subjects if none are assigned yet)
-  const adminStreamSubjectIds = new Set(
-    allSchoolAssignments
-      .filter((a) => a.class_stream_id === selectedStream?.id)
-      .map((a) => a.subject_id)
-  );
+  // Subjects for selected stream:
+  // - For teachers: cross-filter subjects by their assigned classes and subjects
+  // - For HOD / Admin: filter subjects by those assigned to the selected class group (falling back to department/all subjects)
+  const streamAssignments = allSchoolAssignments.filter((a) => a.class_stream_id === selectedStream?.id);
+  const streamAssignedSubjectIds = new Set(streamAssignments.map((a) => a.subject_id));
 
-  const subjectsForSelectedStream = isTeacher && teacherAssignments.length > 0
-    ? subjects.filter((s) => {
-        const allowedSubjects = selectedStream ? streamToSubjects.get(selectedStream.id) : null;
-        return allowedSubjects ? allowedSubjects.has(s.id) : assignedSubjectIds.has(s.id);
-      })
-    : adminStreamSubjectIds.size > 0
-    ? subjects.filter((s) => adminStreamSubjectIds.has(s.id))
-    : subjects;
+  let subjectsForSelectedStream: typeof subjects = [];
+  if (isTeacher && teacherAssignments.length > 0) {
+    const allowedSubjects = selectedStream ? streamToSubjects.get(selectedStream.id) : null;
+    subjectsForSelectedStream = subjects.filter((s) =>
+      allowedSubjects ? allowedSubjects.has(s.id) : teacherAssignments.some((a) => a.subject_id === s.id)
+    );
+  } else {
+    const matched = subjects.filter((s) => streamAssignedSubjectIds.has(s.id));
+    subjectsForSelectedStream = matched.length > 0 ? matched : subjects;
+  }
+
+  const defaultSubjectId =
+    params.subjectId && subjectsForSelectedStream.some((s) => s.id === params.subjectId)
+      ? params.subjectId
+      : (isTeacher && teacherAssignments.length > 0 && selectedStream
+          ? teacherAssignments.find((a) => a.class_stream_id === selectedStream.id)?.subject_id
+          : subjectsForSelectedStream[0]?.id);
 
   const selectedSubject =
     subjectsForSelectedStream.find((s) => s.id === defaultSubjectId) || subjectsForSelectedStream[0] || null;
 
-  // For teachers: verify the selected class+subject is an actual assignment
-  const isAuthorizedForSelection = !isTeacher || teacherAssignments.length === 0 ||
-    teacherAssignments.some(
-      (a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id
-    );
+  // Authorization check:
+  // - Admins are authorized for all classes and subjects
+  // - HODs are authorized for all subjects under their department across any class, plus any personally assigned subjects
+  // - Teachers are authorized for their assigned class + subject combinations
+  const isAuthorizedForSelection =
+    isAdmin ||
+    (isHodUser && (
+      (selectedSubject && hodScope?.subjectIds.includes(selectedSubject.id)) ||
+      teacherAssignments.some((a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id)
+    )) ||
+    (isTeacher && (
+      teacherAssignments.length === 0 ||
+      teacherAssignments.some((a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id)
+    ));
 
   // 2. Load enrolled students for stream
+  const effectiveYearId = activeYear?.id || selectedStream?.academic_year_id || "";
   const enrolments =
-    selectedStream && activeYear
-      ? await getEnrolledStudents(schoolId, activeYear.id, selectedStream.id)
+    selectedStream && effectiveYearId
+      ? await getEnrolledStudents(schoolId, effectiveYearId, selectedStream.id, undefined, undefined, "all")
       : [];
 
   // 3. Load existing marks if sequence, stream, and subject are selected
+  const supabase = await createClient();
+  const { data: streamSubjectConfig } =
+    selectedStream && selectedSubject
+      ? await supabase
+          .from("class_subjects")
+          .select("coefficient, max_marks")
+          .eq("class_stream_id", selectedStream.id)
+          .eq("subject_id", selectedSubject.id)
+          .maybeSingle()
+      : { data: null };
+
+  const effectiveCoefficient =
+    streamSubjectConfig?.coefficient ?? selectedSubject?.default_coefficient ?? 2;
+  const effectiveMaxMarks =
+    streamSubjectConfig?.max_marks ?? selectedSubject?.default_max_marks ?? 20;
+
   const existingMarks =
     selectedSequence && selectedStream && selectedSubject
       ? await getMarksForSequence(
@@ -188,9 +249,12 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
   });
 
   const canApprove =
+    isAdmin ||
+    isHodUser ||
     context?.role?.code === "school_admin" ||
     context?.role?.code === "principal" ||
-    context?.role?.code === "hod";
+    context?.role?.code === "hod" ||
+    Boolean(context?.isHod);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -280,14 +344,14 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
             </form>
           </div>
 
-          {/* 2. Class Stream Selector — teachers see only assigned classes */}
+          {/* 2. Class Stream Selector — teachers see only assigned classes; HOD/Admins see all relevant */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Class Group
             </label>
             <form method="GET">
               <input type="hidden" name="sequenceId" value={selectedSequence?.id || ""} />
-              <input type="hidden" name="subjectId" value={selectedSubject?.id || ""} />
+              {/* Note: omitted hidden subjectId so changing class cleanly picks the default valid subject for the new class */}
               <AutoSubmitSelect
                 name="classStreamId"
                 defaultValue={selectedStream?.id}
@@ -302,7 +366,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
             </form>
           </div>
 
-          {/* 3. Subject Selector — teachers see only subjects assigned for the selected class */}
+          {/* 3. Subject Selector — scoped to selected class */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Subject
@@ -335,7 +399,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         <div className="p-8 text-center rounded-[8px] bg-white border border-[#E8DFC9] text-xs text-[#788470]">
           Set up a current school year, class groups and subjects before entering marks.
         </div>
-      ) : isTeacher && !isAuthorizedForSelection ? (
+      ) : !isAuthorizedForSelection ? (
         <div className="p-6 rounded-[8px] bg-red-50 border border-red-200 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div className="text-xs text-red-700 space-y-1">
@@ -348,7 +412,8 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         </div>
       ) : (
         <MarksGridClient
-          academicYearId={activeYear?.id || ""}
+          key={`${selectedSequence.id}-${selectedStream.id}-${selectedSubject.id}`}
+          academicYearId={effectiveYearId}
           termId={selectedSequence.term_id}
           sequenceId={selectedSequence.id}
           classStreamId={selectedStream.id}
@@ -357,8 +422,8 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           subjectName={selectedSubject.name}
           streamName={selectedStream.name}
           sequenceName={selectedSequence.name}
-          coefficient={selectedSubject.default_coefficient}
-          initialMaxMarks={selectedSubject.default_max_marks || 20}
+          coefficient={effectiveCoefficient}
+          initialMaxMarks={effectiveMaxMarks}
           initialCompetency={initialCompetency}
           isApproved={departmentalApproval?.status === "approved"}
           approvalStatus={departmentalApproval?.status || "draft"}

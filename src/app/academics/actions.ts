@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission, requireAnyPermission } from "@/lib/tenancy/context";
-import { getActiveAcademicYear, generateNextStudentMatricule } from "@/lib/academic/service";
+import { getActiveAcademicYear, generateNextStudentMatricule, getHodScope } from "@/lib/academic/service";
 import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -81,7 +81,8 @@ const HodAssignmentSchema = z.object({
 const TeacherAssignmentSchema = z.object({
   academicYearId: uuidSchema("Please select a valid academic year.").nullish().or(z.literal("")),
   teacherUserId: uuidSchema("Please select a teacher"),
-  classStreamId: uuidSchema("Please select a class group"),
+  classStreamId: uuidSchema("Please select a class group").nullish().or(z.literal("")),
+  classStreamIds: z.array(z.string()).nullish(),
   subjectId: uuidSchema("Please select a subject"),
 });
 
@@ -894,7 +895,7 @@ export async function assignHodAction(_previousState: unknown, formData: FormDat
 }
 
 export async function assignTeacherAction(_previousState: unknown, formData: FormData) {
-  const context = await requireAnyPermission(["assignments.manage", "academics.manage"]);
+  const context = await requireAnyPermission(["assignments.manage", "academics.manage", "school.settings.manage"]);
 
   const rawYear = formData.get("academicYearId");
   let academicYearId = typeof rawYear === "string" && rawYear.trim() ? rawYear.trim() : "";
@@ -904,67 +905,95 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     academicYearId = activeYear?.id || "";
   }
 
-  const parsed = TeacherAssignmentSchema.safeParse({
-    academicYearId: academicYearId || undefined,
-    teacherUserId: formData.get("teacherUserId"),
-    classStreamId: formData.get("classStreamId"),
-    subjectId: formData.get("subjectId"),
-  });
+  // Support both multi-select ('classStreamIds') and single select ('classStreamId')
+  const rawStreamIds = formData.getAll("classStreamIds");
+  let streamIds: string[] = [];
+  if (rawStreamIds && rawStreamIds.length > 0) {
+    streamIds = rawStreamIds
+      .map((s) => String(s).trim())
+      .filter((s) => s.length > 0);
+  }
 
-  if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const field = String(issue.path[0] || "");
-      if (field && !fieldErrors[field]) {
-        fieldErrors[field] = issue.message;
-      }
+  // Fallback to single classStreamId if classStreamIds not passed
+  if (streamIds.length === 0) {
+    const single = String(formData.get("classStreamId") || "").trim();
+    if (single) {
+      streamIds = [single];
     }
-    return {
-      error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
-      fieldErrors,
-    };
+  }
+
+  if (streamIds.length === 0) {
+    return { error: "Please select at least one class group." };
+  }
+
+  const teacherUserId = String(formData.get("teacherUserId") || "").trim();
+  const subjectId = String(formData.get("subjectId") || "").trim();
+
+  if (!teacherUserId) {
+    return { error: "Please select a teacher." };
+  }
+  if (!subjectId) {
+    return { error: "Please select a subject." };
   }
 
   const supabase = await createClient();
-  const [membershipResult, streamResult, subjectResult] = await Promise.all([
+
+  // Validate teacher membership, streams, and subject
+  const [membershipResult, streamsResult, subjectResult] = await Promise.all([
     supabase
       .from("school_memberships")
-      .select("id, role_id")
+      .select("id, role_id, user_profiles(full_name)")
       .eq("school_id", context.school.id)
-      .eq("user_id", parsed.data.teacherUserId)
+      .eq("user_id", teacherUserId)
       .eq("status", "active")
       .maybeSingle(),
     supabase
       .from("class_streams")
-      .select("id, academic_year_id")
+      .select("id, name, academic_year_id")
       .eq("school_id", context.school.id)
-      .eq("id", parsed.data.classStreamId)
-      .maybeSingle(),
+      .in("id", streamIds),
     supabase
       .from("subjects")
-      .select("id, default_coefficient, default_max_marks")
+      .select("id, name, department_id, default_coefficient, default_max_marks")
       .eq("school_id", context.school.id)
-      .eq("id", parsed.data.subjectId)
+      .eq("id", subjectId)
       .maybeSingle(),
   ]);
 
-  if (membershipResult.error || streamResult.error || subjectResult.error) {
-    return { error: "Could not verify the teacher and class details. Please try again." };
+  if (membershipResult.error || streamsResult.error || subjectResult.error) {
+    return { error: "Could not verify the teacher, classes, and subject. Please try again." };
   }
 
   if (!membershipResult.data) {
     return { error: "Please select an active teacher from this school." };
   }
-  if (!streamResult.data) {
-    return { error: "Please select a valid class group." };
+  if (!streamsResult.data || streamsResult.data.length === 0) {
+    return { error: "Please select valid class groups belonging to your school." };
   }
   if (!subjectResult.data) {
     return { error: "Please select a valid subject." };
   }
 
-  const effectiveYearId = parsed.data.academicYearId || streamResult.data.academic_year_id || academicYearId;
+  const subject = subjectResult.data;
+  const validStreams = streamsResult.data;
+  const effectiveYearId =
+    academicYearId ||
+    validStreams[0].academic_year_id ||
+    "";
+
   if (!effectiveYearId) {
     return { error: "No active academic year found. Please configure an academic year first." };
+  }
+
+  // If caller is an HOD (and not school_admin / principal / superadmin), verify the subject belongs to their department
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(context.role.code);
+  const isHodCaller = !isAdmin && (context.role.code === "hod" || Boolean(context.isHod));
+
+  if (isHodCaller) {
+    const { subjectIds } = await getHodScope(context.school.id, effectiveYearId, context.user.id);
+    if (!subjectIds.includes(subjectId)) {
+      return { error: "As Head of Department, you can only assign teachers to subjects within your department." };
+    }
   }
 
   const { data: staffRole, error: roleError } = await supabase
@@ -977,34 +1006,115 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     return { error: "This staff member must be a member of the teaching faculty (Teacher, Class Master, or HOD)." };
   }
 
-  const { error } = await supabase.from("teacher_assignments").upsert(
-    {
-      school_id: context.school.id,
-      academic_year_id: effectiveYearId,
-      teacher_user_id: parsed.data.teacherUserId,
-      class_stream_id: parsed.data.classStreamId,
-      subject_id: parsed.data.subjectId,
-    },
+  const teacherName = (membershipResult.data.user_profiles as any)?.full_name || "Teacher";
+  const subjectName = subject.name;
+
+  // Check which selected classes already have this teacher assigned to this subject in this academic year
+  const { data: existingTeacherAssignments, error: checkError } = await supabase
+    .from("teacher_assignments")
+    .select("class_stream_id")
+    .eq("school_id", context.school.id)
+    .eq("academic_year_id", effectiveYearId)
+    .eq("teacher_user_id", teacherUserId)
+    .eq("subject_id", subjectId)
+    .in("class_stream_id", validStreams.map((s) => s.id));
+
+  if (checkError) {
+    return { error: `Could not verify existing teacher assignments: ${checkError.message}` };
+  }
+
+  const alreadyAssignedStreamIds = new Set(
+    existingTeacherAssignments?.map((a) => a.class_stream_id) || []
+  );
+
+  const streamsToAssign = validStreams.filter((s) => !alreadyAssignedStreamIds.has(s.id));
+  const alreadyAssignedStreams = validStreams.filter((s) => alreadyAssignedStreamIds.has(s.id));
+
+  // If ALL selected classes already have this teacher assigned to this subject
+  if (streamsToAssign.length === 0) {
+    const alreadyNames = alreadyAssignedStreams.map((s) => s.name).join(", ");
+    if (alreadyAssignedStreams.length === 1) {
+      return {
+        error: `${teacherName} has already been assigned to ${subjectName} in ${alreadyNames}.`,
+      };
+    }
+    return {
+      error: `${teacherName} has already been assigned to ${subjectName} in all selected classes: ${alreadyNames}.`,
+    };
+  }
+
+  // 1. Batch upsert teacher_assignments for new class streams
+  const teacherRows = streamsToAssign.map((stream) => ({
+    school_id: context.school.id,
+    academic_year_id: stream.academic_year_id || effectiveYearId,
+    teacher_user_id: teacherUserId,
+    class_stream_id: stream.id,
+    subject_id: subjectId,
+  }));
+
+  const { error: assignError } = await supabase.from("teacher_assignments").upsert(
+    teacherRows,
     { onConflict: "academic_year_id,class_stream_id,subject_id,teacher_user_id" }
   );
 
-  if (error) return { error: `Could not save the teacher assignment: ${error.message}` };
+  if (assignError) {
+    return { error: `Could not save the teacher assignments: ${assignError.message}` };
+  }
 
-  // Ensure class_subjects record exists for this stream and subject
+  // 2. Ensure class_subjects record exists for all streams and this subject
+  const subjectRows = streamsToAssign.map((stream) => ({
+    school_id: context.school.id,
+    class_stream_id: stream.id,
+    subject_id: subjectId,
+    coefficient: subject.default_coefficient ?? 2,
+    max_marks: subject.default_max_marks ?? 20,
+  }));
+
   await supabase.from("class_subjects").upsert(
-    {
-      school_id: context.school.id,
-      class_stream_id: parsed.data.classStreamId,
-      subject_id: parsed.data.subjectId,
-      coefficient: subjectResult.data.default_coefficient ?? 2,
-      max_marks: subjectResult.data.default_max_marks ?? 20,
-    },
+    subjectRows,
     { onConflict: "class_stream_id,subject_id", ignoreDuplicates: true }
   );
 
+  // 3. Record audit log
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "BATCH_ASSIGN_TEACHER",
+    resource_type: "teacher_assignment",
+    details: {
+      teacher_user_id: teacherUserId,
+      subject_id: subjectId,
+      class_stream_ids: streamsToAssign.map((s) => s.id),
+      class_names: streamsToAssign.map((s) => s.name),
+      skipped_already_assigned: alreadyAssignedStreams.map((s) => s.name),
+    },
+  });
+
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
-  return { success: true, message: "Teacher assignment saved." };
+  revalidatePath("/dashboard");
+
+  const newlyAssignedNames = streamsToAssign.map((s) => s.name).join(", ");
+  const alreadyAssignedNames = alreadyAssignedStreams.map((s) => s.name).join(", ");
+
+  if (alreadyAssignedStreams.length > 0) {
+    return {
+      success: true,
+      message: `Assigned ${teacherName} to ${subjectName} in ${newlyAssignedNames}. (Note: ${teacherName} has already been assigned to ${subjectName} in ${alreadyAssignedNames}).`,
+    };
+  }
+
+  if (streamsToAssign.length === 1) {
+    return {
+      success: true,
+      message: `Assigned ${teacherName} to ${subjectName} in ${newlyAssignedNames}.`,
+    };
+  }
+
+  return {
+    success: true,
+    message: `Assigned ${teacherName} to ${subjectName} across ${streamsToAssign.length} classes: ${newlyAssignedNames}.`,
+  };
 }
 
 export async function removeTeacherAssignmentAction(
@@ -1020,6 +1130,27 @@ export async function removeTeacherAssignmentAction(
   }
 
   const supabase = await createClient();
+
+  // If caller is an HOD, verify this assignment belongs to their department
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(context.role.code);
+  const isHodCaller = !isAdmin && (context.role.code === "hod" || Boolean(context.isHod));
+
+  if (isHodCaller) {
+    const { data: assignment } = await supabase
+      .from("teacher_assignments")
+      .select("subject_id, academic_year_id")
+      .eq("id", assignmentId)
+      .eq("school_id", context.school.id)
+      .maybeSingle();
+
+    if (assignment) {
+      const { subjectIds } = await getHodScope(context.school.id, assignment.academic_year_id, context.user.id);
+      if (!subjectIds.includes(assignment.subject_id)) {
+        return { error: "As Head of Department, you can only remove teacher assignments for subjects within your department." };
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("teacher_assignments")
     .delete()
@@ -1073,6 +1204,18 @@ export async function configureClassSubjectAction(
   }
 
   const supabase = await createClient();
+
+  // If caller is an HOD, verify subject belongs to their department
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(context.role.code);
+  const isHodCaller = !isAdmin && (context.role.code === "hod" || Boolean(context.isHod));
+
+  if (isHodCaller) {
+    const { subjectIds } = await getHodScope(context.school.id, undefined, context.user.id);
+    if (!subjectIds.includes(parsed.data.subjectId)) {
+      return { error: "As Head of Department, you can only configure coefficients for subjects within your department." };
+    }
+  }
+
   const { error } = await supabase.from("class_subjects").upsert(
     {
       school_id: context.school.id,
@@ -1130,6 +1273,19 @@ export async function updateStreamCoefficientsBatchAction(
 
   if (upserts.length === 0) {
     return { error: "No subject coefficients were submitted." };
+  }
+
+  // If caller is an HOD (and not school_admin / principal / superadmin), verify subjects belong to their department
+  const isAdmin = ["school_admin", "principal", "superadmin"].includes(context.role.code);
+  const isHodCaller = !isAdmin && (context.role.code === "hod" || Boolean(context.isHod));
+
+  if (isHodCaller) {
+    const { subjectIds } = await getHodScope(context.school.id, undefined, context.user.id);
+    for (const item of upserts) {
+      if (!subjectIds.includes(item.subject_id)) {
+        return { error: "As Head of Department, you can only configure coefficients for subjects within your department." };
+      }
+    }
   }
 
   const { error } = await supabase

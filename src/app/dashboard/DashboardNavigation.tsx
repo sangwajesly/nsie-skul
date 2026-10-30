@@ -221,8 +221,16 @@ export default function DashboardNavigation({
       <NavLink
         href="/dashboard/students"
         icon={Users}
-        label={isTeacher ? "Student Register" : "Students & Admissions"}
-        sublabel={isTeacher ? "View students in your classes" : "Admit students and view the register"}
+        label={isAdmin ? "Students & Admissions" : "Students"}
+        sublabel={
+          isAdmin
+            ? "Admit students and view the register"
+            : canAccessHod
+            ? "View students in your department's classes"
+            : isTeacher
+            ? "View students in your classes"
+            : "View class registers and student lists"
+        }
         currentHash={currentHash}
         onNavClick={onNavClick}
       />
