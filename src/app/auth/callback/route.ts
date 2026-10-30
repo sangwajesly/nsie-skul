@@ -10,7 +10,13 @@ export async function GET(request: NextRequest) {
   const errorDescription = requestUrl.searchParams.get("error_description");
   const error = requestUrl.searchParams.get("error");
 
-  const origin = requestUrl.origin;
+  // Resolve origin reliably across reverse proxies (e.g. Vercel, custom domain)
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const host = forwardedHost || request.headers.get("host") || requestUrl.host;
+  const proto =
+    request.headers.get("x-forwarded-proto") ||
+    (process.env.NODE_ENV === "production" ? "https" : "http");
+  const origin = `${proto}://${host}`;
 
   // Sanitize return destination against open redirect vulnerabilities
   const safeReturn =

@@ -51,7 +51,7 @@ next-env.d.ts
 *.db
 *.dump
 *.bak
-supabase/
+/supabase/
 
 # Local agent workspace and tooling
 .agents/

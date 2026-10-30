@@ -1,15 +1,17 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { registerAction } from "@/app/auth/actions";
 import { GraduationCap, ArrowRight, Lock, Mail, User } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, formAction, isPending] = useActionState(registerAction, null);
+  const urlError = searchParams.get("error");
 
   // Navigate client-side when the action returns a redirectTo path
   useEffect(() => {
@@ -18,7 +20,7 @@ export default function RegisterPage() {
     }
   }, [state, router]);
 
-  const errorMsg = state && "error" in state ? state.error : null;
+  const errorMsg = (state && "error" in state ? state.error : null) || urlError;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
@@ -166,5 +168,13 @@ export default function RegisterPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#FFFDF5]" />}>
+      <RegisterForm />
+    </Suspense>
   );
 }

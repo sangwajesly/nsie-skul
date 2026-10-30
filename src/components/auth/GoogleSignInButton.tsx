@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 
 interface Props {
@@ -16,47 +15,22 @@ export function GoogleSignInButton({
   className = "",
 }: Props) {
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     try {
       setLoading(true);
-      setErrorMessage(null);
-
-      const supabase = createClient();
-      const origin =
-        typeof window !== "undefined" && window.location.origin
-          ? window.location.origin
-          : "";
 
       const safeReturn =
         returnUrl.startsWith("/dashboard") || returnUrl === "/onboarding"
           ? returnUrl
           : "/dashboard";
 
-      const redirectTo = `${origin}/auth/callback?returnUrl=${encodeURIComponent(safeReturn)}`;
-
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
-        },
-      });
-
-      if (error) {
-        setErrorMessage(error.message || "Failed to initialize Google authentication.");
-        setLoading(false);
-      }
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred while connecting to Google.";
-      setErrorMessage(msg);
+      // Server-side OAuth initiation: executes using server credentials
+      // preventing client-side missing environment variable exceptions.
+      window.location.href = `/auth/login/google?returnUrl=${encodeURIComponent(
+        safeReturn
+      )}`;
+    } catch {
       setLoading(false);
     }
   };
@@ -69,13 +43,7 @@ export function GoogleSignInButton({
       : "Continue with Google";
 
   return (
-    <div className={`w-full space-y-2 ${className}`}>
-      {errorMessage && (
-        <div className="p-2.5 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
-          {errorMessage}
-        </div>
-      )}
-
+    <div className={`w-full ${className}`}>
       <button
         type="button"
         onClick={handleGoogleSignIn}
