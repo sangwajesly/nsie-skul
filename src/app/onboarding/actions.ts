@@ -5,6 +5,8 @@ import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ACTIVE_SCHOOL_COOKIE } from "@/lib/tenancy/context";
+import { restoreSchoolRecordsService } from "@/lib/data-privacy/data-sovereignty-service";
+import type { NseiSukulBackupArchive } from "@/app/dashboard/settings/data-privacy-actions";
 
 const CreateSchoolSchema = z.object({
   schoolName: z.string().min(3, "School name must be at least 3 characters."),
@@ -263,6 +265,126 @@ export async function createSchoolAction(
   }
 
   // 9. Set the active school session cookie
+  const cookieStore = await cookies();
+  cookieStore.set(ACTIVE_SCHOOL_COOKIE, newSchool.id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
+
+  return { success: true, redirectTo: "/dashboard" };
+}
+
+/**
+ * Allows a returning school to restore their entire institution in 1-click
+ * during onboarding from an official Nsei Sukul backup JSON archive.
+ */
+export async function restoreSchoolOnboardingAction(
+  archiveJsonString: string
+): Promise<{ success: boolean; redirectTo?: string; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "You must be signed in to restore a school." };
+  }
+
+  let archive: NseiSukulBackupArchive;
+  try {
+    archive = JSON.parse(archiveJsonString);
+  } catch {
+    return { success: false, error: "Invalid backup file: not valid JSON." };
+  }
+
+  if (archive.export_format_version !== "1.0" || archive.system !== "Nsei Sukul Management System") {
+    return {
+      success: false,
+      error: "Unrecognized backup archive. Please ensure this file was exported from Nsei Sukul.",
+    };
+  }
+
+  const adminClient = createAdminClient();
+
+  // 1. Generate unique slug
+  let baseSlug = slugify(archive.school.name || "school");
+  let finalSlug = baseSlug;
+
+  const { data: existingSlug } = await adminClient
+    .from("schools")
+    .select("id")
+    .eq("slug", finalSlug)
+    .maybeSingle();
+
+  if (existingSlug) {
+    finalSlug = `${baseSlug}-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+
+  // 2. Insert School
+  const { data: newSchool, error: schoolErr } = await adminClient
+    .from("schools")
+    .insert({
+      name: archive.school.name,
+      slug: finalSlug,
+      code: archive.school.code,
+      motto: archive.school.motto,
+      address: archive.school.address,
+      phone: archive.school.phone,
+      email: archive.school.email,
+      subsystem: (archive.school.subsystem as any) || "anglophone",
+      currency: archive.school.currency || "XAF",
+      ranking_mode: (archive.school.ranking_mode as any) || "enabled",
+      result_approval_workflow: (archive.school.result_approval_workflow as any) || "hod",
+      receipt_prefix: archive.school.code?.slice(0, 4) || "REC",
+      matricule_format: archive.school.matricule_format,
+      report_card_template: archive.school.report_card_template,
+      is_active: true,
+    })
+    .select()
+    .single();
+
+  if (schoolErr || !newSchool) {
+    return {
+      success: false,
+      error: `Could not register school: ${schoolErr?.message || "Unknown error"}`,
+    };
+  }
+
+  // 3. Find 'school_admin' role
+  const { data: adminRole, error: roleErr } = await adminClient
+    .from("roles")
+    .select("id")
+    .eq("code", "school_admin")
+    .single();
+
+  if (roleErr || !adminRole) {
+    return { success: false, error: "School Administrator role definition not found." };
+  }
+
+  // 4. Link user as school_admin
+  await adminClient.from("school_memberships").insert({
+    school_id: newSchool.id,
+    user_id: user.id,
+    role_id: adminRole.id,
+    title: "School Principal / Proprietor",
+    status: "active",
+  });
+
+  // 5. Create school trial subscription
+  await adminClient.from("school_subscriptions").insert({
+    school_id: newSchool.id,
+    plan: "trial",
+    status: "trial",
+    trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+  });
+
+  // 6. Reconstruct school records
+  await restoreSchoolRecordsService(adminClient, newSchool.id, archive);
+
+  // 7. Set the active school session cookie
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_SCHOOL_COOKIE, newSchool.id, {
     httpOnly: true,

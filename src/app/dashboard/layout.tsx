@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import DashboardNavigation from "./DashboardNavigation";
 import { MobileNavDrawer } from "./MobileNavDrawer";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
+import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { LogOut } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -168,6 +169,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               </a>
             </div>
           )}
+
+        {/* Global Network, Offline, Slow 2G & Session States */}
+        <GlobalSystemStateMonitor />
 
         <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
           {children}

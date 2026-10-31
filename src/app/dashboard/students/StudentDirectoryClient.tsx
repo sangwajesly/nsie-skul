@@ -2,12 +2,13 @@
 
 import { useState, useTransition, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Enrolment } from "@/types/database";
+import { Enrolment, School, ClassStream } from "@/types/database";
 import {
   updateStudentStatusAction,
   updateStudentAction,
   deleteStudentAction,
 } from "@/app/academics/actions";
+import { ClassListModal } from "./ClassListModal";
 import {
   Users,
   Search,
@@ -25,6 +26,7 @@ import {
   AlertTriangle,
   Camera,
   Upload,
+  Printer,
 } from "lucide-react";
 
 interface StreamOption {
@@ -39,7 +41,10 @@ interface Props {
   selectedStreamId?: string;
   currentStatusFilter?: string;
   streams?: StreamOption[];
+  allStreamsWithDetails?: ClassStream[];
   academicYearId?: string;
+  academicYearName?: string;
+  school?: School | null;
 }
 
 export function StudentDirectoryClient({
@@ -49,7 +54,10 @@ export function StudentDirectoryClient({
   selectedStreamId,
   currentStatusFilter = "active",
   streams = [],
+  allStreamsWithDetails = [],
   academicYearId = "",
+  academicYearName = "2026/2027",
+  school = null,
 }: Props) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
@@ -58,6 +66,7 @@ export function StudentDirectoryClient({
   const [reason, setReason] = useState<string>("");
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isClassListModalOpen, setIsClassListModalOpen] = useState(false);
 
   // Edit Student State
   const [editingEnrolment, setEditingEnrolment] = useState<Enrolment | null>(null);
@@ -314,46 +323,59 @@ export function StudentDirectoryClient({
           />
         </div>
 
-        {canManageStudents && (
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold text-[#777777]">View:</span>
-            <div className="inline-flex rounded-[5px] border border-[#D5D5CF] bg-[#FAFAF8] p-0.5 text-xs">
-              <button
-                type="button"
-                onClick={() => handleFilterStatusChange("active")}
-                className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
-                  currentStatusFilter === "active"
-                    ? "bg-white text-[#191919] shadow-2xs"
-                    : "text-[#666666] hover:text-[#191919]"
-                }`}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFilterStatusChange("dismissed")}
-                className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
-                  currentStatusFilter === "dismissed"
-                    ? "bg-white text-[#191919] shadow-2xs"
-                    : "text-[#666666] hover:text-[#191919]"
-                }`}
-              >
-                Dismissed
-              </button>
-              <button
-                type="button"
-                onClick={() => handleFilterStatusChange("all")}
-                className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
-                  currentStatusFilter === "all"
-                    ? "bg-white text-[#191919] shadow-2xs"
-                    : "text-[#666666] hover:text-[#191919]"
-                }`}
-              >
-                All Records
-              </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Print Class List & Register Button */}
+          <button
+            type="button"
+            onClick={() => setIsClassListModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border border-[#2A7C13] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+            title="Generate printable official class list, attendance sheet, or export CSV"
+          >
+            <Printer className="w-3.5 h-3.5 text-[#2A7C13]" />
+            <span>Generate Class List</span>
+          </button>
+
+          {canManageStudents && (
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-[#777777]">View:</span>
+              <div className="inline-flex rounded-[5px] border border-[#D5D5CF] bg-[#FAFAF8] p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleFilterStatusChange("active")}
+                  className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
+                    currentStatusFilter === "active"
+                      ? "bg-white text-[#191919] shadow-2xs"
+                      : "text-[#666666] hover:text-[#191919]"
+                  }`}
+                >
+                  Active
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFilterStatusChange("dismissed")}
+                  className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
+                    currentStatusFilter === "dismissed"
+                      ? "bg-white text-[#191919] shadow-2xs"
+                      : "text-[#666666] hover:text-[#191919]"
+                  }`}
+                >
+                  Dismissed
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFilterStatusChange("all")}
+                  className={`px-2.5 py-1 rounded-[4px] text-[11px] font-semibold transition-colors ${
+                    currentStatusFilter === "all"
+                      ? "bg-white text-[#191919] shadow-2xs"
+                      : "text-[#666666] hover:text-[#191919]"
+                  }`}
+                >
+                  All Records
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Notification Toast/Banner */}
@@ -1136,6 +1158,17 @@ export function StudentDirectoryClient({
           </div>
         </div>
       )}
+
+      {/* Class List & Student Register Generator Modal */}
+      <ClassListModal
+        isOpen={isClassListModalOpen}
+        onClose={() => setIsClassListModalOpen(false)}
+        enrolledStudents={enrolledStudents}
+        streams={allStreamsWithDetails}
+        school={school}
+        academicYearName={academicYearName}
+        defaultStreamId={selectedStreamId}
+      />
     </div>
   );
 }

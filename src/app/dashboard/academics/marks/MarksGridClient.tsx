@@ -82,6 +82,10 @@ interface MarksGridClientProps {
   approvedAt?: string;
   canApprove: boolean;
   isTeacher?: boolean;
+  hasActiveHod?: boolean;
+  activeHodName?: string;
+  isAdmin?: boolean;
+  isHodUser?: boolean;
   students: StudentRow[];
 }
 
@@ -105,6 +109,10 @@ export function MarksGridClient({
   approvedAt,
   canApprove,
   isTeacher,
+  hasActiveHod = false,
+  activeHodName,
+  isAdmin = false,
+  isHodUser = false,
   students: initialStudents,
 }: MarksGridClientProps) {
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
@@ -832,7 +840,9 @@ export function MarksGridClient({
               type: "success",
               text: canApprove
                 ? "Marks changes saved to cloud."
-                : "Draft marks saved to cloud successfully. You can continue updating or submit to HOD when ready.",
+                : hasActiveHod
+                ? "Draft marks saved to cloud successfully. You can continue updating or submit to HOD when ready."
+                : "Draft marks saved to cloud successfully. You can continue updating or submit to Administration when ready.",
             });
           }
           resolve(true);
@@ -924,11 +934,13 @@ export function MarksGridClient({
     setMessage(null);
     setShowSubmitModal(false);
 
-    // If offline, check if online before submitting to HOD
+    // If offline, check if online before submitting
     if (!navigator.onLine) {
       setMessage({
         type: "error",
-        text: "You are currently offline. Marks are saved safely on your device, but an active internet connection is required to submit to your Head of Department. Please reconnect and submit.",
+        text: hasActiveHod
+          ? "You are currently offline. Marks are saved safely on your device, but an active internet connection is required to submit to your Head of Department. Please reconnect and submit."
+          : "You are currently offline. Marks are saved safely on your device, but an active internet connection is required to submit to School Administration. Please reconnect and submit.",
       });
       return;
     }
@@ -953,7 +965,9 @@ export function MarksGridClient({
         setCurrentStatus("submitted");
         setMessage({
           type: "success",
-          text: "Marks successfully submitted to Head of Department for review. Editing is now locked for teachers.",
+          text: hasActiveHod
+            ? "Marks successfully submitted to Head of Department for review. Editing is now locked for teachers."
+            : "Marks successfully submitted to School Administration for review. Editing is now locked for teachers.",
         });
       }
     });
@@ -997,6 +1011,8 @@ export function MarksGridClient({
       formData.set("classStreamId", classStreamId);
       formData.set("subjectId", subjectId);
       if (departmentId) formData.set("departmentId", departmentId);
+      formData.set("academicYearId", academicYearId);
+      formData.set("termId", termId);
       formData.set("notes", reopenJustification.trim());
 
       const res = await reopenDepartmentalSequenceAction(formData);
@@ -1040,7 +1056,7 @@ export function MarksGridClient({
             }`}
           >
             <Clock className="w-3.5 h-3.5 text-[#1D4ED8]" />
-            <span>Submitted to HOD</span>
+            <span>{hasActiveHod ? "Submitted to HOD" : "Submitted to Admin"}</span>
           </span>
         );
       }
@@ -1093,9 +1109,10 @@ export function MarksGridClient({
             className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#142010] hover:bg-[#2A7C13] text-white font-bold shadow-xs transition-colors cursor-pointer ${
               size === "large" ? "px-5 py-2.5 text-xs" : "px-3.5 py-1.5 text-xs"
             }`}
+            title={hasActiveHod ? "Submit mark sheet to Head of Department" : "Submit mark sheet to School Administration"}
           >
             <Send className="w-3.5 h-3.5 text-[#76C457]" />
-            <span>Submit to HOD</span>
+            <span>{hasActiveHod ? "Submit to HOD" : "Submit to Admin"}</span>
           </button>
         )}
       </div>
@@ -1134,7 +1151,7 @@ export function MarksGridClient({
               ) : isSubmitted ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
                   <Clock className="w-3.5 h-3.5 text-[#1D4ED8]" />
-                  <span>Under HOD Review</span>
+                  <span>{hasActiveHod ? "Under HOD Review" : "Under Admin Review"}</span>
                 </span>
               ) : isReopened ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-xs font-bold">
@@ -1295,13 +1312,13 @@ export function MarksGridClient({
           <RotateCcw className="w-4 h-4 text-[#B45309] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-[#7A4A00]">
-              Reopened for Correction by Head of Department
+              Reopened for Correction by {hasActiveHod ? "Head of Department" : "School Administration"}
             </p>
             <p className="text-[#854D0E]">
-              <strong>Reason / Audit Justification:</strong> {currentNotes || "Marks correction approved by HOD."}
+              <strong>Reason / Audit Justification:</strong> {currentNotes || "Marks correction re-enabled by supervisor."}
             </p>
             <p className="text-[11px] text-[#A16207]">
-              You may update the verified score(s) below and click &ldquo;Submit to HOD&rdquo; once corrected.
+              You may update the verified score(s) below and click &ldquo;Submit to {hasActiveHod ? "HOD" : "Admin"}&rdquo; once corrected.
             </p>
           </div>
         </div>
@@ -1312,12 +1329,14 @@ export function MarksGridClient({
           <Clock className="w-4 h-4 text-[#1D4ED8] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-[#1E40AF]">
-              Submitted to Head of Department · Under Quality Review
+              {hasActiveHod ? "Submitted to Head of Department · Under Quality Review" : "Submitted to School Administration · Under Review"}
             </p>
             <p className="text-[#1E3A8A]">
               {canApprove
-                ? "As Head of Department / Administrator, you can review and make any adjustments to marks directly in the table below, then approve and lock or return to the teacher."
-                : "These marks have been submitted to your Department Head. Editing is locked to prevent unapproved changes. Contact your HOD if a score contestation needs to be verified."}
+                ? `As ${isHodUser ? "Head of Department" : "School Administrator / Principal"}, you can review and make any adjustments to marks directly in the table below, then approve and lock or return to the teacher for revision.`
+                : hasActiveHod
+                ? "These marks have been submitted to your Department Head. Editing is locked to prevent unapproved changes. Contact your HOD or School Administrator if a score contestation needs to be verified."
+                : "These marks have been submitted to School Administration. Editing is locked to prevent unapproved changes. Contact the School Administrator or Principal if a score contestation needs to be verified."}
             </p>
           </div>
         </div>
@@ -1328,13 +1347,13 @@ export function MarksGridClient({
           <ShieldCheck className="w-4 h-4 text-[#166534] shrink-0 mt-0.5" />
           <div className="space-y-1">
             <p className="font-bold text-[#166534]">
-              Approved &amp; Locked by {currentApprover || approverName || "Department Head"}
+              Approved &amp; Locked by {currentApprover || approverName || (isHodUser ? "Department Head" : "School Administration")}
               {currentApprovedAt ? ` on ${new Date(currentApprovedAt).toLocaleDateString()}` : ""}
             </p>
             <p className="text-[#14532D]">
               {canApprove
-                ? "Marks are officially approved and locked for report card calculation. As HOD/Administrator, you retain authority to make supervisor corrections or reopen the sheet if a verified student contestation arises."
-                : "Marks are finalized and locked for report card generation. If a student formally contests a grade with physical proof, consult your Head of Department."}
+                ? `Marks are officially approved and locked for report card calculation. As ${isHodUser ? "Head of Department" : "School Administrator / Principal"}, you retain authority to make supervisor corrections or reopen the sheet if a verified student contestation arises.`
+                : `Marks are finalized and locked for report card generation. If a student formally contests a grade with physical proof, consult your ${hasActiveHod ? "Head of Department or School Administrator" : "School Administrator"}.`}
             </p>
           </div>
         </div>
@@ -1589,10 +1608,10 @@ export function MarksGridClient({
           <p className="text-xs text-[#525E4B] max-w-xl leading-relaxed">
             {canEdit
               ? pendingStudentsCount > 0
-                ? `You have recorded marks for ${recordedStudentsCount} of ${totalStudentsCount} students (${pendingStudentsCount} student${pendingStudentsCount > 1 ? "s" : ""} still unrecorded). You can save draft now and return later, or submit directly to your Head of Department.`
-                : `All ${totalStudentsCount} students have recorded marks. You can save your draft or click "Submit to HOD" to forward this mark sheet for departmental approval and lock it.`
+                ? `You have recorded marks for ${recordedStudentsCount} of ${totalStudentsCount} students (${pendingStudentsCount} student${pendingStudentsCount > 1 ? "s" : ""} still unrecorded). You can save draft now and return later, or submit directly to ${hasActiveHod ? "your Head of Department" : "School Administration"}.`
+                : `All ${totalStudentsCount} students have recorded marks. You can save your draft or click "Submit to ${hasActiveHod ? "HOD" : "Admin"}" to forward this mark sheet for review and lock it.`
               : isSubmitted
-              ? "These marks have been submitted to your Head of Department. Editing is locked while under departmental review."
+              ? `These marks have been submitted for review (${hasActiveHod ? "Head of Department" : "School Administration"}). Editing is locked while under review.`
               : isFinalApproved
               ? "Marks for this evaluation are approved and locked for official term report card calculations."
               : "Mark editing is disabled."}
@@ -1604,22 +1623,28 @@ export function MarksGridClient({
         </div>
       </div>
 
-      {/* HOD Review & Approval Gate Panel */}
-      {departmentId && canApprove && (
+      {/* Review & Approval Gate Panel — accessible to HODs and School Administrators */}
+      {canApprove && (
         <div className="p-5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DFC9]">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-[#2A7C13]" />
               <div>
                 <h3 className="font-bold text-sm text-[#142010]">
-                  Head of Department Review &amp; Quality Control
+                  {isHodUser
+                    ? "Head of Department Review & Quality Control"
+                    : "Administrative & Academic Quality Review"}
                 </h3>
                 <p className="text-[11px] text-[#525E4B]">
                   {isFinalApproved
                     ? "Marks are approved and locked. You can modify marks directly above or reopen the sheet if a verified student contestation arises."
                     : isSubmitted
-                    ? "Teacher has submitted this mark sheet for your review. You may adjust scores above or approve."
-                    : "Teacher is currently drafting marks. You can view progress and approve when finalized."}
+                    ? isHodUser
+                      ? "Teacher has submitted this mark sheet for your departmental review. You may adjust scores above, approve and lock, or return to teacher for revision."
+                      : "Teacher has submitted this mark sheet for administrative review. As School Administrator / Principal, you may adjust scores above, approve and lock, or send back to teacher for revision."
+                    : isHodUser
+                    ? "Teacher is currently drafting marks. You can view progress and approve when finalized."
+                    : "Teacher is currently drafting marks. As School Administrator, you can view progress, enter supervisor adjustments, or approve directly."}
                 </p>
               </div>
             </div>
@@ -1635,7 +1660,7 @@ export function MarksGridClient({
               {isFinalApproved
                 ? "Approved"
                 : isSubmitted
-                ? "Under Review"
+                ? (hasActiveHod ? "Under HOD Review" : "Under Admin Review")
                 : isReopened
                 ? "Reopened for Revision"
                 : "Draft Mode"}
@@ -1646,7 +1671,7 @@ export function MarksGridClient({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-[6px] bg-[#F9FBF8] border border-[#E8DFC9]">
               <div className="text-xs text-[#525E4B]">
                 <p className="font-semibold text-[#142010]">
-                  Approved by {currentApprover || approverName || "Department Head"}{" "}
+                  Approved by {currentApprover || approverName || (isHodUser ? "Head of Department" : "School Administration")}{" "}
                   {currentApprovedAt ? `on ${new Date(currentApprovedAt).toLocaleDateString()}` : ""}
                 </p>
                 {currentNotes && (
@@ -1657,7 +1682,7 @@ export function MarksGridClient({
                 type="button"
                 onClick={() => setShowReopenModal(true)}
                 disabled={isPending}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors shrink-0 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Reopen Mark Sheet for Teacher</span>
@@ -1696,7 +1721,7 @@ export function MarksGridClient({
                       type="button"
                       onClick={() => setShowReopenModal(true)}
                       disabled={isPending}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDE68A] text-[#7A4A00] border border-[#FBE6C2] font-semibold text-xs transition-colors cursor-pointer"
                     >
                       <RotateCcw className="w-3.5 h-3.5" />
                       <span>Send Back to Teacher for Revision</span>
@@ -1707,7 +1732,7 @@ export function MarksGridClient({
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors shrink-0"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors shrink-0 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Approve and Lock Marks</span>
@@ -1780,17 +1805,17 @@ export function MarksGridClient({
                     onClick={() => setShowSubmitModal(true)}
                     disabled={isPending}
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-colors cursor-pointer border border-white/20"
-                    title="Submit mark sheet to Head of Department"
+                    title={hasActiveHod ? "Submit mark sheet to Head of Department" : "Submit mark sheet to School Administration"}
                   >
                     <Send className="w-3.5 h-3.5 text-[#76C457]" />
-                    <span>Submit</span>
+                    <span>{hasActiveHod ? "Submit" : "Submit to Admin"}</span>
                   </button>
                 )}
               </>
             ) : isSubmitted ? (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 border border-blue-400/30 text-xs font-semibold">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Submitted to HOD</span>
+                <span>{hasActiveHod ? "Submitted to HOD" : "Submitted to Admin"}</span>
               </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/30 text-xs font-semibold">
@@ -1802,7 +1827,7 @@ export function MarksGridClient({
         </div>
       </div>
 
-      {/* Teacher Submit to HOD Modal */}
+      {/* Teacher Submit Modal */}
       {showSubmitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-[8px] bg-white p-6 shadow-xl space-y-4 border border-[#E8DFC9]">
@@ -1812,15 +1837,15 @@ export function MarksGridClient({
               </div>
               <div>
                 <h4 className="text-sm font-bold text-[#142010]">
-                  Submit Marks to Head of Department?
+                  {hasActiveHod ? "Submit Marks to Head of Department?" : "Submit Marks to School Administration?"}
                 </h4>
                 <p className="mt-1 text-xs text-[#555555] leading-relaxed">
                   You are submitting marks for <strong className="text-[#142010]">{subjectName}</strong> ({streamName}, {sequenceName}).
                 </p>
                 <div className="mt-2 text-[11px] text-[#777777] bg-[#FFFDF5] p-2.5 rounded-[5px] border border-[#E8DFC9] space-y-1">
-                  <p>• Your marks will be saved and forwarded to your Head of Department.</p>
+                  <p>• Your marks will be saved and forwarded to {hasActiveHod ? "your Head of Department" : "School Administration"}.</p>
                   <p>• Once submitted, editing is locked for teachers to protect mark integrity.</p>
-                  <p>• If a student grade contestation arises, your HOD can re-enable the sheet with verified justification.</p>
+                  <p>• If a student grade contestation arises, {hasActiveHod ? "your HOD or School Administrator" : "the School Administrator"} can re-enable the sheet with verified justification.</p>
                 </div>
               </div>
             </div>
@@ -1829,7 +1854,7 @@ export function MarksGridClient({
               <button
                 type="button"
                 onClick={() => setShowSubmitModal(false)}
-                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] border border-[#D5CBB2] text-[#444444] hover:bg-[#F7F3E8] transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] border border-[#D5CBB2] text-[#444444] hover:bg-[#F7F3E8] transition-colors cursor-pointer"
               >
                 Keep Editing
               </button>
@@ -1837,7 +1862,7 @@ export function MarksGridClient({
                 type="button"
                 onClick={handleConfirmSubmitToHod}
                 disabled={isPending}
-                className="px-4 py-1.5 text-xs font-semibold rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-xs"
+                className="px-4 py-1.5 text-xs font-semibold rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-xs cursor-pointer"
               >
                 {isPending ? "Submitting..." : "Confirm & Submit"}
               </button>
@@ -1846,7 +1871,7 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* HOD Reopen / Student Contestation Modal */}
+      {/* Reopen / Student Contestation Modal */}
       {showReopenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-[8px] bg-white p-6 shadow-xl space-y-4 border border-[#E8DFC9]">
@@ -1859,7 +1884,7 @@ export function MarksGridClient({
                   Reopen Mark Sheet for Teacher Revision
                 </h4>
                 <p className="mt-1 text-xs text-[#555555] leading-relaxed">
-                  Enter the audit reason or proof of verified student grade contestation. This ensures full transparency and prevents unverified mark adjustments.
+                  As {isHodUser ? "Head of Department" : "School Administrator / Principal"}, enter the audit reason or proof of verified student grade contestation to unlock the mark sheet for the teacher.
                 </p>
                 <div className="mt-3">
                   <label className="block text-[11px] font-bold text-[#444444] mb-1">

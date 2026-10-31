@@ -1677,7 +1677,7 @@ export async function saveSequenceMarksAction(payload: {
       };
     }
 
-    // Check departmental approval status for teachers
+    // Check departmental/admin approval status for teachers
     const { data: approval } = await supabase
       .from("departmental_approvals")
       .select("status")
@@ -1685,17 +1685,19 @@ export async function saveSequenceMarksAction(payload: {
       .eq("sequence_id", payload.sequenceId)
       .eq("class_stream_id", payload.classStreamId)
       .eq("subject_id", payload.subjectId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (approval?.status === "submitted") {
       return {
-        error: "This mark sheet has already been submitted to your Head of Department for review and is locked for teacher editing. Request an unlock from your HOD if corrections are required.",
+        error: "This mark sheet has already been submitted for review and is locked for teacher editing. Request an unlock from your Head of Department or School Administrator if corrections are required.",
       };
     }
 
     if (approval?.status === "approved") {
       return {
-        error: "This sequence has been approved and locked by the Department Head. Only your HOD or School Administrator can make changes.",
+        error: "This sequence has been approved and locked. Only your Head of Department or School Administrator can make changes.",
       };
     }
   }
@@ -1800,8 +1802,10 @@ export async function saveSequenceMarksAction(payload: {
 }
 
 /**
- * Teacher submits their mark sheet to the Head of Department for quality review.
- * Locks the sheet for the teacher until approved or reopened by the HOD.
+ * Teacher submits their mark sheet for quality review.
+ * In schools with departments, forwards to the Head of Department (HOD).
+ * In schools without departments, forwards directly to the School Administrator / Principal.
+ * Locks the sheet for the teacher until approved or reopened.
  */
 export async function submitSequenceMarksAction(formData: FormData) {
   const context = await requireAnyPermission([
@@ -1837,30 +1841,50 @@ export async function submitSequenceMarksAction(formData: FormData) {
     resolvedDeptId = subj?.department_id || "";
   }
 
-  // If a department exists, track in departmental_approvals
-  if (resolvedDeptId) {
-    const { error: approvalErr } = await supabase.from("departmental_approvals").upsert(
-      {
-        school_id: context.school.id,
-        academic_year_id: academicYearId,
-        term_id: termId,
-        sequence_id: sequenceId,
-        class_stream_id: classStreamId,
-        department_id: resolvedDeptId,
-        subject_id: subjectId,
-        status: "submitted",
-        notes: `Submitted for review by ${context.user.full_name || "Teacher"}`,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
-    );
-
-    if (approvalErr) {
-      return { error: approvalErr.message };
+  // Track submission in departmental_approvals (supports both departmental & direct admin flow)
+  try {
+    if (resolvedDeptId) {
+      await supabase.from("departmental_approvals").upsert(
+        {
+          school_id: context.school.id,
+          academic_year_id: academicYearId,
+          term_id: termId,
+          sequence_id: sequenceId,
+          class_stream_id: classStreamId,
+          department_id: resolvedDeptId,
+          subject_id: subjectId,
+          status: "submitted",
+          notes: `Submitted for review by ${context.user.full_name || "Teacher"}`,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
+      );
+    } else {
+      // Direct Administrative submission (school without departments or subject with no department)
+      const { error: noDeptErr } = await supabase.from("departmental_approvals").upsert(
+        {
+          school_id: context.school.id,
+          academic_year_id: academicYearId,
+          term_id: termId,
+          sequence_id: sequenceId,
+          class_stream_id: classStreamId,
+          department_id: null,
+          subject_id: subjectId,
+          status: "submitted",
+          notes: `Submitted for administrative review by ${context.user.full_name || "Teacher"}`,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "sequence_id,class_stream_id,subject_id" }
+      );
+      if (noDeptErr) {
+        console.warn("Direct admin approval upsert notice:", noDeptErr.message);
+      }
     }
+  } catch (err) {
+    console.warn("Non-fatal departmental_approvals upsert error:", err);
   }
 
-  // Also lock entered marks for this teacher until approved by HOD or Principal
+  // Always lock entered marks for this teacher until approved or reopened by HOD or Principal/Admin
   await supabase
     .from("assessment_marks")
     .update({ is_locked: true, updated_by: context.user?.id })
@@ -1879,7 +1903,7 @@ export async function submitSequenceMarksAction(formData: FormData) {
 }
 
 /**
- * HOD or Principal approves and locks sequence marks for a department/subject.
+ * HOD or Principal/School Administrator approves and locks sequence marks for a department/subject.
  */
 export async function approveDepartmentalSequenceAction(formData: FormData) {
   const context = await requireAnyPermission([
@@ -1905,24 +1929,48 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
 
   const supabase = await createClient();
 
-  // 1. Record formal departmental approval if departmentId is available
-  if (departmentId) {
-    await supabase.from("departmental_approvals").upsert(
-      {
-        school_id: context.school.id,
-        academic_year_id: academicYearId,
-        term_id: termId,
-        sequence_id: sequenceId,
-        class_stream_id: classStreamId,
-        department_id: departmentId,
-        subject_id: subjectId,
-        status: "approved",
-        approved_by: context.user?.id,
-        approved_at: new Date().toISOString(),
-        notes,
-      },
-      { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
-    );
+  // 1. Record formal departmental or administrative approval
+  if (departmentId || subjectId) {
+    try {
+      if (departmentId) {
+        await supabase.from("departmental_approvals").upsert(
+          {
+            school_id: context.school.id,
+            academic_year_id: academicYearId,
+            term_id: termId,
+            sequence_id: sequenceId,
+            class_stream_id: classStreamId,
+            department_id: departmentId,
+            subject_id: subjectId,
+            status: "approved",
+            approved_by: context.user?.id,
+            approved_at: new Date().toISOString(),
+            notes,
+          },
+          { onConflict: "sequence_id,class_stream_id,department_id,subject_id" }
+        );
+      } else if (subjectId) {
+        // Direct administrative approval for a subject without department
+        await supabase.from("departmental_approvals").upsert(
+          {
+            school_id: context.school.id,
+            academic_year_id: academicYearId,
+            term_id: termId,
+            sequence_id: sequenceId,
+            class_stream_id: classStreamId,
+            department_id: null,
+            subject_id: subjectId,
+            status: "approved",
+            approved_by: context.user?.id,
+            approved_at: new Date().toISOString(),
+            notes,
+          },
+          { onConflict: "sequence_id,class_stream_id,subject_id" }
+        );
+      }
+    } catch (approvalErr) {
+      console.warn("Direct approval upsert warning:", approvalErr);
+    }
   }
 
   // 2. Lock marks for this subject (or department / stream)
@@ -1964,7 +2012,7 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
     action: "APPROVE_SEQUENCE_MARKS",
     resource_type: "assessment_marks",
     resource_id: `${sequenceId}_${classStreamId}_${subjectId || departmentId || "stream"}`,
-    details: { approved_by: context.user.id, notes },
+    details: { approved_by: context.user.id, notes, role: context.role?.code },
   });
 
   revalidatePath("/dashboard/academics/marks");
@@ -1974,7 +2022,7 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
 }
 
 /**
- * HOD or Principal re-enables a submitted/approved mark sheet for a teacher to make corrections.
+ * HOD or Principal/School Administrator re-enables a submitted/approved mark sheet for a teacher to make corrections.
  * Records verified audit justification (e.g. proof of student grade contestation).
  */
 export async function reopenDepartmentalSequenceAction(formData: FormData) {
@@ -1998,6 +2046,11 @@ export async function reopenDepartmentalSequenceAction(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const approverRole =
+    context.role?.code === "school_admin" || context.role?.code === "principal" || context.role?.code === "superadmin"
+      ? "School Administration"
+      : "Head of Department";
+  const auditNote = notes || `Reopened for teacher revision by ${context.user.full_name || approverRole}`;
 
   // 1. Update departmental_approvals to 'rejected' (reopened for revision) with audit notes
   if (departmentId || subjectId) {
@@ -2005,7 +2058,7 @@ export async function reopenDepartmentalSequenceAction(formData: FormData) {
       .from("departmental_approvals")
       .update({
         status: "rejected",
-        notes: notes || `Reopened for teacher revision by ${context.user.full_name || "HOD / Administration"}`,
+        notes: auditNote,
         approved_by: context.user.id,
         updated_at: new Date().toISOString(),
       })
@@ -2019,7 +2072,35 @@ export async function reopenDepartmentalSequenceAction(formData: FormData) {
       query = query.eq("department_id", departmentId);
     }
 
-    await query;
+    const { data: updatedRows } = await query.select("id");
+
+    // If no existing approval row was found to update (e.g. submitted directly before DB row created), insert one
+    if ((!updatedRows || updatedRows.length === 0) && subjectId) {
+      try {
+        await supabase.from("departmental_approvals").upsert(
+          {
+            school_id: context.school.id,
+            academic_year_id: (formData.get("academicYearId") as string) || null,
+            term_id: (formData.get("termId") as string) || null,
+            sequence_id: sequenceId,
+            class_stream_id: classStreamId,
+            department_id: departmentId || null,
+            subject_id: subjectId,
+            status: "rejected",
+            notes: auditNote,
+            approved_by: context.user.id,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: departmentId
+              ? "sequence_id,class_stream_id,department_id,subject_id"
+              : "sequence_id,class_stream_id,subject_id",
+          }
+        );
+      } catch (err) {
+        console.warn("Notice: could not upsert rejected status on reopen:", err);
+      }
+    }
   }
 
   // 2. Unlock assessment_marks
@@ -2050,7 +2131,11 @@ export async function reopenDepartmentalSequenceAction(formData: FormData) {
     action: "REOPEN_SEQUENCE_MARKS",
     resource_type: "assessment_marks",
     resource_id: `${sequenceId}_${classStreamId}_${subjectId || departmentId}`,
-    details: { reason: notes, reopened_by: context.user.id },
+    details: {
+      reason: auditNote,
+      reopened_by: context.user.id,
+      reopened_by_role: context.role?.code,
+    },
   });
 
   revalidatePath("/dashboard/academics/marks");
@@ -2204,5 +2289,314 @@ export async function setActiveSequenceAction(formData: FormData) {
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics/report-cards");
 }
+
+// ==============================================================================
+// Timetable System Server Actions (Multi-Subsystem Grammar / Technical / Commercial)
+// ==============================================================================
+
+import { checkTimetableConflict } from "@/lib/academic/timetable-service";
+
+export async function createOrUpdateTimetableProfileAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const profileId = String(formData.get("profileId") || "");
+  const name = String(formData.get("name") || "").trim();
+  const subsystem = String(formData.get("subsystem") || "grammar") as "grammar" | "technical" | "commercial" | "general";
+  const defaultPeriodDurationMinutes = Math.max(30, Math.min(120, Number(formData.get("defaultPeriodDurationMinutes") || 50)));
+  const dayStartTime = String(formData.get("dayStartTime") || "07:30");
+  const description = String(formData.get("description") || "").trim();
+
+  if (!name) {
+    return { error: "Profile name is required (e.g. 'General Grammar' or 'Technical Workshop')." };
+  }
+
+  const supabase = await createClient();
+
+  if (profileId) {
+    const { error } = await supabase
+      .from("timetable_profiles")
+      .update({
+        name,
+        subsystem,
+        default_period_duration_minutes: defaultPeriodDurationMinutes,
+        day_start_time: dayStartTime,
+        description: description || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", profileId)
+      .eq("school_id", context.school.id);
+
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase
+      .from("timetable_profiles")
+      .insert({
+        school_id: context.school.id,
+        name,
+        subsystem,
+        default_period_duration_minutes: defaultPeriodDurationMinutes,
+        day_start_time: dayStartTime,
+        description: description || null,
+      });
+
+    if (error) return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
+export async function deleteTimetableProfileAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const profileId = String(formData.get("profileId") || "");
+  if (!profileId) return { error: "Profile ID is required." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("timetable_profiles")
+    .delete()
+    .eq("id", profileId)
+    .eq("school_id", context.school.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
+export async function autoGenerateDefaultPeriodsAction(payload: {
+  profileId: string;
+  dayStartTime: string;
+  periodDurationMinutes: number;
+  numberOfPeriods: number;
+  shortBreakAfterPeriod: number;
+  shortBreakDuration: number;
+  lunchBreakAfterPeriod: number;
+  lunchBreakDuration: number;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const {
+    profileId,
+    dayStartTime,
+    periodDurationMinutes,
+    numberOfPeriods = 8,
+    shortBreakAfterPeriod = 3,
+    shortBreakDuration = 20,
+    lunchBreakAfterPeriod = 5,
+    lunchBreakDuration = 40,
+  } = payload;
+
+  const supabase = await createClient();
+
+  // Helper to add minutes to "HH:MM"
+  const addMinutes = (timeStr: string, mins: number): string => {
+    const [h, m] = timeStr.split(":").map(Number);
+    const date = new Date(2000, 0, 1, h, m, 0);
+    date.setMinutes(date.getMinutes() + mins);
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${hours}:${minutes}:00`;
+  };
+
+  const periodsToInsert: Array<{
+    profile_id: string;
+    school_id: string;
+    name: string;
+    period_number: number;
+    start_time: string;
+    end_time: string;
+    is_break: boolean;
+    applies_to_days: number[];
+  }> = [];
+
+  let currentTime = dayStartTime.length === 5 ? `${dayStartTime}:00` : dayStartTime;
+  let periodCounter = 1;
+
+  for (let i = 1; i <= numberOfPeriods; i++) {
+    const periodStart = currentTime;
+    const periodEnd = addMinutes(currentTime, periodDurationMinutes);
+    periodsToInsert.push({
+      profile_id: profileId,
+      school_id: context.school.id,
+      name: `Period ${i}`,
+      period_number: periodCounter++,
+      start_time: periodStart,
+      end_time: periodEnd,
+      is_break: false,
+      applies_to_days: [1, 2, 3, 4, 5],
+    });
+    currentTime = periodEnd;
+
+    // Check if Short Break is needed
+    if (i === shortBreakAfterPeriod && shortBreakDuration > 0) {
+      const breakStart = currentTime;
+      const breakEnd = addMinutes(currentTime, shortBreakDuration);
+      periodsToInsert.push({
+        profile_id: profileId,
+        school_id: context.school.id,
+        name: "Petite Récréation (Short Break)",
+        period_number: periodCounter++,
+        start_time: breakStart,
+        end_time: breakEnd,
+        is_break: true,
+        applies_to_days: [1, 2, 3, 4, 5],
+      });
+      currentTime = breakEnd;
+    }
+
+    // Check if Lunch Break is needed
+    if (i === lunchBreakAfterPeriod && lunchBreakDuration > 0) {
+      const lunchStart = currentTime;
+      const lunchEnd = addMinutes(currentTime, lunchBreakDuration);
+      periodsToInsert.push({
+        profile_id: profileId,
+        school_id: context.school.id,
+        name: "Grande Récréation (Lunch Break)",
+        period_number: periodCounter++,
+        start_time: lunchStart,
+        end_time: lunchEnd,
+        is_break: true,
+        applies_to_days: [1, 2, 3, 4, 5],
+      });
+      currentTime = lunchEnd;
+    }
+  }
+
+  // Delete previous periods for this profile and insert fresh ones
+  await supabase.from("timetable_periods").delete().eq("profile_id", profileId);
+  const { error } = await supabase.from("timetable_periods").insert(periodsToInsert);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
+export async function saveTeacherAvailabilityAction(payload: {
+  teacherId: string;
+  maxWeeklyHours?: number;
+  availabilities: Array<{
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    isAvailable: boolean;
+    notes?: string;
+  }>;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "staff.manage"]);
+  const { teacherId, maxWeeklyHours = 18, availabilities } = payload;
+  if (!teacherId) return { error: "Teacher ID is required." };
+
+  const supabase = await createClient();
+
+  const rows = availabilities.map((a) => ({
+    school_id: context.school.id,
+    teacher_id: teacherId,
+    day_of_week: a.dayOfWeek,
+    start_time: a.startTime,
+    end_time: a.endTime,
+    is_available: a.isAvailable,
+    max_weekly_hours: maxWeeklyHours,
+    notes: a.notes?.trim() || null,
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { error } = await supabase.from("teacher_availabilities").upsert(rows, {
+    onConflict: "school_id,teacher_id,day_of_week",
+  });
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
+export async function assignTimetableSlotAction(payload: {
+  academicYearId: string;
+  profileId: string;
+  classStreamId: string;
+  dayOfWeek: number;
+  periodId: string;
+  subjectId: string;
+  teacherId?: string | null;
+  roomName?: string | null;
+  slotIdToIgnore?: string;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "assignments.manage"]);
+  const {
+    academicYearId,
+    profileId,
+    classStreamId,
+    dayOfWeek,
+    periodId,
+    subjectId,
+    teacherId,
+    roomName,
+    slotIdToIgnore,
+  } = payload;
+
+  if (!classStreamId || !periodId || !subjectId) {
+    return { error: "Class, period, and subject are required to schedule a slot." };
+  }
+
+  // 1. Run Conflict Detection (Teacher collision across all subsystems, availability, room double-booking)
+  const conflict = await checkTimetableConflict({
+    schoolId: context.school.id,
+    academicYearId,
+    dayOfWeek,
+    periodId,
+    teacherId,
+    roomName,
+    classStreamId,
+    slotIdToIgnore,
+  });
+
+  if (conflict.hasConflict) {
+    return { error: conflict.message || "A scheduling conflict was detected." };
+  }
+
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("timetable_slots").upsert(
+    {
+      school_id: context.school.id,
+      academic_year_id: academicYearId,
+      profile_id: profileId,
+      class_stream_id: classStreamId,
+      day_of_week: dayOfWeek,
+      period_id: periodId,
+      subject_id: subjectId,
+      teacher_id: teacherId || null,
+      room_name: roomName?.trim() || null,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "class_stream_id,day_of_week,period_id",
+    }
+  );
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
+export async function deleteTimetableSlotAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "assignments.manage"]);
+  const slotId = String(formData.get("slotId") || "");
+  if (!slotId) return { error: "Slot ID is required." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("timetable_slots")
+    .delete()
+    .eq("id", slotId)
+    .eq("school_id", context.school.id);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics/timetable");
+  return { success: true };
+}
+
 
 

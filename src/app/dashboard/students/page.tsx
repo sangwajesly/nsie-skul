@@ -187,7 +187,10 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
               selectedStreamId={selectedStreamId}
               currentStatusFilter={statusFilter}
               streams={allStreams}
+              allStreamsWithDetails={allStreams}
               academicYearId={activeYear?.id || ""}
+              academicYearName={activeYear?.name || "2026/2027"}
+              school={context?.school || null}
             />
           </div>
         </div>

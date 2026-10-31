@@ -23,6 +23,12 @@ export interface School {
   matricule_format?: string;
   report_card_template?: "cba_grouped_classic" | "cba_ministry_standard" | string;
   is_active: boolean;
+  deletion_status?: "active" | "pending_deletion" | "deleted";
+  deletion_requested_at?: string | null;
+  deletion_scheduled_for?: string | null;
+  deletion_requested_by?: string | null;
+  deletion_reason?: string | null;
+  last_data_export_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -200,7 +206,7 @@ export interface HodAssignment {
   school_id: string;
   academic_year_id: string;
   hod_user_id: string;
-  department_id: string;
+  department_id: string | null;
   subject_id: string | null;
   scope_type: "department" | "subject";
   start_date: string;
@@ -300,7 +306,7 @@ export interface DepartmentalApproval {
   term_id: string;
   sequence_id: string;
   class_stream_id: string;
-  department_id: string;
+  department_id: string | null;
   subject_id: string | null;
   status: ApprovalStatus;
   approved_by: string | null;
@@ -499,6 +505,78 @@ export interface DisciplinaryRecord {
   class_stream?: ClassStream;
   recorder?: UserProfile;
 }
+
+// ==========================================
+// Timetable System Types
+// ==========================================
+
+export type TimetableSubsystem = "grammar" | "technical" | "commercial" | "general";
+
+export interface TimetableProfile {
+  id: string;
+  school_id: string;
+  name: string;
+  subsystem: TimetableSubsystem;
+  default_period_duration_minutes: number;
+  day_start_time: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  periods?: TimetablePeriod[];
+}
+
+export interface TimetablePeriod {
+  id: string;
+  profile_id: string;
+  school_id: string;
+  name: string;
+  period_number: number;
+  start_time: string;
+  end_time: string;
+  is_break: boolean;
+  applies_to_days: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeacherAvailability {
+  id: string;
+  school_id: string;
+  teacher_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+  is_available: boolean;
+  max_weekly_hours: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  teacher?: UserProfile;
+}
+
+export interface TimetableSlot {
+  id: string;
+  school_id: string;
+  academic_year_id: string;
+  profile_id: string;
+  class_stream_id: string;
+  day_of_week: number;
+  period_id: string;
+  subject_id: string;
+  teacher_id: string | null;
+  room_name: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  period?: TimetablePeriod;
+  subject?: Subject;
+  teacher?: UserProfile;
+  class_stream?: ClassStream;
+}
+
 
 
 

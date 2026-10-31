@@ -12,9 +12,11 @@ import {
   FileText,
   Wallet,
   CalendarCheck,
+  Calendar,
   Settings,
   History,
   ShieldCheck,
+  Layers,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -204,6 +206,14 @@ export default function DashboardNavigation({
           onNavClick={onNavClick}
         />
       )}
+      <NavLink
+        href="/dashboard/academics/timetable"
+        icon={Calendar}
+        label="Timetable"
+        sublabel={isTeacher ? "Your weekly class schedules" : "Master bell schedules & class timetables"}
+        currentHash={currentHash}
+        onNavClick={onNavClick}
+      />
 
       {/* Daily Work */}
       <NavSection label="Daily Work" />
@@ -285,6 +295,14 @@ export default function DashboardNavigation({
             icon={History}
             label="Activity Log"
             sublabel="See who changed school records"
+            currentHash={currentHash}
+            onNavClick={onNavClick}
+          />
+          <NavLink
+            href="/dashboard/settings/states"
+            icon={Layers}
+            label="System States"
+            sublabel="Empty, offline, loading & validation"
             currentHash={currentHash}
             onNavClick={onNavClick}
           />

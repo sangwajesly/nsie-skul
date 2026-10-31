@@ -9,6 +9,7 @@ import {
   getEnrolledStudents,
   getSchoolTeacherAssignments,
   getHodScope,
+  getSchoolDepartments,
 } from "@/lib/academic/service";
 import {
   getMarksForSequence,
@@ -39,7 +40,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
 
   // 1. Load active academic year, terms & sequences
   const activeYear = await getActiveAcademicYear(schoolId);
-  const [sequences, classesWithStreams, rawSubjects, teacherAssignments, allSchoolAssignments, hodScope] = await Promise.all([
+  const [sequences, classesWithStreams, rawSubjects, teacherAssignments, allSchoolAssignments, hodScope, allDepartments] = await Promise.all([
     getSchoolSequences(schoolId),
     getSchoolClasses(schoolId, activeYear?.id),
     getSchoolSubjects(schoolId),
@@ -52,6 +53,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
     isHodUser && activeYear && context?.user?.id
       ? getHodScope(schoolId, activeYear.id, context.user.id)
       : Promise.resolve(null),
+    getSchoolDepartments(schoolId),
   ]);
 
   // If HOD, restrict to subjects under their department (plus any subject they teach)
@@ -189,19 +191,40 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         )
       : [];
 
-  // 4. Load HOD approval if subject belongs to a department
+  // 4. Determine if this subject has an active HOD assigned
+  let hasActiveHod = false;
+  let activeHodName: string | undefined = undefined;
+
+  if (selectedSubject?.department_id) {
+    const dept = allDepartments.find((d) => d.id === selectedSubject.department_id);
+    if (dept && dept.hod_assignments && dept.hod_assignments.length > 0) {
+      const activeHod = dept.hod_assignments.find(
+        (h) => h.status === "active" && (!h.subject_id || h.subject_id === selectedSubject.id)
+      );
+      if (activeHod) {
+        hasActiveHod = true;
+        activeHodName = activeHod.hod_user?.full_name || "Head of Department";
+      }
+    }
+  }
+
+  // 5. Load approval status (departmental HOD review or direct administrative review)
   const departmentalApproval =
-    selectedSequence && selectedStream && selectedSubject?.department_id
+    selectedSequence && selectedStream && selectedSubject
       ? await getDepartmentalApproval(
           schoolId,
           selectedSequence.id,
           selectedStream.id,
-          selectedSubject.department_id,
+          selectedSubject.department_id || null,
           selectedSubject.id
         )
       : null;
 
-  // 5. Load existing CBA competence evaluated for this class & subject
+  // Derive status: check departmental_approvals first; fallback to assessment_marks lock status
+  const allMarksLocked = existingMarks.length > 0 && existingMarks.every((m) => m.is_locked);
+  const derivedStatus = departmentalApproval?.status || (allMarksLocked ? "submitted" : "draft");
+
+  // 6. Load existing CBA competence evaluated for this class & subject
   let initialCompetency = "";
   if (selectedSubject && selectedStream) {
     const supabase = await createClient();
@@ -425,13 +448,20 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           coefficient={effectiveCoefficient}
           initialMaxMarks={effectiveMaxMarks}
           initialCompetency={initialCompetency}
-          isApproved={departmentalApproval?.status === "approved"}
-          approvalStatus={departmentalApproval?.status || "draft"}
+          isApproved={derivedStatus === "approved"}
+          approvalStatus={derivedStatus}
           approvalNotes={departmentalApproval?.notes || undefined}
-          approverName={departmentalApproval?.approver?.full_name}
+          approverName={
+            departmentalApproval?.approver?.full_name ||
+            (departmentalApproval?.notes?.includes("School Administration") ? "School Administration" : undefined)
+          }
           approvedAt={departmentalApproval?.approved_at || undefined}
           canApprove={canApprove}
           isTeacher={isTeacher}
+          hasActiveHod={hasActiveHod}
+          activeHodName={activeHodName}
+          isAdmin={isAdmin}
+          isHodUser={isHodUser}
           students={studentRows}
         />
       )}

@@ -19,9 +19,16 @@ import {
   Sparkles,
   MessageCircle,
   HelpCircle,
+  RotateCcw,
+  Upload,
+  Database,
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
-import { createSchoolAction, type CreateSchoolResult } from "./actions";
+import { createSchoolAction, restoreSchoolOnboardingAction, type CreateSchoolResult } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
+import type { NseiSukulBackupArchive } from "@/app/dashboard/settings/data-privacy-actions";
 
 interface OnboardingClientProps {
   userId: string;
@@ -35,9 +42,15 @@ export function OnboardingClient({
   fullName,
 }: OnboardingClientProps) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"admin" | "teacher">("admin");
+  const [activeTab, setActiveTab] = useState<"admin" | "teacher" | "restore">("admin");
   const [copied, setCopied] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+
+  // Restore States
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restorePreview, setRestorePreview] = useState<NseiSukulBackupArchive | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const [state, formAction, isPending] = useActionState<CreateSchoolResult | null, FormData>(
     createSchoolAction,
@@ -50,6 +63,62 @@ export function OnboardingClient({
       router.replace(state.redirectTo);
     }
   }, [state, router]);
+
+  const handleRestoreFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setRestoreFile(file);
+    setRestoreError(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const parsed = JSON.parse(text) as NseiSukulBackupArchive;
+
+        if (parsed.export_format_version !== "1.0" || parsed.system !== "Nsei Sukul Management System") {
+          throw new Error("This file is not an official Nsei Sukul backup archive.");
+        }
+
+        setRestorePreview(parsed);
+      } catch (err: unknown) {
+        setRestorePreview(null);
+        setRestoreError(err instanceof Error ? err.message : "Invalid JSON file.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleExecuteOnboardingRestore = async () => {
+    if (!restorePreview || !restoreFile) return;
+
+    setIsRestoring(true);
+    setRestoreError(null);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (evt) => {
+        try {
+          const text = evt.target?.result as string;
+          const res = await restoreSchoolOnboardingAction(text);
+          if (!res.success || !res.redirectTo) {
+            throw new Error(res.error || "Failed to restore school archive.");
+          }
+
+          setIsNavigating(true);
+          router.replace(res.redirectTo);
+        } catch (innerErr: unknown) {
+          setRestoreError(innerErr instanceof Error ? innerErr.message : "Restore failed.");
+          setIsRestoring(false);
+        }
+      };
+      reader.readAsText(restoreFile);
+    } catch (err: unknown) {
+      setRestoreError(err instanceof Error ? err.message : "Restore failed.");
+      setIsRestoring(false);
+    }
+  };
 
   const copyEmail = () => {
     navigator.clipboard.writeText(userEmail);
@@ -105,7 +174,7 @@ export function OnboardingClient({
         </div>
 
         {/* Intent Selector Tabs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-3xl mx-auto">
           <button
             type="button"
             onClick={() => setActiveTab("admin")}
@@ -164,6 +233,37 @@ export function OnboardingClient({
               </div>
               <p className="text-[11px] text-[#666666] mt-0.5 leading-snug">
                 For Teachers, HODs, Bursars, and Staff invited by their school.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("restore")}
+            className={`p-4 rounded-[10px] text-left border transition-all flex items-start gap-3.5 ${
+              activeTab === "restore"
+                ? "bg-white border-[#2A7C13] ring-2 ring-[#2A7C13]/15 shadow-sm"
+                : "bg-white/60 border-[#E8DFC9] hover:bg-white hover:border-[#D5CBB2]"
+            }`}
+          >
+            <div
+              className={`w-10 h-10 rounded-[8px] flex items-center justify-center shrink-0 ${
+                activeTab === "restore"
+                  ? "bg-[#142010] text-[#4ADE80]"
+                  : "bg-[#F0EFEA] text-[#666666]"
+              }`}
+            >
+              <RotateCcw className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-[13px] font-bold text-[#142010] flex items-center gap-1.5">
+                <span>Restore from Backup</span>
+                {activeTab === "restore" && (
+                  <span className="w-2 h-2 rounded-full bg-[#2A7C13]" />
+                )}
+              </div>
+              <p className="text-[11px] text-[#666666] mt-0.5 leading-snug">
+                Returning school? Restore all records from your saved .json backup archive.
               </p>
             </div>
           </button>
@@ -483,6 +583,135 @@ export function OnboardingClient({
                 Are you a school administrator instead? Set up your school &rarr;
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Tab Content: Restore from Backup (The Boomerang Engine) */}
+        {activeTab === "restore" && (
+          <div className="bg-white border border-[#E8DFC9] rounded-[12px] shadow-sm p-6 sm:p-8 space-y-6">
+            <div className="flex items-center justify-between pb-4 border-b border-[#F0EFEA]">
+              <div>
+                <h2 className="text-base font-bold text-[#142010] flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-[#2A7C13]" />
+                  <span>Restore School from Backup Archive</span>
+                </h2>
+                <p className="text-xs text-[#666666] mt-0.5">
+                  Welcome back! Upload your saved Nsei Sukul .json archive to reconstruct your school in seconds.
+                </p>
+              </div>
+              <span className="hidden sm:inline-flex px-2.5 py-1 text-[11px] font-semibold rounded-[4px] bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40">
+                10-Second Auto Setup
+              </span>
+            </div>
+
+            {restoreError && (
+              <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-center gap-2">
+                <XCircle className="w-4 h-4 shrink-0" />
+                <span>{restoreError}</span>
+              </div>
+            )}
+
+            {isNavigating && (
+              <div className="p-3.5 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#166534]" />
+                <span>School restored! Redirecting to your administrator dashboard…</span>
+              </div>
+            )}
+
+            {!restorePreview ? (
+              <div className="border-2 border-dashed border-[#D5CBB2] hover:border-[#2A7C13] rounded-[10px] p-8 text-center transition-colors bg-[#FAF8F5]">
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleRestoreFileSelect}
+                  className="hidden"
+                  id="onboarding-backup-file-upload"
+                />
+                <label
+                  htmlFor="onboarding-backup-file-upload"
+                  className="cursor-pointer flex flex-col items-center justify-center space-y-3"
+                >
+                  <div className="w-12 h-12 rounded-full bg-[#EBF5E9] text-[#2A7C13] flex items-center justify-center">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <div className="text-sm font-bold text-[#142010]">
+                    Drop your saved school backup archive (.json)
+                  </div>
+                  <p className="text-xs text-[#777777] max-w-sm">
+                    Select the .json backup package you downloaded when you previously exported or offboarded your school.
+                  </p>
+                </label>
+              </div>
+            ) : (
+              <div className="border border-[#2A7C13]/30 bg-[#F0FDF4]/40 rounded-[10px] p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-bold text-[#142010]">
+                    <CheckCircle2 className="w-5 h-5 text-[#2A7C13]" />
+                    <span>Official Backup Archive Verified</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setRestorePreview(null);
+                      setRestoreFile(null);
+                    }}
+                    className="text-xs text-red-600 hover:underline cursor-pointer"
+                  >
+                    Select different file
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+                    <span className="text-[10px] text-[#777777] block">School Name</span>
+                    <span className="font-bold text-[#142010] truncate block">
+                      {restorePreview.school.name}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+                    <span className="text-[10px] text-[#777777] block">Total Students</span>
+                    <span className="font-bold text-[#142010] block">
+                      {restorePreview.statistics.students_count} records
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+                    <span className="text-[10px] text-[#777777] block">Class Groups</span>
+                    <span className="font-bold text-[#142010] block">
+                      {restorePreview.statistics.classes_count} classes
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+                    <span className="text-[10px] text-[#777777] block">Academic Marks</span>
+                    <span className="font-bold text-[#142010] block">
+                      {restorePreview.statistics.marks_count} grades
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-[#E8DFC9]">
+                  <span className="text-xs text-[#555555]">
+                    Exported on: {new Date(restorePreview.export_date).toLocaleString("en-GB")}
+                  </span>
+
+                  <button
+                    onClick={handleExecuteOnboardingRestore}
+                    disabled={isRestoring || isNavigating}
+                    className="px-6 py-2.5 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs transition-colors shadow-xs disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isRestoring ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Restoring School &amp; Data…</span>
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="w-4 h-4" />
+                        <span>Confirm &amp; Restore School</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

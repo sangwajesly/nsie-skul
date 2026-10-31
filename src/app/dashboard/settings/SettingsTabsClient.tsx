@@ -23,8 +23,9 @@ import SchoolSettingsClient from "./SchoolSettingsClient";
 import StaffRolesClient from "./StaffRolesClient";
 import { SchoolBillingSubscription } from "./SchoolBillingSubscription";
 import { SchoolHubSettings } from "./SchoolHubSettings";
+import SchoolDataPrivacyClient from "./SchoolDataPrivacyClient";
 
-export type SettingsTabId = "profile" | "staff" | "billing" | "hub" | "logs";
+export type SettingsTabId = "profile" | "staff" | "billing" | "hub" | "logs" | "privacy";
 
 interface AuditLogEntry {
   id: string;
@@ -81,6 +82,9 @@ export function SettingsTabsClient({
       if (hash === "logs" || hash === "audit") {
         return "logs";
       }
+      if (hash === "privacy" || hash === "data" || hash === "export" || hash === "sovereignty") {
+        return "privacy";
+      }
       if (hash === "school-settings" || hash === "profile" || hash === "general") {
         return "profile";
       }
@@ -105,6 +109,7 @@ export function SettingsTabsClient({
       billing: "license",
       hub: "hub",
       logs: "logs",
+      privacy: "privacy",
     };
     window.history.replaceState(null, "", `#${hashMapping[tabId]}`);
   };
@@ -305,6 +310,23 @@ export function SettingsTabsClient({
             <History className={`w-4 h-4 ${activeTab === "logs" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
             <span>Activity Logs</span>
           </button>
+
+          {/* Tab 6: Data Sovereignty & Privacy */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("privacy")}
+            className={`flex items-center gap-2 py-3 px-3 sm:px-4 text-xs sm:text-[13px] font-semibold border-b-2 transition-all whitespace-nowrap shrink-0 ${
+              activeTab === "privacy"
+                ? "border-[#2A7C13] text-[#2A7C13] bg-[#FFF8CF]/20 rounded-t-[6px]"
+                : "border-transparent text-[#555555] hover:text-[#142010] hover:border-[#D5CBB2]"
+            }`}
+          >
+            <ShieldCheck className={`w-4 h-4 ${activeTab === "privacy" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
+            <span>Data Sovereignty &amp; Privacy</span>
+            <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40 shrink-0">
+              Takeout
+            </span>
+          </button>
         </nav>
       </div>
 
@@ -401,6 +423,13 @@ export function SettingsTabsClient({
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Tab 6: Data Sovereignty & Privacy */}
+        {activeTab === "privacy" && (
+          <div className="space-y-6 animate-in fade-in-50 duration-150">
+            <SchoolDataPrivacyClient school={school} />
           </div>
         )}
       </div>
