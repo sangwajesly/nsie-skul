@@ -11,6 +11,8 @@ import {
   getHodScope,
 } from "@/lib/academic/service";
 import { getSchoolStaffMemberships } from "@/lib/admin/service";
+import { getAcademicAnalytics } from "@/lib/academic/analytics-service";
+import { AcademicOverviewSection } from "@/components/academic/AcademicOverviewSection";
 import { TeacherAssignmentsList } from "./TeacherAssignmentsList";
 import {
   Users,
@@ -82,6 +84,16 @@ export default async function DashboardPage() {
   // Active assessment window is strictly derived from sequences open for marks
   const openSequences = sequences.filter((s) => s.is_open_for_marks);
   const activeSequence = openSequences.length > 0 ? openSequences[openSequences.length - 1] : null;
+
+  // ── ACADEMIC PERFORMANCE & HONOR ROLL OVERVIEW ──
+  const analyticsRole: "admin" | "teacher" | "hod" = isAdmin ? "admin" : isHodUser ? "hod" : "teacher";
+  const academicAnalytics = await getAcademicAnalytics({
+    schoolId,
+    academicYearId: activeYear?.id,
+    role: analyticsRole,
+    userId: tenantContext?.user?.id,
+    departmentId: hodScope?.departmentIds?.[0],
+  });
 
   // ── TEACHER DASHBOARD VIEW ──
   if (isTeacher) {
@@ -245,6 +257,11 @@ export default async function DashboardPage() {
             masteredStreamIds={tenantContext?.isClassMaster ? (tenantContext.masteredStreamNames || []) : []}
           />
         </div>
+
+        {/* Academic Performance & Honor Roll Overview (Teacher Scoped) */}
+        {academicAnalytics && (
+          <AcademicOverviewSection initialData={academicAnalytics} />
+        )}
 
         {/* Common Teacher Actions */}
         <div>
@@ -414,6 +431,11 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Institution-Wide Academic Performance & Honor Roll Overview */}
+      {academicAnalytics && (
+        <AcademicOverviewSection initialData={academicAnalytics} />
+      )}
 
       {/* Quick Actions — the most important section */}
       <div>

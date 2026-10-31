@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import Link from "next/link";
 import { getTenantContext } from "@/lib/tenancy/context";
 import { getActiveAcademicYear } from "@/lib/academic/service";
 import { signOutAction } from "@/app/auth/actions";
@@ -7,7 +8,7 @@ import DashboardNavigation from "./DashboardNavigation";
 import { MobileNavDrawer } from "./MobileNavDrawer";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { GlobalSystemStateMonitor } from "@/components/ui/states";
-import { LogOut } from "lucide-react";
+import { LogOut, Globe } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -30,27 +31,37 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans print:min-h-0 print:bg-white print:block">
       {/* ── Sidebar ── */}
       <aside className="hidden md:flex flex-col w-64 border-r border-[#E5E5DF] bg-white flex-shrink-0 min-h-screen sticky top-0 h-screen print:hidden">
-        {/* School brand */}
-        <div className="h-14 flex items-center gap-2.5 px-4 border-b border-[#EBEBE6]">
-          <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden">
-            {tenantContext.school.logo_url ? (
-              <img
-                src={tenantContext.school.logo_url}
-                alt={schoolName}
-                className="w-full h-full object-contain p-0.5 bg-white"
-              />
-            ) : (
-              schoolName.charAt(0)
-            )}
-          </div>
-          <div className="overflow-hidden">
-            <div className="font-bold text-[13px] tracking-tight text-[#191919] truncate leading-tight">
-              {schoolName}
+        {/* School brand & Public Site Tour Link */}
+        <div className="h-14 flex items-center justify-between px-3.5 border-b border-[#EBEBE6]">
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden">
+              {tenantContext.school.logo_url ? (
+                <img
+                  src={tenantContext.school.logo_url}
+                  alt={schoolName}
+                  className="w-full h-full object-contain p-0.5 bg-white"
+                />
+              ) : (
+                schoolName.charAt(0)
+              )}
             </div>
-            <div className="text-[10px] text-[#888888] font-semibold tracking-wide uppercase truncate">
-              Management Systems
+            <div className="overflow-hidden">
+              <div className="font-bold text-[13px] tracking-tight text-[#191919] truncate leading-tight">
+                {schoolName}
+              </div>
+              <div className="text-[10px] text-[#888888] font-semibold tracking-wide uppercase truncate">
+                Management Systems
+              </div>
             </div>
           </div>
+
+          <Link
+            href="/"
+            title="Explore Public Website & Tour"
+            className="p-1.5 text-[#888888] hover:text-[#2A7C13] hover:bg-[#F0FDF4] rounded-[5px] transition-colors shrink-0"
+          >
+            <Globe className="w-4 h-4" />
+          </Link>
         </div>
 
         {/* Navigation */}
@@ -117,7 +128,14 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               <span className="text-[10px] text-[#888888] truncate block">{academicYearLabel}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <Link
+              href="/"
+              title="Explore Public Site & Features"
+              className="p-2 text-[#666666] hover:text-[#2A7C13] rounded-[4px] hover:bg-[#F0FDF4] flex items-center justify-center min-w-[36px] min-h-[36px] transition-colors"
+            >
+              <Globe className="w-4 h-4" />
+            </Link>
             <span className="text-[11px] text-[#555555] font-semibold px-2 py-0.5 rounded bg-[#F1F1ED] hidden sm:inline-block max-w-[120px] truncate">{userRole}</span>
             <form action={signOutAction}>
               <button

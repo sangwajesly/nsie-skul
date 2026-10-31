@@ -17,6 +17,7 @@ import {
   History,
   ShieldCheck,
   Layers,
+  Globe,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -30,6 +31,11 @@ function NavSection({ label }: { label: string }) {
 function isRouteActive(pathname: string, currentHash: string, href: string): boolean {
   const [cleanHref, hashPart] = href.split("#");
   const targetHash = hashPart ? `#${hashPart}` : "";
+
+  // 0. Public root: strictly matches / only
+  if (cleanHref === "/") {
+    return pathname === "/";
+  }
 
   // 1. Home / Overview: strictly matches /dashboard only
   if (cleanHref === "/dashboard") {
@@ -308,6 +314,25 @@ export default function DashboardNavigation({
           />
         </>
       )}
+
+      {/* Explore & Public Site */}
+      <NavSection label="Explore Sukul" />
+      <NavLink
+        href="/"
+        icon={Globe}
+        label="Public Site & Tour"
+        sublabel="Landing page, features & capabilities"
+        currentHash={currentHash}
+        onNavClick={onNavClick}
+      />
+      <NavLink
+        href="/blog"
+        icon={BookOpen}
+        label="Guides & Pedagogy"
+        sublabel="Cameroon MINESEC teacher guides"
+        currentHash={currentHash}
+        onNavClick={onNavClick}
+      />
     </nav>
   );
 }

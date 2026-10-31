@@ -1,9 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { GraduationCap, MessageCircle, Menu, X, ChevronDown, WifiOff, FileSpreadsheet, Wallet, ArrowRight, BookOpen } from "lucide-react";
+import {
+  GraduationCap,
+  MessageCircle,
+  Menu,
+  X,
+  ChevronDown,
+  WifiOff,
+  FileSpreadsheet,
+  Wallet,
+  ArrowRight,
+  BookOpen,
+  LayoutDashboard,
+} from "lucide-react";
 import { BRAND } from "@/lib/design-tokens";
+import { createClient } from "@/lib/supabase/client";
 
 const BTN_PRIMARY =
   "inline-flex items-center justify-center px-4 py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-[13px] shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A7C13] focus-visible:ring-offset-2";
@@ -11,6 +24,20 @@ const BTN_PRIMARY =
 export function MarketingHeader({ currentPath = "/" }: { currentPath?: string }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        setIsAuthenticated(Boolean(data?.user));
+      }).catch(() => {
+        setIsAuthenticated(false);
+      });
+    } catch {
+      setIsAuthenticated(false);
+    }
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 bg-[#FFFDF5]/95 backdrop-blur-md border-b border-[#E8DFC9]">
@@ -145,16 +172,32 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
         {/* Action CTAs */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          <Link
-            href="/login"
-            className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1"
-          >
-            Sign in
-          </Link>
-          <Link href="/register" className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0">
-            <span>Get Started</span>
-            <ArrowRight className="w-3.5 h-3.5 ml-1.5 hidden sm:inline" />
-          </Link>
+          {isAuthenticated ? (
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Go to Dashboard</span>
+              <ArrowRight className="w-3.5 h-3.5 ml-0.5 hidden sm:inline" />
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0"
+              >
+                <span>Get Started</span>
+                <ArrowRight className="w-3.5 h-3.5 ml-1.5 hidden sm:inline" />
+              </Link>
+            </>
+          )}
 
           {/* Mobile hamburger button */}
           <button
@@ -171,6 +214,22 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-b border-[#E8DFC9] bg-white px-5 py-4 space-y-4 animate-in slide-in-from-top duration-150">
+          {isAuthenticated && (
+            <div className="p-3 rounded-[8px] bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <LayoutDashboard className="w-4 h-4 text-[#166534]" />
+                <span className="text-xs font-bold text-[#166534]">Active Session</span>
+              </div>
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="px-3 py-1.5 rounded-[6px] bg-[#2A7C13] text-white text-xs font-bold shadow-2xs hover:bg-[#20600E]"
+              >
+                Dashboard →
+              </Link>
+            </div>
+          )}
+
           <div className="space-y-1">
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#788470] px-2 py-1">
               Core Capabilities
@@ -224,13 +283,23 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             >
               Frequently Asked Questions
             </Link>
-            <Link
-              href="/login"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block p-2 text-[13px] font-medium text-[#2A7C13]"
-            >
-              Sign in to Portal
-            </Link>
+            {isAuthenticated ? (
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block p-2 text-[13px] font-bold text-[#2A7C13]"
+              >
+                Back to Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block p-2 text-[13px] font-medium text-[#2A7C13]"
+              >
+                Sign in to Portal
+              </Link>
+            )}
             <a
               href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20would%20like%20a%20demonstration%20for%20our%20school."
               target="_blank"
