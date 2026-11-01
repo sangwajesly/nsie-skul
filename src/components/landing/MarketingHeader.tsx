@@ -39,6 +39,29 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
     }
   }, []);
 
+  // Prevent background body scroll when mobile drawer is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  // Close drawer on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    if (mobileMenuOpen) {
+      window.addEventListener("keydown", handleKeyDown);
+    }
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [mobileMenuOpen]);
+
   return (
     <header className="sticky top-0 z-40 bg-[#FFFDF5]/95 backdrop-blur-md border-b border-[#E8DFC9]">
       <div className="max-w-6xl mx-auto px-3.5 sm:px-8 h-16 flex items-center justify-between gap-3 sm:gap-6">
@@ -218,111 +241,220 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Mobile Navigation Drawer Sheet */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-[#E8DFC9] bg-white px-5 py-4 space-y-4 animate-in slide-in-from-top duration-150">
-          {isAuthenticated && (
-            <div className="p-3 rounded-[8px] bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <LayoutDashboard className="w-4 h-4 text-[#166534]" />
-                <span className="text-xs font-bold text-[#166534]">Active Session</span>
+        <div
+          className="fixed inset-0 z-50 flex md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation Menu"
+        >
+          {/* Backdrop scrim */}
+          <div
+            onClick={() => setMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+            aria-hidden="true"
+          />
+
+          {/* Drawer Sheet */}
+          <div className="relative ml-auto flex flex-col w-full max-w-[340px] h-full bg-[#FFFDF5] shadow-2xl z-10 overflow-hidden border-l border-[#E8DFC9] animate-in slide-in-from-right duration-200">
+            {/* Drawer Header */}
+            <div className="h-16 flex items-center justify-between px-5 border-b border-[#E8DFC9] bg-white shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-[7px] bg-[#2A7C13] text-white flex items-center justify-center shadow-xs">
+                  <GraduationCap className="w-4.5 h-4.5" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-[15px] tracking-tight text-[#142010] leading-none">
+                    {BRAND.name}
+                  </span>
+                  <span className="text-[9.5px] font-semibold text-[#788470] tracking-wide uppercase mt-0.5">
+                    {BRAND.systemTitle}
+                  </span>
+                </div>
               </div>
-              <Link
-                href="/dashboard"
+
+              <button
+                type="button"
                 onClick={() => setMobileMenuOpen(false)}
-                className="px-3 py-1.5 rounded-[6px] bg-[#2A7C13] text-white text-xs font-bold shadow-2xs hover:bg-[#20600E]"
+                className="w-8 h-8 rounded-full border border-[#E8DFC9] bg-[#FAFAF8] text-[#525E4B] hover:text-[#142010] hover:bg-[#F0EEE6] flex items-center justify-center transition-colors"
+                aria-label="Close navigation menu"
               >
-                Dashboard →
-              </Link>
+                <X className="w-4 h-4" />
+              </button>
             </div>
-          )}
 
-          <div className="space-y-1">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-[#788470] px-2 py-1">
-              Core Capabilities
-            </p>
-            <Link
-              href="/features/school-hub"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-2 rounded-[6px] hover:bg-[#FFFDF5] text-[13px] font-medium text-[#142010]"
-            >
-              <WifiOff className="w-4 h-4 text-[#2A7C13]" />
-              <span>Offline School Hub (Zero-Internet)</span>
-            </Link>
-            <Link
-              href="/features/report-cards"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-2 rounded-[6px] hover:bg-[#FFFDF5] text-[13px] font-medium text-[#142010]"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-[#2A7C13]" />
-              <span>MINESEC Report Cards & Sequences</span>
-            </Link>
-            <Link
-              href="/features/finance"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-3 p-2 rounded-[6px] hover:bg-[#FFFDF5] text-[13px] font-medium text-[#142010]"
-            >
-              <Wallet className="w-4 h-4 text-[#2A7C13]" />
-              <span>Bursary & Fee Management (FCFA)</span>
-            </Link>
-          </div>
+            {/* Scrollable Navigation Body */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
+              {isAuthenticated && (
+                <div className="p-3.5 rounded-[8px] bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-[5px] bg-[#166534] text-white flex items-center justify-center">
+                      <LayoutDashboard className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-[#166534] block">Active Session</span>
+                      <span className="text-[10.5px] text-[#22723E]">School portal connected</span>
+                    </div>
+                  </div>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="px-3 py-1.5 rounded-[6px] bg-[#2A7C13] text-white text-xs font-bold shadow-2xs hover:bg-[#20600E] shrink-0"
+                  >
+                    Dashboard
+                  </Link>
+                </div>
+              )}
 
-          <div className="border-t border-[#E8DFC9] pt-3 space-y-2">
-            <Link
-              href="/#capabilities"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block p-2 text-[13px] font-semibold text-[#142010]"
-            >
-              What You Can Achieve (In Plain English)
-            </Link>
-            <Link
-              href="/blog"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2.5 p-2 text-[13px] font-semibold text-[#2A7C13]"
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>Teacher Guides &amp; Pedagogy Blog</span>
-            </Link>
-            <Link
-              href="/#how-it-works"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block p-2 text-[13px] font-medium text-[#525E4B]"
-            >
-              How It Works
-            </Link>
-            <Link
-              href="/#faq"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block p-2 text-[13px] font-medium text-[#525E4B]"
-            >
-              Frequently Asked Questions
-            </Link>
-            {isAuthenticated ? (
-              <Link
-                href="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block p-2 text-[13px] font-bold text-[#2A7C13]"
-              >
-                Back to Dashboard
-              </Link>
-            ) : (
-              <Link
-                href="/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block p-2 text-[13px] font-medium text-[#2A7C13]"
-              >
-                Sign in to Portal
-              </Link>
-            )}
-            <a
-              href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20would%20like%20a%20demonstration%20for%20our%20school."
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 p-2 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] text-[13px] font-semibold"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp: +237 682 833 601</span>
-            </a>
+              {/* Core Modules Section */}
+              <div className="space-y-2">
+                <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#788470] px-1">
+                  Core Modules
+                </p>
+                <div className="space-y-1.5">
+                  <Link
+                    href="/features/school-hub"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-[8px] bg-white border border-[#E8DFC9] hover:border-[#2A7C13] transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                      <WifiOff className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[#142010] group-hover:text-[#2A7C13] transition-colors">
+                        Offline School Hub
+                      </div>
+                      <div className="text-[11px] text-[#788470] leading-tight">
+                        Zero-internet local LAN sync for campuses
+                      </div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/features/report-cards"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-[8px] bg-white border border-[#E8DFC9] hover:border-[#2A7C13] transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[#142010] group-hover:text-[#2A7C13] transition-colors">
+                        Term Report Cards
+                      </div>
+                      <div className="text-[11px] text-[#788470] leading-tight">
+                        Sequences, CBA competencies, and batch printing
+                      </div>
+                    </div>
+                  </Link>
+
+                  <Link
+                    href="/features/finance"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-start gap-3 p-2.5 rounded-[8px] bg-white border border-[#E8DFC9] hover:border-[#2A7C13] transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                      <Wallet className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-bold text-[#142010] group-hover:text-[#2A7C13] transition-colors">
+                        Bursary &amp; Fee Receipts
+                      </div>
+                      <div className="text-[11px] text-[#788470] leading-tight">
+                        Installment logs, clearance lists, and FCFA receipts
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Resources & Information */}
+              <div className="space-y-2 pt-1 border-t border-[#E8DFC9]">
+                <p className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#788470] px-1 pt-2">
+                  Resources &amp; Guides
+                </p>
+                <div className="space-y-1">
+                  <Link
+                    href="/blog"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2.5 p-2 rounded-[6px] hover:bg-[#F2EFE6] text-[13px] font-semibold text-[#2A7C13] transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4" />
+                    <span>Teacher Guides &amp; Pedagogy Blog</span>
+                  </Link>
+                  <Link
+                    href="/#capabilities"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block p-2 rounded-[6px] hover:bg-[#F2EFE6] text-[13px] font-medium text-[#142010] transition-colors"
+                  >
+                    System Capabilities
+                  </Link>
+                  <Link
+                    href="/#how-it-works"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block p-2 rounded-[6px] hover:bg-[#F2EFE6] text-[13px] font-medium text-[#525E4B] transition-colors"
+                  >
+                    How It Works
+                  </Link>
+                  <Link
+                    href="/#faq"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="block p-2 rounded-[6px] hover:bg-[#F2EFE6] text-[13px] font-medium text-[#525E4B] transition-colors"
+                  >
+                    Frequently Asked Questions
+                  </Link>
+                </div>
+              </div>
+
+              {/* WhatsApp Hotline Box */}
+              <div className="pt-1">
+                <a
+                  href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20would%20like%20a%20demonstration%20for%20our%20school."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 p-2.5 rounded-[7px] bg-[#EAF7E4] border border-[#76C457]/40 text-[#142010] text-[12.5px] font-semibold hover:border-[#2A7C13] transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                  <div>
+                    <span className="text-[#2A7C13] block font-bold">+237 682 833 601</span>
+                    <span className="text-[10.5px] text-[#525E4B] font-normal">WhatsApp Support &amp; Demos</span>
+                  </div>
+                </a>
+              </div>
+            </div>
+
+            {/* Pinned Bottom CTA Actions */}
+            <div className="p-4 border-t border-[#E8DFC9] bg-white space-y-2 shrink-0">
+              {isAuthenticated ? (
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors"
+                >
+                  <LayoutDashboard className="w-4 h-4" />
+                  <span>Go to School Dashboard</span>
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors"
+                  >
+                    <span>Register Your School</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                  <Link
+                    href="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full inline-flex items-center justify-center py-2 rounded-[7px] bg-[#FFFDF5] border border-[#D5D5CF] hover:bg-[#F5F5F0] text-[#142010] font-semibold text-xs transition-colors"
+                  >
+                    Sign in to Portal
+                  </Link>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
