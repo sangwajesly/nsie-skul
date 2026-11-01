@@ -30,7 +30,7 @@ export default function ReportCardsFeaturePage() {
 
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="pt-14 sm:pt-20 pb-16 border-b border-[#E8DFC9] bg-gradient-to-b from-[#FFF8CF]/30 via-transparent to-transparent">
+        <section className="pt-14 sm:pt-20 pb-16 border-b border-[#E8DFC9] bg-[#FFFDF5]">
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="max-w-3xl mx-auto text-center space-y-5">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#76C457]/40 bg-[#EAF7E4] text-[12px] font-bold text-[#2A7C13]">

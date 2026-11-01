@@ -60,7 +60,29 @@ export function BulkReportCardsView({
   }, [reportCards, sortBy]);
 
   const handlePrint = () => {
+    if (typeof window === "undefined") return;
+    const originalTitle = document.title;
+    const firstRc = reportCards[0];
+    const schoolCode =
+      firstRc?.school?.code ||
+      (firstRc?.school?.name
+        ? firstRc.school.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4).toUpperCase()
+        : "School");
+    const cleanClass = (classNameTitle || "Class").replace(/[^a-zA-Z0-9]/g, "_");
+    const cleanTerm = (termName || "Term").replace(/[^a-zA-Z0-9]/g, "_");
+    const cleanYear = (firstRc?.term?.academicYearName || "2026-2027").replace(/[^a-zA-Z0-9]/g, "-");
+
+    const smartTitle = `Report_Cards_${schoolCode}_${cleanClass}_${cleanTerm}_${cleanYear}`;
+    document.title = smartTitle;
+
     window.print();
+
+    const restore = () => {
+      document.title = originalTitle;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    setTimeout(restore, 2000);
   };
 
   return (

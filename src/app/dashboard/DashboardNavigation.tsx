@@ -16,7 +16,6 @@ import {
   Settings,
   History,
   ShieldCheck,
-  Layers,
   Globe,
 } from "lucide-react";
 
@@ -301,14 +300,6 @@ export default function DashboardNavigation({
             icon={History}
             label="Activity Log"
             sublabel="See who changed school records"
-            currentHash={currentHash}
-            onNavClick={onNavClick}
-          />
-          <NavLink
-            href="/dashboard/settings/states"
-            icon={Layers}
-            label="System States"
-            sublabel="Empty, offline, loading & validation"
             currentHash={currentHash}
             onNavClick={onNavClick}
           />

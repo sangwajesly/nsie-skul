@@ -1,5 +1,7 @@
 import React from "react";
 import { ReportCardFullData, SubjectRowData } from "@/lib/academic/report-card-service";
+import { resolveSchoolCity, formatReportCardDate } from "@/lib/academic/report-card-utils";
+import { QRCodeSVG } from "@/components/ui/QRCodeSVG";
 
 interface GroupedClassicReportCardProps {
   data: ReportCardFullData;
@@ -143,6 +145,12 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
   const maleCount = classInfo.maleEnrolment ?? 0;
   const femaleCount = classInfo.femaleEnrolment ?? 0;
   const totalCount = classInfo.classEnrolment ?? (maleCount + femaleCount);
+
+  const city = resolveSchoolCity(school.address, school.name);
+  const issueDate = formatReportCardDate();
+  const doneLocationEn = city ? `Done at ${city}, on ${issueDate}` : `Issued on ${issueDate}`;
+
+  const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
 
   return (
     <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
@@ -303,7 +311,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
             {subjects.length === 0 ? (
               <tr>
                 <td colSpan={11} className="py-8 text-center text-zinc-500 italic text-[11px]">
-                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
+                  No subjects have been configured for this class stream yet. Configure subjects in Academics &gt; Class Coefficients or allocate teachers in Academics &gt; Teacher Allocations.
                 </td>
               </tr>
             ) : (
@@ -645,7 +653,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
         </div>
       </div>
 
-      {/* ── 6. SIGNATURES & VISAS ─────────────────────────────────────────────── */}
+      {/* ── 6. SIGNATURES & STAMPS ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-12 divide-x-2 divide-black text-[9px] pt-2">
         {/* Class Master */}
         <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28">
@@ -658,19 +666,23 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
           </div>
         </div>
 
-        {/* Principal Visa & Seal */}
+        {/* Principal Stamp & Seal */}
         <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28 bg-zinc-50/40">
           <div>
             <div className="text-[8px] font-mono text-zinc-700">
-              Done in Yaounde / Bamenda, on {new Date().toLocaleDateString("en-GB")}
+              {doneLocationEn}
             </div>
             <div className="font-black uppercase text-[10px] mt-1">The Principal / Le Chef d&apos;Établissement</div>
           </div>
-          <div className="font-serif italic text-zinc-400 text-[10px]">
-            [ Institutional Seal &amp; Signature ]
+          <div className="flex items-center justify-center gap-2">
+            <QRCodeSVG value={verifyUrl} size={36} quietZone={1} />
+            <div className="text-left text-[7px] font-mono leading-tight text-zinc-600">
+              <span className="font-bold block text-black">OFFICIAL QR</span>
+              <span>Scan to verify</span>
+            </div>
           </div>
           <div className="border-t border-dotted border-black/40 text-[7.5px] text-zinc-500 pt-0.5">
-            Visa du Chef d&apos;Établissement
+            Signature &amp; Stamp / Cachet
           </div>
         </div>
 
@@ -678,7 +690,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
         <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28">
           <div>
             <div className="font-black uppercase text-[9.5px]">SIGNATURE OF PARENTS / PARENT</div>
-            <div className="text-[8px] text-zinc-600 mt-0.5">Visa du Parent / Tuteur</div>
+            <div className="text-[8px] text-zinc-600 mt-0.5">Signature du Parent / Tuteur</div>
           </div>
           <div className="text-[7.5px] italic text-zinc-400 border-t border-dotted border-black/40 pt-1">
             Parent&apos;s Signature

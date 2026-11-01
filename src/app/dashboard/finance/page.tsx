@@ -89,47 +89,47 @@ export default async function FinancePage({ searchParams }: FinancePageProps) {
 
       {/* KPI Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
+        <div className="bg-white p-4 sm:p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-1">
+          <div className="text-xs font-semibold text-[#666666]">
             Fees Expected
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#142010]">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-[#142010]">
             {formatFCFA(kpis.totalExpected)}
           </div>
-          <div className="text-[10px] text-[#525E4B]">Based on current fee bills</div>
+          <div className="text-[11px] text-[#777777]">Based on current active bills</div>
         </div>
 
-        <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
+        <div className="bg-white p-4 sm:p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-1">
+          <div className="text-xs font-semibold text-[#666666]">
             Fees Collected
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#2A7C13]">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-[#2A7C13]">
             {formatFCFA(kpis.totalCollected)}
           </div>
-          <div className="text-[10px] text-[#2A7C13] font-medium">
-            Collected / expected: {kpis.recoveryRate}%
+          <div className="text-[11px] text-[#2A7C13] font-medium">
+            Recovery rate: {kpis.recoveryRate}%
           </div>
         </div>
 
-        <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
+        <div className="bg-white p-4 sm:p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-1">
+          <div className="text-xs font-semibold text-[#666666]">
             Fees Still Owed
           </div>
-          <div className="text-xl sm:text-2xl font-extrabold font-mono text-[#92400E]">
+          <div className="text-xl sm:text-2xl font-bold font-mono text-[#92400E]">
             {formatFCFA(kpis.totalOutstanding)}
           </div>
-          <div className="text-[10px] text-[#92400E] font-medium">Outstanding balance on current bills</div>
+          <div className="text-[11px] text-[#92400E] font-medium">Outstanding balance</div>
         </div>
 
-        <div className="bg-white p-4 rounded-[8px] border border-[#E8DFC9] shadow-2xs space-y-1">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#788470]">
-            Payment Status
+        <div className="bg-white p-4 sm:p-5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-1">
+          <div className="text-xs font-semibold text-[#666666]">
+            Payment Progress
           </div>
-          <div className="text-xs font-mono font-bold text-[#142010] space-y-0.5">
-            <div className="text-[#2A7C13]">{kpis.paidCount} paid in full</div>
+          <div className="text-xs font-mono font-medium text-[#142010] space-y-0.5 mt-1">
+            <div className="text-[#2A7C13] font-bold">{kpis.paidCount} fully settled</div>
             <div className="text-[#92400E]">{kpis.partialCount} partly paid</div>
           </div>
-          <div className="text-[10px] text-[#788470]">Students with fee records</div>
+          <div className="text-[11px] text-[#777777]">Enrolled student accounts</div>
         </div>
       </div>
 

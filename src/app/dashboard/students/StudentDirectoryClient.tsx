@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useRef } from "react";
+import { useState, useTransition, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Enrolment, School, ClassStream } from "@/types/database";
 import {
@@ -9,6 +9,8 @@ import {
   deleteStudentAction,
 } from "@/app/academics/actions";
 import { ClassListModal } from "./ClassListModal";
+import { StudentIdCardModal } from "@/components/academic/id-cards/StudentIdCardModal";
+import type { StudentIdCardData } from "@/components/academic/id-cards/types";
 import {
   Users,
   Search,
@@ -27,6 +29,7 @@ import {
   Camera,
   Upload,
   Printer,
+  CreditCard,
 } from "lucide-react";
 
 interface StreamOption {
@@ -67,6 +70,37 @@ export function StudentDirectoryClient({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isClassListModalOpen, setIsClassListModalOpen] = useState(false);
+  const [isIdCardModalOpen, setIsIdCardModalOpen] = useState(false);
+  const [selectedIdCardStudentIndex, setSelectedIdCardStudentIndex] = useState(0);
+
+  const idCardStudentsData = useMemo<StudentIdCardData[]>(() => {
+    return enrolledStudents.map((enrol) => ({
+      studentId: enrol.student_id,
+      matricule: enrol.student?.matricule || "N/A",
+      firstName: enrol.student?.first_name || "",
+      lastName: enrol.student?.last_name || "",
+      fullName: `${enrol.student?.last_name || ""} ${enrol.student?.first_name || ""}`.trim(),
+      className: enrol.class_stream?.name || "Class",
+      streamName: enrol.class_stream?.name || "",
+      fullClassName: enrol.class_stream?.name || "Class",
+      gender: enrol.student?.gender || "M",
+      dateOfBirth: enrol.student?.date_of_birth || null,
+      placeOfBirth: enrol.student?.place_of_birth || null,
+      photoUrl: enrol.student?.photo_url || null,
+      guardianName: enrol.student?.guardian_name || null,
+      guardianPhone: enrol.student?.guardian_phone || null,
+      residenceStatus: enrol.student?.residence_status || "day",
+      academicYearName: academicYearName,
+      schoolName: school?.name || "Secondary School",
+      schoolCode: school?.code || (school?.name ? school.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 4).toUpperCase() : "SCH"),
+      schoolLogoUrl: school?.logo_url || null,
+      schoolMotto: school?.motto || null,
+      schoolAddress: school?.address || null,
+      schoolPhone: school?.phone || null,
+      schoolSubsystem: school?.subsystem || "bilingual",
+      classStreamId: enrol.class_stream_id || enrol.class_stream?.id || "",
+    }));
+  }, [enrolledStudents, academicYearName, school]);
 
   // Edit Student State
   const [editingEnrolment, setEditingEnrolment] = useState<Enrolment | null>(null);
@@ -335,6 +369,20 @@ export function StudentDirectoryClient({
             <span>Generate Class List</span>
           </button>
 
+          {/* Student ID Card Generator Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedIdCardStudentIndex(0);
+              setIsIdCardModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] border border-[#B45309] bg-[#FFF8CF] hover:bg-[#FEF08A] text-[#854D0E] text-xs font-bold shadow-2xs transition-colors cursor-pointer"
+            title="Generate student ID cards with QR code & barcode"
+          >
+            <CreditCard className="w-3.5 h-3.5 text-[#B45309]" />
+            <span>Student ID Cards</span>
+          </button>
+
           {canManageStudents && (
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-[#777777]">View:</span>
@@ -483,27 +531,14 @@ export function StudentDirectoryClient({
                         {enrol.class_stream?.name || "Unassigned"}
                       </span>
                     </td>
-                    <td className="py-2.5 px-2.5 font-bold text-[#555555]">
+                    <td className="py-2.5 px-2.5 font-medium text-[#555555]">
                       {enrol.student?.gender}
                     </td>
-                    <td className="py-2.5 px-2.5">
-                      <span
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[3px] text-[10px] font-semibold uppercase tracking-wider ${
-                          enrol.student?.residence_status === "boarding"
-                            ? "bg-[#FAF5FF] text-[#7E22CE] border border-[#F3E8FF]"
-                            : "bg-[#F0FDF4] text-[#15803D] border border-[#DCFCE7]"
-                        }`}
-                      >
-                        {enrol.student?.residence_status === "boarding" ? (
-                          <Building className="w-3 h-3" />
-                        ) : (
-                          <Home className="w-3 h-3" />
-                        )}
-                        <span>{enrol.student?.residence_status}</span>
-                      </span>
+                    <td className="py-2.5 px-2.5 capitalize text-[#555555]">
+                      {enrol.student?.residence_status || "Day"}
                     </td>
                     <td className="py-2.5 px-2.5 text-[#666666]">
-                      {enrol.student?.guardian_name || "—"}{" "}
+                      {enrol.student?.guardian_name || "-"}{" "}
                       {enrol.student?.guardian_phone && (
                         <span className="font-mono text-[10px] text-[#888888]">
                           ({enrol.student.guardian_phone})
@@ -539,6 +574,19 @@ export function StudentDirectoryClient({
                     {canManageStudents && (
                       <td className="py-2.5 px-2.5 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const idx = idCardStudentsData.findIndex((s) => s.studentId === enrol.student_id);
+                              setSelectedIdCardStudentIndex(idx >= 0 ? idx : 0);
+                              setIsIdCardModalOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] text-[11px] font-semibold border border-[#D5CBB2] bg-[#FFF8CF]/60 hover:bg-[#FFF8CF] text-[#854D0E] transition-colors shadow-2xs"
+                            title="Generate Student ID Card"
+                          >
+                            <CreditCard className="w-3 h-3 text-[#B45309]" />
+                            <span>ID Card</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleOpenEditModal(enrol)}
@@ -1168,6 +1216,25 @@ export function StudentDirectoryClient({
         school={school}
         academicYearName={academicYearName}
         defaultStreamId={selectedStreamId}
+      />
+
+      {/* Student ID Card (Carte d'Identité Scolaire) Generator Modal */}
+      <StudentIdCardModal
+        isOpen={isIdCardModalOpen}
+        onClose={() => setIsIdCardModalOpen(false)}
+        students={idCardStudentsData}
+        initialStudentIndex={selectedIdCardStudentIndex}
+        classStreams={streams}
+        selectedStreamId={selectedStreamId}
+        onStreamChange={(streamId) => {
+          const params = new URLSearchParams(window.location.search);
+          if (streamId) {
+            params.set("classStreamId", streamId);
+          } else {
+            params.delete("classStreamId");
+          }
+          router.push(`/dashboard/students?${params.toString()}`);
+        }}
       />
     </div>
   );

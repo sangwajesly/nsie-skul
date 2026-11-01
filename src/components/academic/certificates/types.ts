@@ -24,6 +24,7 @@ export interface HonorRollRecipient {
   subjectName?: string;
   subjectCode?: string;
   subjectMark?: number; // out of 20
+  teacherName?: string;
   cycle?: "Cycle 1" | "Cycle 2";
 }
 
@@ -45,6 +46,7 @@ export interface CertificateConfig {
 export interface CertificateSchoolInfo {
   id: string;
   name: string;
+  code?: string | null;
   logoUrl?: string | null;
   motto?: string | null;
   address?: string | null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { School } from "@/types/database";
 import { updateSchoolSettingsAction } from "./actions";
 import { 
@@ -27,6 +28,10 @@ interface Props {
 }
 
 export default function SchoolSettingsClient({ school }: Props) {
+  const router = useRouter();
+  const [schoolName, setSchoolName] = useState<string>(school.name || "");
+  const [schoolCode, setSchoolCode] = useState<string>(school.code || "");
+  const [isCodeManuallyCustomized, setIsCodeManuallyCustomized] = useState<boolean>(false);
   const [rankingMode, setRankingMode] = useState<string>(school.ranking_mode || "enabled");
   const [approvalWorkflow, setApprovalWorkflow] = useState<string>(
     school.result_approval_workflow || "hod"
@@ -83,7 +88,8 @@ export default function SchoolSettingsClient({ school }: Props) {
 
     try {
       await updateSchoolSettingsAction(formData);
-      setStatusMessage({ type: "success", text: "School parameters successfully saved and synchronized!" });
+      setStatusMessage({ type: "success", text: "School parameters successfully saved and synchronized across the entire system!" });
+      router.refresh();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to update school settings";
       setStatusMessage({ type: "error", text: msg });
@@ -184,7 +190,18 @@ export default function SchoolSettingsClient({ school }: Props) {
               <input
                 type="text"
                 name="name"
-                defaultValue={school.name}
+                value={schoolName}
+                onChange={(e) => {
+                  const newName = e.target.value;
+                  setSchoolName(newName);
+                  if (!isCodeManuallyCustomized) {
+                    const words = newName.trim().split(/\s+/).filter(Boolean);
+                    const derived = words.map((w: string) => w[0]?.toUpperCase()).filter(Boolean).join("").slice(0, 6);
+                    if (derived) {
+                      setSchoolCode(derived);
+                    }
+                  }
+                }}
                 required
                 className="w-full px-3 py-2 border border-[#D5CBB2] rounded-[5px] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               />
@@ -204,16 +221,30 @@ export default function SchoolSettingsClient({ school }: Props) {
             </div>
 
             <div>
-              <label className="block font-medium text-[#444444] mb-1">
-                School Registration Code
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-medium text-[#444444]">
+                  School Registration Code / Acronym
+                </label>
+                {!isCodeManuallyCustomized && schoolCode && (
+                  <span className="text-[10px] text-[#2A7C13] font-semibold">
+                    Auto-generated from name
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 name="code"
-                defaultValue={school.code || ""}
-                placeholder="e.g. GBHS-BDA"
-                className="w-full px-3 py-2 border border-[#D5CBB2] rounded-[5px] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
+                value={schoolCode}
+                onChange={(e) => {
+                  setSchoolCode(e.target.value.toUpperCase());
+                  setIsCodeManuallyCustomized(true);
+                }}
+                placeholder="e.g. SJC or GBHS-BDA"
+                className="w-full px-3 py-2 border border-[#D5CBB2] rounded-[5px] bg-white text-[#142010] font-mono focus:outline-none focus:border-[#2A7C13]"
               />
+              <p className="text-[10px] text-[#777777] mt-1">
+                Used across student matricules, official receipts, and certificates.
+              </p>
             </div>
 
             <div>

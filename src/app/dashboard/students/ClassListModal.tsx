@@ -671,7 +671,7 @@ export function ClassListModal({
                     The Principal / Le Chef d&apos;Établissement
                   </p>
                   <p className="border-t border-dotted border-[#142010] pt-1 text-[9.5px] italic text-[#788470]">
-                    Visa &amp; Official School Stamp
+                    Signature &amp; Official School Stamp
                   </p>
                 </div>
               </div>

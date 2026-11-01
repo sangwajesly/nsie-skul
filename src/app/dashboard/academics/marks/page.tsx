@@ -10,6 +10,7 @@ import {
   getSchoolTeacherAssignments,
   getHodScope,
   getSchoolDepartments,
+  getSchoolClassSubjects,
 } from "@/lib/academic/service";
 import {
   getMarksForSequence,
@@ -40,7 +41,16 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
 
   // 1. Load active academic year, terms & sequences
   const activeYear = await getActiveAcademicYear(schoolId);
-  const [sequences, classesWithStreams, rawSubjects, teacherAssignments, allSchoolAssignments, hodScope, allDepartments] = await Promise.all([
+  const [
+    sequences,
+    classesWithStreams,
+    rawSubjects,
+    teacherAssignments,
+    allSchoolAssignments,
+    hodScope,
+    allDepartments,
+    allClassSubjects,
+  ] = await Promise.all([
     getSchoolSequences(schoolId),
     getSchoolClasses(schoolId, activeYear?.id),
     getSchoolSubjects(schoolId),
@@ -54,6 +64,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
       ? getHodScope(schoolId, activeYear.id, context.user.id)
       : Promise.resolve(null),
     getSchoolDepartments(schoolId),
+    getSchoolClassSubjects(schoolId),
   ]);
 
   // If HOD, restrict to subjects under their department (plus any subject they teach)
@@ -72,11 +83,27 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
 
   // Build a map of class_stream_id -> Set<subject_id> for cross-filtering
   const streamToSubjects = new Map<string, Set<string>>();
-  for (const a of (isTeacher ? teacherAssignments : allSchoolAssignments)) {
-    if (!streamToSubjects.has(a.class_stream_id)) {
-      streamToSubjects.set(a.class_stream_id, new Set());
+  if (isTeacher) {
+    for (const a of teacherAssignments) {
+      if (!streamToSubjects.has(a.class_stream_id)) {
+        streamToSubjects.set(a.class_stream_id, new Set());
+      }
+      streamToSubjects.get(a.class_stream_id)!.add(a.subject_id);
     }
-    streamToSubjects.get(a.class_stream_id)!.add(a.subject_id);
+  } else {
+    for (const a of allSchoolAssignments) {
+      if (!streamToSubjects.has(a.class_stream_id)) {
+        streamToSubjects.set(a.class_stream_id, new Set());
+      }
+      streamToSubjects.get(a.class_stream_id)!.add(a.subject_id);
+    }
+    // Also include subjects configured in class_subjects for this class stream
+    for (const cs of allClassSubjects) {
+      if (!streamToSubjects.has(cs.class_stream_id)) {
+        streamToSubjects.set(cs.class_stream_id, new Set());
+      }
+      streamToSubjects.get(cs.class_stream_id)!.add(cs.subject_id);
+    }
   }
 
   // Streams visible in the dropdown:
@@ -117,9 +144,13 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
 
   // Subjects for selected stream:
   // - For teachers: cross-filter subjects by their assigned classes and subjects
-  // - For HOD / Admin: filter subjects by those assigned to the selected class group (falling back to department/all subjects)
+  // - For HOD / Admin: filter subjects by those assigned to the selected class group (via teacher allocation or class curriculum)
   const streamAssignments = allSchoolAssignments.filter((a) => a.class_stream_id === selectedStream?.id);
-  const streamAssignedSubjectIds = new Set(streamAssignments.map((a) => a.subject_id));
+  const streamConfiguredSubjects = allClassSubjects.filter((cs) => cs.class_stream_id === selectedStream?.id);
+  const streamAssignedSubjectIds = new Set([
+    ...streamAssignments.map((a) => a.subject_id),
+    ...streamConfiguredSubjects.map((cs) => cs.subject_id),
+  ]);
 
   let subjectsForSelectedStream: typeof subjects = [];
   if (isTeacher && teacherAssignments.length > 0) {
@@ -329,7 +360,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         </div>
       )}
 
-      {/* Filter / Selector Controls — hidden for unassigned teachers */}
+      {/* Filter / Selector Controls - hidden for unassigned teachers */}
       {(!isTeacher || teacherAssignments.length > 0) && (
       <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-3">
         <div className="flex items-center justify-between">
@@ -360,14 +391,14 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
               >
                 {sequences.map((seq) => (
                   <option key={seq.id} value={seq.id}>
-                    {seq.name} (Test {seq.sequence_number}) — {seq.is_open_for_marks ? "Open for Marks" : "Closed"}
+                    {seq.name} (Test {seq.sequence_number}) - {seq.is_open_for_marks ? "Open for Marks" : "Closed"}
                   </option>
                 ))}
               </AutoSubmitSelect>
             </form>
           </div>
 
-          {/* 2. Class Stream Selector — teachers see only assigned classes; HOD/Admins see all relevant */}
+          {/* 2. Class Stream Selector - teachers see only assigned classes; HOD/Admins see all relevant */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Class Group
@@ -389,7 +420,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
             </form>
           </div>
 
-          {/* 3. Subject Selector — scoped to selected class */}
+          {/* 3. Subject Selector - scoped to selected class */}
           <div>
             <label className="block text-[11px] font-medium text-[#525E4B] mb-1">
               Subject
@@ -402,11 +433,19 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
                 defaultValue={selectedSubject?.id}
                 className="w-full px-3 py-1.5 rounded-[5px] border border-[#E8DFC9] bg-[#FFFDF5] text-xs font-semibold text-[#142010] focus:outline-none focus:border-[#2A7C13]"
               >
-                {subjectsForSelectedStream.map((sub) => (
-                  <option key={sub.id} value={sub.id}>
-                    {sub.name}
-                  </option>
-                ))}
+                {subjectsForSelectedStream.map((sub) => {
+                  const teacherForSub = streamAssignments.find((a) => a.subject_id === sub.id)?.teacher?.full_name;
+                  const label = isAdmin
+                    ? teacherForSub
+                      ? `${sub.name} (${teacherForSub})`
+                      : `${sub.name} (Desk Entry)`
+                    : sub.name;
+                  return (
+                    <option key={sub.id} value={sub.id}>
+                      {label}
+                    </option>
+                  );
+                })}
               </AutoSubmitSelect>
             </form>
           </div>

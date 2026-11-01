@@ -45,6 +45,18 @@ export default async function DashboardPage() {
   const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
   const isHodUser = !isAdmin && (roleCode === "hod" || Boolean(tenantContext?.isHod));
 
+  // Clean greeting formatting (handles titles like Dr., Mr., Mrs. without truncating to just the title)
+  const userGreeting = (() => {
+    if (!userName || userName === "Staff Member") return "Staff Member";
+    const parts = userName.trim().split(/\s+/);
+    if (parts.length <= 1) return parts[0];
+    const titles = ["dr.", "dr", "mr.", "mr", "mrs.", "mrs", "ms.", "ms", "prof.", "prof", "rev.", "rev", "pastor", "engr."];
+    if (titles.includes(parts[0].toLowerCase())) {
+      return `${parts[0]} ${parts[parts.length - 1]}`;
+    }
+    return parts[0];
+  })();
+
   // Real data
   const activeYear = await getActiveAcademicYear(schoolId);
   const [staff, rawSubjects, rawDepartments, classes, teacherAssignments, sequences, hodScope] = await Promise.all([
@@ -130,7 +142,7 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <h1 className="text-2xl font-extrabold text-[#191919] tracking-tight">
-                Welcome back, {userName.split(" ")[0]}!
+                Welcome back, {userGreeting}!
               </h1>
               <p className="text-[13px] text-[#777777] mt-1 flex flex-wrap items-center gap-2">
                 <span>{activeYear?.name || "Academic year not set"}</span>
@@ -147,7 +159,18 @@ export default async function DashboardPage() {
               </p>
             </div>
             <div className="text-[11px] text-[#999999] text-left sm:text-right">
-              <div className="font-mono font-bold text-[#142010]">{school?.code || "GBHS-BDA"}</div>
+              <div className="font-mono font-bold text-[#142010]">
+                {school?.code ||
+                  (school?.name
+                    ? school.name
+                        .trim()
+                        .split(/\s+/)
+                        .filter(Boolean)
+                        .map((w) => w[0]?.toUpperCase())
+                        .join("")
+                        .slice(0, 6)
+                    : "SCH")}
+              </div>
               <div>Secondary School System</div>
             </div>
           </div>
@@ -328,8 +351,8 @@ export default async function DashboardPage() {
       <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-4 sm:p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <p className="text-[12px] text-[#AAAAAA] font-medium mb-1">
-              Welcome back, {userName.split(" ")[0]}
+            <p className="text-[12px] font-bold text-[#2A7C13] mb-1">
+              Welcome back, {userGreeting}
             </p>
             <h1 className="text-2xl font-extrabold text-[#191919] tracking-tight">
               {schoolName}

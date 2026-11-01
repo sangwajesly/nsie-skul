@@ -1,5 +1,7 @@
 import React from "react";
 import { ReportCardFullData } from "@/lib/academic/report-card-service";
+import { resolveSchoolCity, formatReportCardDate } from "@/lib/academic/report-card-utils";
+import { QRCodeSVG } from "@/components/ui/QRCodeSVG";
 
 interface MinesecReportCardProps {
   data: ReportCardFullData;
@@ -31,6 +33,12 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
     discipline,
     remarks,
   } = data;
+
+  const city = resolveSchoolCity(school.address, school.name);
+  const issueDate = formatReportCardDate();
+  const doneLocationEn = city ? `Done at ${city}, on ${issueDate}` : `Issued on ${issueDate}`;
+
+  const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
 
   return (
     <div className="bg-white text-black p-4 sm:p-6 max-w-[960px] mx-auto border border-black/80 font-sans text-[11px] leading-tight print:p-0 print:border-none print:max-w-none print:w-full">
@@ -64,7 +72,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
               <span className="font-bold text-[10px] text-black">{school.code || "SEAL"}</span>
             )}
           </div>
-          <div className="text-[8px] font-mono">REG: {school.code || "MINESEC/2026"}</div>
+          <div className="text-[8px] font-mono">REG: {school.code || (school.name ? school.name.trim().split(/\s+/).map((w: string) => w[0]?.toUpperCase()).join("").slice(0, 6) : "SCH")}</div>
         </div>
 
         {/* Francophone Subsystem Header (Right) */}
@@ -74,11 +82,11 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
           <div className="text-[7px]">*************</div>
           <div>MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
           <div className="text-[7px]">*************</div>
-          <div>REGIONAL DELEGATION OF {school.regionalDelegation}</div>
+          <div>DÉLÉGATION RÉGIONALE DE {school.regionalDelegation}</div>
           <div className="text-[7px]">*************</div>
-          <div>DIVISIONAL DELEGATION OF {school.divisionalDelegation}</div>
+          <div>DÉLÉGATION DÉPARTEMENTALE DE {school.divisionalDelegation}</div>
           <div className="text-[7px]">*************</div>
-          <div className="text-[10px] font-extrabold text-black pt-0.5">LYCÉE DE {school.code || "BAMENDA"}</div>
+          <div className="text-[10px] font-extrabold text-black pt-0.5">{school.name.toUpperCase()}</div>
         </div>
       </div>
 
@@ -99,8 +107,11 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
             School Year: <span className="font-mono">{term.academicYearName}</span>
           </div>
         </div>
-        <div className="w-16 h-16 border border-dashed border-black/60 flex items-center justify-center text-[8px] text-zinc-500 uppercase text-center p-1">
-          Official Stamp
+        <div className="w-16 h-16 border border-black/80 flex flex-col items-center justify-center p-0.5 bg-white text-center shrink-0">
+          <QRCodeSVG value={verifyUrl} size={48} quietZone={1} />
+          <span className="text-[6px] font-mono uppercase font-black text-black leading-none mt-0.5 tracking-tighter">
+            Scan to Verify
+          </span>
         </div>
       </div>
 
@@ -188,7 +199,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
             {subjects.length === 0 ? (
               <tr>
                 <td colSpan={9} className="py-8 text-center text-zinc-500 italic text-[11px]">
-                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
+                  No subjects have been configured for this class stream yet. Configure subjects in Academics &gt; Class Coefficients or allocate teachers in Academics &gt; Teacher Allocations.
                 </td>
               </tr>
             ) : (
@@ -364,12 +375,12 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
 
         <div className="col-span-4 p-2 space-y-1 text-center bg-zinc-50/30">
           <div className="font-black uppercase text-[9px]">The PRINCIPAL</div>
-          <div className="text-[8px] text-zinc-600">Decision &amp; Institutional Visa</div>
+          <div className="text-[8px] text-zinc-600">Decision &amp; Institutional Stamp</div>
           <div className="h-12 flex items-center justify-center font-serif italic text-zinc-400 text-xs">
             [ Official Seal &amp; Signature ]
           </div>
           <div className="text-[7.5px] font-mono text-zinc-500">
-            Done at Bamenda, on {new Date().toLocaleDateString("en-GB")}
+            {doneLocationEn}
           </div>
         </div>
       </div>

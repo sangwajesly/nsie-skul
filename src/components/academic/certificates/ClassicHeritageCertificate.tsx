@@ -157,8 +157,8 @@ export function ClassicHeritageCertificate({
       <div className="relative z-10 text-center my-1 sm:my-2">
         <div className="inline-block relative">
           <div className="px-6 sm:px-10 py-1.5 sm:py-2 border-y-2 border-[#B4842A] bg-gradient-to-r from-transparent via-[#FFF8DE] to-transparent">
-            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] uppercase text-[#7A550C] drop-shadow-2xs">
-              Tableau d&apos;Honneur
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black tracking-[0.2em] uppercase text-[#7A550C] drop-shadow-2xs font-serif">
+              Roll of Honour
             </h2>
             <p className="text-[10px] sm:text-[11.5px] font-sans uppercase font-bold tracking-[0.25em] text-[#1E3A10] mt-0.5">
               Certificate of Academic Excellence
@@ -171,7 +171,7 @@ export function ClassicHeritageCertificate({
       <div className="relative z-10 text-center space-y-2 sm:space-y-3 px-2 sm:px-6">
         <p className="text-[11px] sm:text-xs text-[#555555] italic">
           {config.bilingualLabels
-            ? "Le Conseil des Professeurs et l'Administration décernent le présent titre à l'élève :"
+            ? "The Academic Council and School Administration proudly confer this honor upon / Le Conseil décerne ce titre à :"
             : "The Academic Council and School Administration proudly confer this honor upon:"}
         </p>
 
@@ -185,7 +185,7 @@ export function ClassicHeritageCertificate({
         {/* Class, Matricule & Ranking Metadata */}
         <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap text-xs sm:text-[13px] text-[#222222]">
           <span className="font-bold">
-            Classe / Class: <span className="text-[#1E3A10]">{recipient.fullClassName}</span>
+            Class: <span className="text-[#1E3A10]">{recipient.fullClassName}</span>
           </span>
           <span className="text-[#B4842A]">◆</span>
           <span>
@@ -206,12 +206,12 @@ export function ClassicHeritageCertificate({
           </span>
           {typeof recipient.average === "number" && (
             <span className="font-mono text-xs sm:text-sm font-black text-[#15803D] border-l border-[#D5B853] pl-2.5">
-              Moyenne: {recipient.average.toFixed(2)}/20
+              Average: {recipient.average.toFixed(2)} / 20
             </span>
           )}
           {typeof recipient.subjectMark === "number" && recipient.subjectName && (
             <span className="font-mono text-xs sm:text-sm font-black text-[#15803D] border-l border-[#D5B853] pl-2.5">
-              {recipient.subjectName}: {recipient.subjectMark.toFixed(1)}/20
+              {recipient.subjectName}: {recipient.subjectMark.toFixed(1)} / 20
             </span>
           )}
         </div>
@@ -257,7 +257,7 @@ export function ClassicHeritageCertificate({
                     textAnchor="middle"
                     fill="#7A550C"
                   >
-                    MINESEC
+                    ACADEMIC
                   </text>
                   <text
                     x="50"

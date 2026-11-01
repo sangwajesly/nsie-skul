@@ -47,6 +47,8 @@ export interface SubjectLaureateItem {
   passedCount: number;
   passRate: number;
   averageScore: number;
+  teachers?: string[];
+  topTeacher?: string;
 }
 
 export interface AcademicAnalyticsData {
@@ -54,6 +56,7 @@ export interface AcademicAnalyticsData {
   schoolInfo: {
     id: string;
     name: string;
+    code?: string | null;
     logoUrl?: string | null;
     motto?: string | null;
     address?: string | null;
@@ -97,13 +100,23 @@ export interface AcademicAnalyticsData {
 /**
  * Computes Cameroon CBA performance appreciation based on standard 20-point scale.
  */
-export function getCameroonAppreciation(average: number): string {
-  if (average >= 16) return "Tableau d'Honneur avec Félicitations (Excellent)";
-  if (average >= 14) return "Tableau d'Honneur avec Encouragements (Very Good)";
-  if (average >= 12) return "Tableau d'Honneur (Good)";
-  if (average >= 10) return "Passable (Satisfactory)";
-  if (average >= 8.5) return "Insuffisant (Needs Improvement)";
-  return "Médiocre (Critical Attention)";
+export function getCameroonAppreciation(average: number, subsystem?: string): string {
+  if (subsystem === "francophone") {
+    if (average >= 16) return "Tableau d'Honneur avec Félicitations";
+    if (average >= 14) return "Tableau d'Honneur avec Encouragements";
+    if (average >= 12) return "Tableau d'Honneur";
+    if (average >= 10) return "Passable";
+    if (average >= 8.5) return "Insuffisant";
+    return "Médiocre";
+  }
+
+  // Anglophone / English Cameroon Secondary Subsystem (GBHS, Colleges, Institutes)
+  if (average >= 16) return "Highest Distinction";
+  if (average >= 14) return "Distinction";
+  if (average >= 12) return "Honours (Roll of Honour)";
+  if (average >= 10) return "Satisfactory (Pass)";
+  if (average >= 8.5) return "Needs Improvement";
+  return "Critical Attention";
 }
 
 /**
@@ -126,7 +139,7 @@ export async function getAcademicAnalytics(params: {
   // 1. Fetch School & Academic Year
   const { data: school } = await supabase
     .from("schools")
-    .select("id, name, logo_url, motto, address, phone, email, subsystem, ranking_mode")
+    .select("id, name, code, logo_url, motto, address, phone, email, subsystem, ranking_mode")
     .eq("id", schoolId)
     .single();
 
@@ -251,10 +264,17 @@ export async function getAcademicAnalytics(params: {
   classes.forEach((c) => {
     const cycle: "Cycle 1" | "Cycle 2" = (c.level_order && c.level_order > 5) ? "Cycle 2" : "Cycle 1";
     (c.class_streams || []).forEach((st: any) => {
+      const streamClean = (st.name || "").trim();
+      const classClean = (c.name || "").trim();
+      // If stream already contains class name (e.g. "Form 1 A" vs "Form 1"), don't duplicate
+      const fullStreamName = streamClean.toLowerCase().startsWith(classClean.toLowerCase())
+        ? streamClean
+        : `${classClean} ${streamClean}`.trim();
+
       streamMetaMap.set(st.id, {
-        className: c.name,
-        streamName: st.name,
-        fullName: `${c.name} ${st.name}`.trim(),
+        className: classClean,
+        streamName: streamClean,
+        fullName: fullStreamName,
         cycle,
       });
     });
@@ -276,6 +296,34 @@ export async function getAcademicAnalytics(params: {
       coefficient: Number(cs.coefficient) || 1,
       subject: cs.subject,
     });
+  });
+
+  // 5b. Fetch Teacher Assignments for Subject Teacher Mapping
+  let teacherAssignQuery = supabase
+    .from("teacher_assignments")
+    .select("class_stream_id, subject_id, teacher:user_profiles(id, full_name)")
+    .eq("school_id", schoolId);
+
+  if (academicYearId) {
+    teacherAssignQuery = teacherAssignQuery.eq("academic_year_id", academicYearId);
+  }
+
+  const { data: rawTeacherAssignments } = await teacherAssignQuery;
+  const subjectTeachersMap = new Map<string, Set<string>>();
+  const streamSubjectTeacherMap = new Map<string, string>();
+
+  (rawTeacherAssignments || []).forEach((ta: any) => {
+    const teacherName = ta.teacher?.full_name?.trim();
+    if (teacherName && ta.subject_id) {
+      if (!subjectTeachersMap.has(ta.subject_id)) {
+        subjectTeachersMap.set(ta.subject_id, new Set<string>());
+      }
+      subjectTeachersMap.get(ta.subject_id)!.add(teacherName);
+
+      if (ta.class_stream_id) {
+        streamSubjectTeacherMap.set(`${ta.class_stream_id}_${ta.subject_id}`, teacherName);
+      }
+    }
   });
 
   // 6. Fetch Assessment Marks for Target Sequence
@@ -310,6 +358,7 @@ export async function getAcademicAnalytics(params: {
       schoolInfo: {
         id: school?.id || schoolId,
         name: school?.name || "School",
+        code: school?.code || null,
         logoUrl: school?.logo_url || null,
         motto: school?.motto || null,
         address: school?.address || null,
@@ -435,7 +484,7 @@ export async function getAcademicAnalytics(params: {
       cycle: streamInfo.cycle,
       average,
       totalMarksCount: agg.marksCount,
-      appreciation: getCameroonAppreciation(average),
+      appreciation: getCameroonAppreciation(average, school?.subsystem),
       rank: 0, // Assigned after sorting
     });
   }
@@ -555,6 +604,9 @@ export async function getAcademicAnalytics(params: {
     const streamInfo = streamMetaMap.get(best.streamId);
     const bestStudentName = `${best.student?.last_name || ""} ${best.student?.first_name || ""}`.trim();
 
+    const teachers = Array.from(subjectTeachersMap.get(subId) || []);
+    const topTeacher = streamSubjectTeacherMap.get(`${best.streamId}_${subId}`) || teachers[0];
+
     subjectLaureates.push({
       subjectId: subId,
       subjectName: subName,
@@ -569,6 +621,8 @@ export async function getAcademicAnalytics(params: {
       passedCount: passedSub,
       passRate: subPassRate,
       averageScore: subAvg,
+      teachers,
+      topTeacher,
     });
   }
 
@@ -588,6 +642,7 @@ export async function getAcademicAnalytics(params: {
     schoolInfo: {
       id: school?.id || schoolId,
       name: school?.name || "School",
+      code: school?.code || null,
       logoUrl: school?.logo_url || null,
       motto: school?.motto || null,
       address: school?.address || null,

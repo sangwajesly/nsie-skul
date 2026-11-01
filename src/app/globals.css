@@ -64,6 +64,26 @@ html {
     display: none !important;
   }
 
+  /* When printing certificates from the Honor Roll Modal */
+  body.printing-certificate > *:not(#certificate-print-portal) {
+    display: none !important;
+  }
+  body.printing-certificate #certificate-print-portal {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
+  /* When printing the official Roll of Honour Roster sheet */
+  body.printing-roster-active > *:not(#roster-print-portal) {
+    display: none !important;
+  }
+  body.printing-roster-active #roster-print-portal {
+    display: block !important;
+    position: static !important;
+    overflow: visible !important;
+  }
+
   /* When printing from the offline receipt portal overlay */
   body.nsei-print-portal-active > *:not(#nsei-print-portal) {
     display: none !important;

@@ -137,7 +137,7 @@ export function ReportCardSampleModal({
                 </span>
               </div>
               <h2 className="text-base sm:text-lg font-bold text-[#142010] mt-0.5">
-                Official MINESEC Report Card Sample
+                Official Report Card Format Preview
               </h2>
             </div>
 

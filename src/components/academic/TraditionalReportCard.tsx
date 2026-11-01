@@ -1,5 +1,7 @@
 import React from "react";
 import { ReportCardFullData } from "@/lib/academic/report-card-service";
+import { resolveSchoolCity, formatReportCardDate } from "@/lib/academic/report-card-utils";
+import { QRCodeSVG } from "@/components/ui/QRCodeSVG";
 
 interface TraditionalReportCardProps {
   data: ReportCardFullData;
@@ -60,6 +62,12 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
   // Overall pass/fail status
   const isPassed = (summary.studentAverage ?? 0) >= 10.0;
 
+  const city = resolveSchoolCity(school.address, school.name);
+  const issueDate = formatReportCardDate();
+  const doneLocationEn = city ? `Done at ${city}, on ${issueDate}` : `Issued on ${issueDate}`;
+
+  const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
+
   return (
     <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
@@ -89,7 +97,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
             )}
           </div>
           <div className="text-[8px] font-mono font-bold tracking-wider uppercase text-zinc-800">
-            {school.code || "GBHS"} · CAMEROON
+            {school.code || (school.name ? school.name.trim().split(/\s+/).map((w: string) => w[0]?.toUpperCase()).join("").slice(0, 6) : "SCH")} · CAMEROON
           </div>
           <div className="text-[7.5px] italic text-zinc-600 font-serif">
             "{school.motto || "Laborare et Orante"}"
@@ -203,15 +211,15 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
               <th className="py-1.5 px-1 w-11">Grade</th>
               <th className="py-1.5 px-1 w-12">Rank</th>
               <th className="py-1.5 px-1 w-12">Class Avg</th>
-              <th className="py-1.5 px-1 w-16">[Min – Max]</th>
-              <th className="py-1.5 px-2 w-40 text-left">Teacher´s Remarks &amp; Visa</th>
+              <th className="py-1.5 px-1 w-16">[Min / Max]</th>
+              <th className="py-1.5 px-2 w-40 text-left">Teacher&apos;s Remarks &amp; Signature</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-black/40">
             {subjects.length === 0 ? (
               <tr>
                 <td colSpan={11} className="py-8 text-center text-zinc-500 italic text-[11px]">
-                  No subjects have been assigned to this class group yet. Assign teachers to subjects in Academics &gt; Teacher Allocations.
+                  No subjects have been configured for this class stream yet. Configure subjects in Academics &gt; Class Coefficients or allocate teachers in Academics &gt; Teacher Allocations.
                 </td>
               </tr>
             ) : (
@@ -402,17 +410,20 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
           <div className="border-t-2 border-black pt-1">
             <div className="font-black uppercase text-[9.5px] flex items-center justify-between">
               <span>Principal´s Decision &amp; Seal</span>
-              <span className="text-[7.5px] font-normal italic lowercase font-serif">Visa du Chef d'Établissement</span>
+              <span className="text-[7.5px] font-normal italic lowercase font-serif">Signature &amp; Cachet du Chef d'Établissement</span>
             </div>
             <div className="mt-1 p-1 bg-zinc-100 font-bold text-[8.5px] border border-black/30 rounded text-center">
               {isPassed ? "★ CONGRATULATIONS: ENCOURAGEMENT & HONORS ★" : "⚠ ACADEMIC WARNING: WORK HARDER NEXT TERM"}
             </div>
-            <div className="mt-2 flex items-center justify-between text-[8px]">
+            <div className="mt-2 flex items-center justify-between text-[8px] gap-2">
               <div>
-                Date: <span className="font-mono">{new Date().toLocaleDateString("en-GB")}</span>
+                <span className="font-mono text-[8px]">{doneLocationEn}</span>
               </div>
-              <div className="border border-dashed border-black/60 px-3 py-2 text-center text-[7.5px] uppercase font-mono text-zinc-600">
-                Official School Seal &amp; Stamp
+              <div className="flex items-center gap-1.5 shrink-0">
+                <QRCodeSVG value={verifyUrl} size={32} quietZone={1} />
+                <div className="border border-dashed border-black/60 px-2.5 py-1.5 text-center text-[7.5px] uppercase font-mono text-zinc-600">
+                  Official School Seal &amp; Stamp
+                </div>
               </div>
             </div>
           </div>

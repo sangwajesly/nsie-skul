@@ -170,7 +170,7 @@ export function OfficialReceipt({
         </div>
 
         <div className="col-span-6 p-2 text-center space-y-1">
-          <div className="font-black uppercase text-[9px]">Bursary &amp; Accounts Visa</div>
+          <div className="font-black uppercase text-[9px]">Bursary &amp; Accounts Stamp</div>
           <div className="h-10 flex items-center justify-center font-serif italic text-zinc-400 text-xs">
             [ Official Cashier Stamp ]
           </div>

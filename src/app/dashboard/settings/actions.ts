@@ -107,20 +107,39 @@ export async function updateSchoolSettingsAction(formData: FormData) {
   const context = await requirePermission("school.settings.manage");
 
   const schoolId = context.school.id;
-  const name = formData.get("name") as string;
+  const name = (formData.get("name") as string)?.trim();
   const motto = (formData.get("motto") as string) || null;
-  const code = (formData.get("code") as string) || null;
+  let code = (formData.get("code") as string)?.trim().toUpperCase() || null;
   const phone = (formData.get("phone") as string) || null;
   const email = (formData.get("email") as string) || null;
   const address = (formData.get("address") as string) || null;
   const ranking_mode = (formData.get("ranking_mode") as string) || "enabled";
   const result_approval_workflow = (formData.get("result_approval_workflow") as string) || "hod";
-  const receipt_prefix = (formData.get("receipt_prefix") as string) || "REC";
+  let receipt_prefix = ((formData.get("receipt_prefix") as string) || "").trim();
   const matricule_format = (formData.get("matricule_format") as string)?.trim() || "{CODE}-{YEAR}-{SEQ:4}";
   const report_card_template = (formData.get("report_card_template") as string) || "cba_grouped_classic";
   const logo_url = (formData.get("logo_url") as string) || null;
 
+  // Auto-derive code if left blank
+  if (!code && name) {
+    const words = name.split(/\s+/).filter(Boolean);
+    code = words.map((w: string) => w[0]?.toUpperCase()).filter(Boolean).join("").slice(0, 6) || "SCH";
+  }
+
+  if (!receipt_prefix) {
+    receipt_prefix = `${code || "REC"}-REC`;
+  }
+
   const supabase = await createClient();
+
+  // Fetch current school to detect acronym/code changes
+  const { data: currentSchool } = await supabase
+    .from("schools")
+    .select("code, name, receipt_prefix")
+    .eq("id", schoolId)
+    .single();
+
+  const oldCode = currentSchool?.code?.trim().toUpperCase();
 
   const { error } = await supabase
     .from("schools")
@@ -145,6 +164,38 @@ export async function updateSchoolSettingsAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  // If school abbreviation/code changed or was set, cascade update all student matricules that carried the old prefix
+  if (code && (code !== oldCode || !oldCode)) {
+    const { data: studentsToUpdate } = await supabase
+      .from("students")
+      .select("id, matricule")
+      .eq("school_id", schoolId);
+
+    if (studentsToUpdate && studentsToUpdate.length > 0) {
+      for (const st of studentsToUpdate) {
+        if (!st.matricule) continue;
+        // Standard Cameroon pattern: [PREFIX]-[YEAR]-[NUM] or [PREFIX]-[NUM]
+        const suffixMatch = st.matricule.match(/-(\d{2,4}-\d+|\d{3,6})$/);
+        if (suffixMatch) {
+          const currentPrefix = st.matricule.slice(0, st.matricule.length - suffixMatch[0].length);
+          if (currentPrefix !== code) {
+            const newMat = `${code}${suffixMatch[0]}`;
+            await supabase
+              .from("students")
+              .update({ matricule: newMat })
+              .eq("id", st.id);
+          }
+        } else if (oldCode && st.matricule.startsWith(`${oldCode}-`)) {
+          const newMat = `${code}-${st.matricule.slice(oldCode.length + 1)}`;
+          await supabase
+            .from("students")
+            .update({ matricule: newMat })
+            .eq("id", st.id);
+        }
+      }
+    }
+  }
+
   // Record audit log
   await supabase.from("audit_logs").insert({
     school_id: schoolId,
@@ -154,6 +205,8 @@ export async function updateSchoolSettingsAction(formData: FormData) {
     resource_id: schoolId,
     details: {
       name,
+      code,
+      old_code: oldCode,
       ranking_mode,
       result_approval_workflow,
       receipt_prefix,
@@ -161,10 +214,14 @@ export async function updateSchoolSettingsAction(formData: FormData) {
     },
   });
 
+  revalidatePath("/dashboard", "layout");
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/students");
   revalidatePath("/dashboard/finance");
+  revalidatePath("/select-school");
 }
 
 export async function setSchoolReportCardTemplateAction(formData: FormData) {

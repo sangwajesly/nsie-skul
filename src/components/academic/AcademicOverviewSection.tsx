@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Trophy,
   Award,
@@ -19,11 +19,24 @@ import {
   Loader2,
   GraduationCap,
   Percent,
+  Search,
+  X,
 } from "lucide-react";
 import type { AcademicAnalyticsData, StudentRankItem } from "@/lib/academic/analytics-service";
 import { fetchSequenceAnalyticsAction } from "@/app/dashboard/analytics-actions";
 import { HonorRollCertificateModal } from "./certificates/HonorRollCertificateModal";
+import { HonorRollRosterModal } from "./certificates/HonorRollRosterModal";
 import type { HonorRollRecipient, AwardCategory } from "./certificates/types";
+
+function resolveDisplayMatricule(matricule?: string | null, schoolCode?: string | null): string {
+  if (!matricule) return "N/A";
+  if (!schoolCode) return matricule;
+  const suffixMatch = matricule.match(/-(\d{2,4}-\d+|\d{3,6})$/);
+  if (suffixMatch) {
+    return `${schoolCode}${suffixMatch[0]}`;
+  }
+  return matricule;
+}
 
 interface Props {
   initialData: AcademicAnalyticsData;
@@ -35,8 +48,14 @@ export function AcademicOverviewSection({ initialData }: Props) {
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>(initialData.selectedSequenceId);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isCertificateModalOpen, setIsCertificateModalOpen] = useState<boolean>(false);
+  const [isRosterModalOpen, setIsRosterModalOpen] = useState<boolean>(false);
   const [selectedRecipient, setSelectedRecipient] = useState<HonorRollRecipient | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<AwardCategory | undefined>(undefined);
+
+  // ── Subject Performance Tab Filter State ─────────────────────────────────
+  const [subjectSearch, setSubjectSearch] = useState<string>("");
+  const [selectedDept, setSelectedDept] = useState<string>("All");
+  const [subjectSort, setSubjectSort] = useState<"mark_desc" | "pass_desc" | "avg_desc" | "name_asc">("mark_desc");
 
   const handleOpenCertificates = (recipient?: HonorRollRecipient, category?: AwardCategory) => {
     setSelectedRecipient(recipient || null);
@@ -62,11 +81,57 @@ export function AcademicOverviewSection({ initialData }: Props) {
   };
 
   const handlePrintSummary = () => {
-    window.print();
+    setIsRosterModalOpen(true);
   };
 
   const { overallKpis, dux, topStudents, classPerformance, subjectLaureates, scope } = data;
   const hasData = overallKpis.totalStudentsEvaluated > 0;
+
+  // Extract unique departments for filtering
+  const departmentList = useMemo(() => {
+    const depts = new Set<string>();
+    subjectLaureates.forEach((s) => {
+      if (s.departmentName) depts.add(s.departmentName);
+    });
+    return Array.from(depts).sort();
+  }, [subjectLaureates]);
+
+  // Filtered & sorted subjects for effortless scanning
+  const filteredSubjects = useMemo(() => {
+    return subjectLaureates
+      .filter((s) => {
+        if (selectedDept !== "All" && s.departmentName !== selectedDept) {
+          return false;
+        }
+        if (subjectSearch.trim()) {
+          const q = subjectSearch.toLowerCase().trim();
+          return (
+            s.subjectName.toLowerCase().includes(q) ||
+            s.subjectCode.toLowerCase().includes(q) ||
+            s.studentName.toLowerCase().includes(q) ||
+            s.className.toLowerCase().includes(q)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (subjectSort === "mark_desc") return b.bestMark - a.bestMark;
+        if (subjectSort === "pass_desc") return b.passRate - a.passRate;
+        if (subjectSort === "avg_desc") return b.averageScore - a.averageScore;
+        return a.subjectName.localeCompare(b.subjectName);
+      });
+  }, [subjectLaureates, selectedDept, subjectSearch, subjectSort]);
+
+  // Top Performing Subject across the sequence
+  const topSubject = useMemo(() => {
+    if (!subjectLaureates || subjectLaureates.length === 0) return null;
+    const sorted = [...subjectLaureates].sort((a, b) => {
+      if (b.passRate !== a.passRate) return b.passRate - a.passRate;
+      if (b.averageScore !== a.averageScore) return b.averageScore - a.averageScore;
+      return b.bestMark - a.bestMark;
+    });
+    return sorted[0];
+  }, [subjectLaureates]);
 
   return (
     <section className="bg-white border border-[#E5E5DF] rounded-[12px] p-5 sm:p-6 space-y-6 shadow-xs print:border-none print:shadow-none print:p-0">
@@ -74,9 +139,9 @@ export function AcademicOverviewSection({ initialData }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#F0EFEA]">
         <div>
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2]">
-              <Trophy className="w-3.5 h-3.5 text-[#B45309]" />
-              Academic Performance &amp; Honor Roll
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]">
+              <Award className="w-3.5 h-3.5 text-[#16A34A]" />
+              Academic Performance &amp; Roll of Honour
             </span>
             <span className="text-xs text-[#888888]">·</span>
             <span className="text-xs font-semibold text-[#555555]">
@@ -87,7 +152,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
             Performance Overview &amp; Top Students
           </h2>
           <p className="text-xs text-[#666666] mt-0.5">
-            Statistical appraisal, highest averages, and honor rolls for official councils and assemblies.
+            Statistical appraisal, highest averages, and Roll of Honour for official academic councils.
           </p>
         </div>
 
@@ -120,11 +185,11 @@ export function AcademicOverviewSection({ initialData }: Props) {
           <button
             type="button"
             onClick={() => handleOpenCertificates()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[6px] bg-[#FFF8CF] hover:bg-[#FEF08A] border border-[#FACC15] text-[#713F12] transition-colors shadow-2xs cursor-pointer print:hidden"
-            title="Generate and print Honor Roll Certificates (Tableau d'Honneur)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-2xs cursor-pointer print:hidden"
+            title="Generate and print Roll of Honour Certificates"
           >
-            <Award className="w-3.5 h-3.5 text-[#B45309]" />
-            <span>Tableau d&apos;Honneur</span>
+            <Award className="w-3.5 h-3.5" />
+            <span>Roll of Honour</span>
           </button>
 
           {/* Print / Export Button */}
@@ -132,10 +197,10 @@ export function AcademicOverviewSection({ initialData }: Props) {
             type="button"
             onClick={handlePrintSummary}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[6px] bg-white hover:bg-[#F9F6ED] border border-[#D5CBB2] text-[#142010] transition-colors shadow-2xs cursor-pointer print:hidden"
-            title="Print performance summary for assembly or notice board"
+            title="Print official Roll of Honour notice board and assembly roster"
           >
             <Printer className="w-3.5 h-3.5 text-[#555555]" />
-            <span className="hidden sm:inline">Print Roster</span>
+            <span className="hidden sm:inline">Print Roll Roster</span>
           </button>
         </div>
       </div>
@@ -151,7 +216,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
               No Assessment Marks Recorded for {data.selectedSequenceName}
             </h3>
             <p className="text-xs text-[#666666] max-w-md mx-auto leading-relaxed">
-              Once teachers submit evaluation scores for this sequence, the overall school Dux, class honor rolls, pass/fail percentages, and subject laureates will populate here automatically.
+              Once teachers submit evaluation scores for this sequence, the overall school Dux, class honor rolls, pass/fail percentages, and top students by subject will populate here automatically.
             </p>
           </div>
         </div>
@@ -159,168 +224,124 @@ export function AcademicOverviewSection({ initialData }: Props) {
         <>
           {/* ── HERO KPI CARDS ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* 1. School Dux / Major de Promotion Card */}
-            <div className="relative overflow-hidden rounded-[10px] border-2 border-[#EAB308]/40 bg-gradient-to-br from-[#FEFCE8] via-white to-[#FFFBEB] p-5 shadow-xs flex flex-col justify-between">
-              <div className="absolute top-2.5 right-2.5 w-16 h-16 bg-[#FDE047]/20 rounded-full blur-xl pointer-events-none" />
-
-              <div className="space-y-2">
+            {/* 1. School Dux / Top Scholar Card */}
+            <div className="rounded-[8px] border border-[#E5E5DF] bg-white p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-[#FEF08A] text-[#854D0E] border border-[#FACC15]">
-                    <Trophy className="w-3 h-3 text-[#A16207]" />
+                  <span className="text-[11px] font-semibold text-[#666666]">
                     {scope.role === "admin"
-                      ? "School Dux · Major Général"
+                      ? "School Dux (1st Place)"
                       : scope.role === "hod"
                       ? "Department Dux"
-                      : "Top Student in Classes"}
+                      : "Top Student"}
                   </span>
-                  <span className="font-mono text-[10px] text-[#713F12] font-bold">
-                    🥇 1st Place
+                  <span className="text-[11px] font-bold text-[#15803D]">
+                    {dux?.appreciation.split("(")[0].trim()}
                   </span>
                 </div>
 
-                <div>
-                  <h3 className="text-base sm:text-lg font-black text-[#142010] tracking-tight truncate">
-                    {dux?.name || "Student Name"}
-                  </h3>
-                  <p className="text-xs text-[#713F12] font-medium flex items-center gap-1.5 mt-0.5">
-                    <span className="font-bold">{dux?.className} {dux?.streamName}</span>
-                    <span>·</span>
-                    <span className="font-mono text-[11px] text-[#854D0E]">
-                      {dux?.matricule}
-                    </span>
-                  </p>
+                <div className="font-bold text-base text-[#142010] truncate">
+                  {dux?.name || "Student Name"}
+                </div>
+                <div className="text-xs text-[#666666]">
+                  {dux?.fullClassName || dux?.className} · <span className="font-mono text-[#888888]">{resolveDisplayMatricule(dux?.matricule, data.schoolInfo?.code)}</span>
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-[#FEF08A]/80 mt-3 flex items-baseline justify-between">
+              <div className="pt-3 border-t border-[#F0EFEA] flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-[#854D0E] block">
-                    Highest Average
-                  </span>
-                  <div className="text-2xl font-black font-mono text-[#142010]">
+                  <span className="text-[10px] text-[#777777] block font-medium">Average Score</span>
+                  <div className="text-xl font-bold font-mono text-[#142010]">
                     {dux?.average.toFixed(2)}{" "}
-                    <span className="text-xs font-normal text-[#666666]">/20</span>
+                    <span className="text-xs font-normal text-[#888888]">/ 20</span>
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#15803D] bg-[#DCFCE7] px-2 py-0.5 rounded border border-[#86EFAC]">
-                    <Sparkles className="w-3 h-3 text-[#16A34A]" />
-                    <span>{dux?.appreciation.split("(")[0].trim()}</span>
+                {dux && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleOpenCertificates(
+                        {
+                          studentId: dux.studentId,
+                          studentName: dux.name,
+                          matricule: resolveDisplayMatricule(dux.matricule, data.schoolInfo?.code),
+                          gender: dux.gender,
+                          className: dux.className,
+                          streamName: dux.streamName,
+                          fullClassName: dux.fullClassName || `${dux.className} ${dux.streamName}`,
+                          awardCategory: "school_podium",
+                          awardTitle: "School Dux - 1st Position School-Wide",
+                          rankLabel: "1st in School",
+                          average: dux.average,
+                          appreciation: dux.appreciation,
+                          cycle: dux.cycle,
+                        },
+                        "school_podium"
+                      )
+                    }
+                    className="text-xs font-semibold text-[#2A7C13] hover:text-[#1F5C0E] hover:underline cursor-pointer print:hidden"
+                  >
+                    Certificate &rarr;
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* 2. Pass / Fail Evaluation */}
+            <div className="rounded-[8px] border border-[#E5E5DF] bg-white p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#666666]">
+                    Pass Rate (Threshold: 10.00 / 20)
                   </span>
-
-                  {dux && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleOpenCertificates(
-                          {
-                            studentId: dux.studentId,
-                            studentName: dux.name,
-                            matricule: dux.matricule,
-                            gender: dux.gender,
-                            className: dux.className,
-                            streamName: dux.streamName,
-                            fullClassName: dux.fullClassName || `${dux.className} ${dux.streamName}`,
-                            awardCategory: "school_podium",
-                            awardTitle: "Major Général · School Dux (1st Rank)",
-                            rankLabel: "1st in School",
-                            average: dux.average,
-                            appreciation: dux.appreciation,
-                            cycle: dux.cycle,
-                          },
-                          "school_podium"
-                        )
-                      }
-                      className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#854D0E] hover:text-[#713F12] bg-[#FEF08A] hover:bg-[#FDE047] px-2 py-0.5 rounded border border-[#FACC15] transition-colors cursor-pointer print:hidden"
-                      title="Generate official Dux certificate"
-                    >
-                      <Award className="w-3 h-3" />
-                      <span>Certificate</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Pass Rate vs Fail Rate Card */}
-            <div className="rounded-[10px] border border-[#E5E5DF] bg-white p-5 shadow-xs flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#666666]">
-                  Pass / Fail Evaluation
-                </span>
-                <span className="text-[10px] font-semibold text-[#888888]">
-                  Threshold: 10.00 / 20
-                </span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-baseline justify-between">
-                  <div className="text-3xl font-black font-mono text-[#15803D]">
-                    {overallKpis.passRate}%
-                  </div>
-                  <div className="text-xs text-[#555555] font-medium">
-                    <span className="font-bold text-[#15803D]">{overallKpis.passedCount}</span> passed
-                    {" / "}
-                    <span className="font-bold text-red-600">{overallKpis.failedCount}</span> failed
-                  </div>
+                  <span className="text-[11px] font-bold text-[#15803D]">
+                    {overallKpis.passedCount} Promoted
+                  </span>
                 </div>
 
-                {/* Dual-colored progress bar */}
-                <div className="w-full h-3 rounded-full bg-red-100 overflow-hidden flex shadow-inner">
-                  <div
-                    className="h-full bg-[#16A34A] transition-all duration-500 rounded-l-full"
-                    style={{ width: `${overallKpis.passRate}%` }}
-                    title={`Passed: ${overallKpis.passRate}%`}
-                  />
-                  <div
-                    className="h-full bg-red-500 transition-all duration-500"
-                    style={{ width: `${overallKpis.failRate}%` }}
-                    title={`Failed: ${overallKpis.failRate}%`}
-                  />
+                <div className="text-2xl font-bold font-mono text-[#15803D]">
+                  {overallKpis.passRate}%
+                </div>
+                <div className="text-xs text-[#666666]">
+                  <strong className="text-[#142010]">{overallKpis.passedCount}</strong> passed ·{" "}
+                  <span className="text-red-600 font-semibold">{overallKpis.failedCount}</span> failed
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-[#F0EFEA] text-[11px]">
-                <span className="text-[#15803D] font-bold flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{overallKpis.passedCount} Promoted (&ge;10)</span>
-                </span>
-                <span className="text-red-600 font-bold flex items-center gap-1">
-                  <XCircle className="w-3.5 h-3.5" />
-                  <span>{overallKpis.failedCount} At Risk (&lt;10)</span>
-                </span>
-              </div>
-            </div>
-
-            {/* 3. Overall Average & Honors Count */}
-            <div className="rounded-[10px] border border-[#E5E5DF] bg-white p-5 shadow-xs flex flex-col justify-between space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#666666]">
-                  General Average &amp; Honors
-                </span>
-                <span className="text-[10px] font-semibold text-[#888888]">
+              <div className="pt-3 border-t border-[#F0EFEA] flex items-center justify-between text-xs text-[#777777]">
+                <span>Total Evaluated</span>
+                <span className="font-mono font-bold text-[#142010]">
                   {overallKpis.totalStudentsEvaluated} Students
                 </span>
               </div>
+            </div>
 
-              <div className="space-y-1">
-                <span className="text-[10px] text-[#777777] font-semibold block uppercase">
-                  Class Council Average
-                </span>
-                <div className="text-3xl font-black font-mono text-[#142010]">
+            {/* 3. Class Council Average & Honors */}
+            <div className="rounded-[8px] border border-[#E5E5DF] bg-white p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-[#666666]">
+                    Council General Average
+                  </span>
+                  <span className="text-[11px] font-bold text-[#2A7C13]">
+                    {overallKpis.honorsCount} on Roll of Honour
+                  </span>
+                </div>
+
+                <div className="text-2xl font-bold font-mono text-[#142010]">
                   {overallKpis.overallAverage.toFixed(2)}{" "}
-                  <span className="text-xs font-normal text-[#888888]">/20</span>
+                  <span className="text-xs font-normal text-[#888888]">/ 20</span>
+                </div>
+                <div className="text-xs text-[#666666]">
+                  School-wide performance across all enrolled classes
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#F0EFEA] flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5 text-[#166534]">
-                  <Award className="w-4 h-4 text-[#2A7C13]" />
-                  <span className="font-bold">{overallKpis.honorsCount} on Honor Roll</span>
-                </div>
-                <span className="text-[11px] text-[#777777] font-mono">
-                  Range: {overallKpis.lowestAverage} - {overallKpis.highestAverage}
+              <div className="pt-3 border-t border-[#F0EFEA] flex items-center justify-between text-xs text-[#777777]">
+                <span>Score Range</span>
+                <span className="font-mono font-medium text-[#142010]">
+                  {overallKpis.lowestAverage.toFixed(1)} to {overallKpis.highestAverage.toFixed(1)} / 20
                 </span>
               </div>
             </div>
@@ -337,8 +358,8 @@ export function AcademicOverviewSection({ initialData }: Props) {
                   : "border-transparent text-[#666666] hover:text-[#142010]"
               }`}
             >
-              <Trophy className="w-4 h-4" />
-              <span>Honor Roll &amp; Top 3 Roster</span>
+              <Award className="w-4 h-4" />
+              <span>Roll of Honour &amp; Top 3</span>
             </button>
 
             <button
@@ -351,7 +372,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
               }`}
             >
               <Users className="w-4 h-4" />
-              <span>Class-by-Class Pass Rates ({classPerformance.length})</span>
+              <span>Class Pass Rates ({classPerformance.length})</span>
             </button>
 
             <button
@@ -364,7 +385,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>Subject Laureates &amp; Best Marks ({subjectLaureates.length})</span>
+              <span>Top Student by Subject ({subjectLaureates.length})</span>
             </button>
           </div>
 
@@ -372,54 +393,50 @@ export function AcademicOverviewSection({ initialData }: Props) {
           {activeTab === "honor_roll" && (
             <div className="space-y-6">
               {/* Podium: Top 3 Students School-Wide */}
-              <div className="p-5 rounded-[10px] bg-[#FAF8F5] border border-[#E8DFC9] space-y-4">
+              <div className="p-4 sm:p-5 rounded-[8px] bg-white border border-[#E5E5DF] space-y-3 shadow-2xs">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-extrabold text-[#142010] flex items-center gap-1.5">
-                      <Medal className="w-4 h-4 text-[#B45309]" />
-                      <span>School-Wide Laureates · Top 3 Students</span>
+                    <h3 className="text-sm font-bold text-[#142010]">
+                      Top 3 Students Across Entire School
                     </h3>
-                    <p className="text-[11px] text-[#666666]">
+                    <p className="text-xs text-[#666666]">
                       The highest academic averages across all registered classes in {data.selectedSequenceName}.
                     </p>
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEF08A] text-[#854D0E] border border-[#FACC15]">
-                    Tableau d&apos;Honneur
+                  <span className="text-xs font-semibold text-[#2A7C13]">
+                    Roll of Honour
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                   {topStudents.slice(0, 3).map((st, idx) => {
-                    const medals = ["🥇 1st Prize", "🥈 2nd Prize", "🥉 3rd Prize"];
-                    const badgeStyles = [
-                      "border-[#FACC15] bg-[#FEFCE8] text-[#854D0E]",
-                      "border-[#CBD5E1] bg-[#F8FAFC] text-[#334155]",
-                      "border-[#FDBA74] bg-[#FFF7ED] text-[#9A3412]",
-                    ];
+                    const positionLabels = ["1st Position", "2nd Position", "3rd Position"];
 
                     return (
                       <div
                         key={st.studentId}
-                        className={`p-4 rounded-[8px] border ${badgeStyles[idx]} flex flex-col justify-between space-y-2.5 shadow-2xs`}
+                        className="p-3.5 rounded-[6px] border border-[#E5E5DF] bg-[#FAF8F5]/40 flex flex-col justify-between space-y-2 hover:border-[#2A7C13] transition-all"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-extrabold text-xs">{medals[idx]}</span>
-                          <span className="font-mono text-base font-black text-[#142010]">
-                            {st.average.toFixed(2)} <span className="text-[10px] font-normal text-[#666666]">/20</span>
+                          <span className="font-semibold text-xs text-[#2A7C13]">
+                            {positionLabels[idx]}
+                          </span>
+                          <span className="font-mono text-sm font-bold text-[#142010]">
+                            {st.average.toFixed(2)} <span className="text-[10px] font-normal text-[#888888]">/20</span>
                           </span>
                         </div>
 
                         <div>
-                          <div className="font-bold text-sm text-[#142010] truncate">
+                          <div className="font-bold text-xs text-[#142010] truncate">
                             {st.name}
                           </div>
-                          <div className="text-[11px] text-[#555555] font-medium mt-0.5">
-                            {st.className} {st.streamName} · <span className="font-mono">{st.matricule}</span>
+                          <div className="text-[11px] text-[#666666] mt-0.5">
+                            {st.fullClassName || st.className} · <span className="font-mono text-[#777777]">{resolveDisplayMatricule(st.matricule, data.schoolInfo?.code)}</span>
                           </div>
                         </div>
 
-                        <div className="pt-2 border-t border-black/5 flex items-center justify-between text-[10px]">
-                          <span className="text-[#166534] font-semibold truncate">
+                        <div className="pt-2 border-t border-[#F0EFEA] flex items-center justify-between text-[11px]">
+                          <span className="text-[#15803D] font-medium truncate">
                             {st.appreciation.split("(")[0].trim()}
                           </span>
                           <button
@@ -429,7 +446,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
                                 {
                                   studentId: st.studentId,
                                   studentName: st.name,
-                                  matricule: st.matricule,
+                                  matricule: resolveDisplayMatricule(st.matricule, data.schoolInfo?.code),
                                   gender: st.gender,
                                   className: st.className,
                                   streamName: st.streamName,
@@ -437,10 +454,10 @@ export function AcademicOverviewSection({ initialData }: Props) {
                                   awardCategory: "school_podium",
                                   awardTitle:
                                     idx === 0
-                                      ? "Major Général · School Dux (1st Rank)"
+                                      ? "School Dux - 1st Position School-Wide"
                                       : idx === 1
-                                      ? "2nd Prize · School-Wide Excellence"
-                                      : "3rd Prize · School-Wide Excellence",
+                                      ? "2nd Position - School-Wide Excellence"
+                                      : "3rd Position - School-Wide Excellence",
                                   rankLabel: `#${idx + 1} in School`,
                                   average: st.average,
                                   appreciation: st.appreciation,
@@ -449,10 +466,9 @@ export function AcademicOverviewSection({ initialData }: Props) {
                                 "school_podium"
                               )
                             }
-                            className="inline-flex items-center gap-1 font-bold text-[#854D0E] hover:underline cursor-pointer shrink-0 ml-2 print:hidden"
+                            className="font-semibold text-[#2A7C13] hover:underline cursor-pointer shrink-0 ml-2 print:hidden"
                           >
-                            <Award className="w-3 h-3" />
-                            <span>Certificate</span>
+                            Certificate &rarr;
                           </button>
                         </div>
                       </div>
@@ -515,8 +531,16 @@ export function AcademicOverviewSection({ initialData }: Props) {
                               className="flex items-center justify-between p-1.5 rounded hover:bg-[#FAF8F5] transition-colors"
                             >
                               <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-5 text-center font-bold text-[11px] text-[#777777]">
-                                  {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                                <span
+                                  className={`w-4 h-4 rounded-full text-[10px] font-bold flex items-center justify-center shrink-0 ${
+                                    i === 0
+                                      ? "bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2]"
+                                      : i === 1
+                                      ? "bg-[#F1F5F9] text-[#334155] border border-[#CBD5E1]"
+                                      : "bg-[#FFF7ED] text-[#9A3412] border border-[#FED7AA]"
+                                  }`}
+                                >
+                                  {i + 1}
                                 </span>
                                 <div className="min-w-0">
                                   <div className="font-semibold text-[#142010] truncate text-[11.5px]">
@@ -547,10 +571,10 @@ export function AcademicOverviewSection({ initialData }: Props) {
                                         awardCategory: "class_podium",
                                         awardTitle:
                                           i === 0
-                                            ? `Major de Classe · 1st in ${cls.fullClassName}`
+                                            ? `1st Position in ${cls.fullClassName}`
                                             : i === 1
-                                            ? `2nd Place · ${cls.fullClassName}`
-                                            : `3rd Place · ${cls.fullClassName}`,
+                                            ? `2nd Position in ${cls.fullClassName}`
+                                            : `3rd Position in ${cls.fullClassName}`,
                                         rankLabel: `#${i + 1} in ${cls.fullClassName}`,
                                         average: st.average,
                                         appreciation: st.appreciation,
@@ -653,107 +677,307 @@ export function AcademicOverviewSection({ initialData }: Props) {
             </div>
           )}
 
-          {/* ── TAB 3: SUBJECT LAUREATES & BEST MARKS ─────────────────────────── */}
+          {/* ── TAB 3: SUBJECT PERFORMANCE & TOP STUDENTS ─────────────────────── */}
           {activeTab === "subjects" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between text-xs text-[#666666]">
-                <span>
-                  The highest scoring student in each subject and subject pass rate across all evaluated streams.
-                </span>
-                <span className="font-semibold text-[#142010]">
-                  {subjectLaureates.length} Subjects Evaluated
-                </span>
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#F0EFEA]">
+                <div>
+                  <h3 className="text-sm font-bold text-[#142010]">
+                    Top Student by Subject
+                  </h3>
+                  <p className="text-xs text-[#666666] mt-0.5">
+                    Highest-scoring student and class pass rates for each evaluated subject in {data.selectedSequenceName}.
+                  </p>
+                </div>
+                <div className="text-xs text-[#666666]">
+                  Showing <span className="font-semibold text-[#142010]">{filteredSubjects.length}</span> of {subjectLaureates.length} subjects
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {subjectLaureates.map((sub) => (
-                  <div
-                    key={sub.subjectId}
-                    className="p-4 rounded-[8px] border border-[#E5E5DF] bg-white hover:border-[#2A7C13] transition-all space-y-3 shadow-2xs"
-                  >
-                    <div className="flex items-start justify-between gap-2 pb-2 border-b border-[#F0EFEA]">
+              {/* Top Subject Highlight Card */}
+              {topSubject && (
+                <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 sm:p-5 shadow-2xs space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F0EFEA] pb-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-md bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0] flex items-center justify-center font-bold text-xs shrink-0">
+                        #1
+                      </div>
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#F0EFEA] text-[#555555]">
-                            {sub.subjectCode || "SUB"}
-                          </span>
-                          <h4 className="font-bold text-xs text-[#142010] truncate">
-                            {sub.subjectName}
-                          </h4>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-[#166534]">
+                          Top Performing Subject
                         </div>
-                        {sub.departmentName && (
-                          <span className="text-[10px] text-[#888888]">
-                            Dept: {sub.departmentName}
-                          </span>
-                        )}
+                        <h4 className="text-sm sm:text-base font-extrabold text-[#142010]">
+                          {topSubject.subjectName} ({topSubject.subjectCode})
+                        </h4>
                       </div>
+                    </div>
+                    {topSubject.departmentName && (
+                      <span className="self-start sm:self-auto text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-[#FAF8F5] text-[#555555] border border-[#D5CBB2]">
+                        {topSubject.departmentName}
+                      </span>
+                    )}
+                  </div>
 
-                      <div className="text-right shrink-0">
-                        <span className="font-mono text-base font-black text-[#15803D] block">
-                          {sub.bestMark.toFixed(1)}{" "}
-                          <span className="text-[10px] font-normal text-[#666666]">/20</span>
-                        </span>
-                        <span className="text-[9px] uppercase font-bold text-[#888888]">
-                          Best Mark
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    {/* Teacher(s) */}
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-[#777777] block font-medium">Subject Teacher(s):</span>
+                      <div className="font-bold text-[#142010]">
+                        {topSubject.teachers && topSubject.teachers.length > 0
+                          ? topSubject.teachers.join(", ")
+                          : "Unassigned"}
+                      </div>
+                    </div>
+
+                    {/* Pass Rate & Average */}
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-[#777777] block font-medium">Class Pass Rate:</span>
+                      <div className="font-bold text-[#15803D] font-mono">
+                        {topSubject.passRate}%{" "}
+                        <span className="text-[11px] font-normal text-[#666666]">
+                          ({topSubject.passedCount}/{topSubject.totalEvaluated} passed)
                         </span>
                       </div>
                     </div>
 
-                    {/* Best Student info */}
-                    <div className="p-2.5 rounded bg-[#FAF8F5] border border-[#E8DFC9] space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-[#777777] uppercase flex items-center gap-1">
-                          <Trophy className="w-3 h-3 text-[#B45309]" />
-                          <span>Subject Laureate</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleOpenCertificates(
-                              {
-                                studentId: `${sub.studentMatricule}_${sub.subjectId}`,
-                                studentName: sub.studentName,
-                                matricule: sub.studentMatricule,
-                                className: sub.className,
-                                fullClassName: sub.className,
-                                awardCategory: "subject_laureate",
-                                awardTitle: `Prix d'Excellence · ${sub.subjectName}`,
-                                subjectName: sub.subjectName,
-                                subjectCode: sub.subjectCode,
-                                subjectMark: sub.bestMark,
-                                cycle: sub.cycle,
-                              },
-                              "subject_laureate"
-                            )
-                          }
-                          className="text-[10px] font-bold text-[#854D0E] hover:underline flex items-center gap-1 cursor-pointer print:hidden"
-                          title="Generate subject excellence certificate"
-                        >
-                          <Award className="w-3 h-3" />
-                          <span>Certificate</span>
-                        </button>
+                    {/* Highest Student */}
+                    <div className="space-y-0.5">
+                      <span className="text-[11px] text-[#777777] block font-medium">Top Scoring Student:</span>
+                      <div className="font-bold text-[#142010] truncate">
+                        {topSubject.studentName}{" "}
+                        <span className="text-[#15803D] font-mono">({topSubject.bestMark.toFixed(1)}/20)</span>
                       </div>
-                      <div className="font-bold text-xs text-[#142010] truncate">
-                        {sub.studentName}
+                      <div className="text-[10px] text-[#777777]">
+                        {topSubject.className}
                       </div>
-                      <div className="text-[10px] text-[#555555] font-medium flex items-center justify-between">
-                        <span>{sub.className} · <span className="font-mono">{sub.studentMatricule}</span></span>
-                        {sub.cycle && <span className="text-[9.5px] font-semibold text-[#854D0E]">{sub.cycle}</span>}
-                      </div>
-                    </div>
-
-                    {/* Subject Stats */}
-                    <div className="flex items-center justify-between text-[11px] pt-1">
-                      <span className="text-[#666666]">
-                        Average: <strong className="font-mono text-[#142010]">{sub.averageScore.toFixed(1)}/20</strong>
-                      </span>
-                      <span className="text-[#15803D] font-bold">
-                        Pass: {sub.passRate}% ({sub.passedCount}/{sub.totalEvaluated})
-                      </span>
                     </div>
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Filtering Toolbar (Single Clean Row Without Horizontal Scrollbars) */}
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 text-xs">
+                {/* Search Bar */}
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#888888] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={subjectSearch}
+                    onChange={(e) => setSubjectSearch(e.target.value)}
+                    placeholder="Filter by subject, code, student, or class..."
+                    className="w-full pl-9 pr-8 py-1.5 text-xs bg-white border border-[#D5CBB2] rounded-[6px] text-[#142010] placeholder:text-[#888888] focus:outline-none focus:border-[#2A7C13]"
+                  />
+                  {subjectSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setSubjectSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#142010] p-0.5 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Department Dropdown Filter */}
+                {departmentList.length > 0 && (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="text-[11px] font-medium text-[#666666]">Dept:</span>
+                    <select
+                      value={selectedDept}
+                      onChange={(e) => setSelectedDept(e.target.value)}
+                      className="bg-white border border-[#D5CBB2] text-[#142010] text-xs py-1.5 px-2.5 rounded-[6px] focus:outline-none focus:border-[#2A7C13] cursor-pointer"
+                    >
+                      <option value="All">All Departments ({subjectLaureates.length})</option>
+                      {departmentList.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept} ({subjectLaureates.filter((s) => s.departmentName === dept).length})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Sort Dropdown */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-[11px] font-medium text-[#666666]">Sort:</span>
+                  <select
+                    value={subjectSort}
+                    onChange={(e) => setSubjectSort(e.target.value as any)}
+                    className="bg-white border border-[#D5CBB2] text-[#142010] text-xs py-1.5 px-2.5 rounded-[6px] focus:outline-none focus:border-[#2A7C13] cursor-pointer"
+                  >
+                    <option value="mark_desc">Highest Mark</option>
+                    <option value="pass_desc">Pass Rate</option>
+                    <option value="avg_desc">Subject Average</option>
+                    <option value="name_asc">Name (A → Z)</option>
+                  </select>
+                </div>
+
+                {(subjectSearch || selectedDept !== "All") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubjectSearch("");
+                      setSelectedDept("All");
+                    }}
+                    className="text-xs font-semibold text-[#2A7C13] hover:underline cursor-pointer shrink-0 self-center"
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
+
+              {/* Empty state when filters match 0 */}
+              {filteredSubjects.length === 0 ? (
+                <div className="p-8 text-center rounded-[8px] border border-dashed border-[#D5CBB2] bg-[#FAF8F5] space-y-2">
+                  <BookOpen className="w-8 h-8 text-[#888888] mx-auto opacity-60" />
+                  <h4 className="font-bold text-sm text-[#142010]">No subjects found</h4>
+                  <p className="text-xs text-[#666666]">
+                    No subject matches your current filter or search criteria.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubjectSearch("");
+                      setSelectedDept("All");
+                    }}
+                    className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold bg-[#2A7C13] text-white hover:bg-[#20600E] cursor-pointer"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              ) : (
+                /* ── COMPACT, PROFESSIONAL ACADEMIC TABLE ───────────────────── */
+                <div className="border border-[#E5E5DF] rounded-[8px] overflow-hidden bg-white shadow-2xs">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-[#FAF8F5] border-b border-[#E8DFC9] text-[11px] font-semibold text-[#666666]">
+                          <th className="p-3 w-16 text-center font-mono">Code</th>
+                          <th className="p-3">Subject &amp; Department</th>
+                          <th className="p-3">Teacher(s)</th>
+                          <th className="p-3">Top Student</th>
+                          <th className="p-3 text-right">Highest Mark</th>
+                          <th className="p-3 text-right">Class Avg</th>
+                          <th className="p-3 text-right">Pass Rate</th>
+                          <th className="p-3 text-right print:hidden">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#F0EFEA]">
+                        {filteredSubjects.map((sub, idx) => (
+                          <tr
+                            key={sub.subjectId}
+                            className={`hover:bg-[#FFFDF7] transition-colors ${
+                              idx % 2 === 1 ? "bg-[#FAF8F5]/30" : "bg-white"
+                            }`}
+                          >
+                            {/* Code */}
+                            <td className="p-3 text-center font-mono text-[11px] font-bold text-[#666666]">
+                              {sub.subjectCode || "N/A"}
+                            </td>
+
+                            {/* Subject Name & Department */}
+                            <td className="p-3">
+                              <div className="font-semibold text-xs text-[#142010]">
+                                {sub.subjectName}
+                              </div>
+                              {sub.departmentName && (
+                                <div className="text-[11px] text-[#777777]">
+                                  {sub.departmentName}
+                                </div>
+                              )}
+                            </td>
+
+                            {/* Teacher(s) */}
+                            <td className="p-3">
+                              {sub.topTeacher ? (
+                                <div>
+                                  <div className="font-semibold text-xs text-[#142010] truncate max-w-[150px]">
+                                    {sub.topTeacher}
+                                  </div>
+                                  {sub.teachers && sub.teachers.length > 1 && (
+                                    <div className="text-[10px] text-[#777777]">
+                                      +{sub.teachers.length - 1} other teacher{sub.teachers.length > 2 ? "s" : ""}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : sub.teachers && sub.teachers.length > 0 ? (
+                                <div className="font-medium text-xs text-[#142010] truncate max-w-[150px]">
+                                  {sub.teachers.join(", ")}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-[#888888] italic">Unassigned</span>
+                              )}
+                            </td>
+
+                            {/* Best Student (Clean, calm typography without trophy badges or clutter) */}
+                            <td className="p-3">
+                              <div className="font-semibold text-xs text-[#142010]">
+                                {sub.studentName}
+                              </div>
+                              <div className="text-[11px] text-[#666666]">
+                                {sub.className} · <span className="font-mono text-[#777777]">{resolveDisplayMatricule(sub.studentMatricule, data.schoolInfo?.code)}</span>
+                              </div>
+                            </td>
+
+                            {/* Highest Mark */}
+                            <td className="p-3 text-right font-mono font-bold text-[#15803D]">
+                              {sub.bestMark.toFixed(1)}{" "}
+                              <span className="text-[10px] text-[#888888] font-normal">/20</span>
+                            </td>
+
+                            {/* Class Average */}
+                            <td className="p-3 text-right font-mono font-medium text-[#142010]">
+                              {sub.averageScore.toFixed(1)}{" "}
+                              <span className="text-[10px] text-[#888888] font-normal">/20</span>
+                            </td>
+
+                            {/* Pass Rate */}
+                            <td className="p-3 text-right">
+                              <span className="font-mono font-bold text-xs text-[#15803D]">
+                                {sub.passRate}%
+                              </span>
+                              <span className="text-[11px] text-[#777777] ml-1.5 hidden sm:inline">
+                                ({sub.passedCount}/{sub.totalEvaluated})
+                              </span>
+                            </td>
+
+                            {/* Action Button */}
+                            <td className="p-3 text-right print:hidden">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleOpenCertificates(
+                                    {
+                                      studentId: `${sub.studentMatricule}_${sub.subjectId}`,
+                                      studentName: sub.studentName,
+                                      matricule: resolveDisplayMatricule(sub.studentMatricule, data.schoolInfo?.code),
+                                      className: sub.className,
+                                      fullClassName: sub.className,
+                                      awardCategory: "subject_laureate",
+                                      awardTitle: `Subject Excellence · 1st in ${sub.subjectName}`,
+                                      subjectName: sub.subjectName,
+                                      subjectCode: sub.subjectCode,
+                                      subjectMark: sub.bestMark,
+                                      teacherName: sub.topTeacher || sub.teachers?.[0],
+                                      cycle: sub.cycle,
+                                    },
+                                    "subject_laureate"
+                                  )
+                                }
+                                className="text-[11px] font-semibold text-[#2A7C13] hover:text-[#1F5C0E] hover:underline cursor-pointer"
+                              >
+                                Award Certificate &rarr;
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -767,6 +991,15 @@ export function AcademicOverviewSection({ initialData }: Props) {
         initialRecipient={selectedRecipient}
         initialCategory={selectedCategory}
       />
+
+      {/* ── OFFICIAL ROLL OF HONOUR ROSTER MODAL & PRINT PORTAL ───────────── */}
+      {isRosterModalOpen && (
+        <HonorRollRosterModal
+          isOpen={isRosterModalOpen}
+          onClose={() => setIsRosterModalOpen(false)}
+          data={data}
+        />
+      )}
     </section>
   );
 }

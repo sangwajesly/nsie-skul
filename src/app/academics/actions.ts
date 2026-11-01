@@ -1092,6 +1092,7 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
 
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard");
 
   const newlyAssignedNames = streamsToAssign.map((s) => s.name).join(", ");
@@ -1173,6 +1174,7 @@ export async function removeTeacherAssignmentAction(
 
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   return { success: true, message: "Teacher assignment removed successfully." };
 }
 
@@ -1231,6 +1233,7 @@ export async function configureClassSubjectAction(
 
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   return { success: true as const, message: "Subject coefficient updated." };
 }
 
@@ -1296,6 +1299,7 @@ export async function updateStreamCoefficientsBatchAction(
 
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   return { success: true as const, message: `Updated coefficients for ${upserts.length} subject(s).` };
 }
 
@@ -1798,6 +1802,7 @@ export async function saveSequenceMarksAction(payload: {
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   return { success: true };
 }
 
@@ -2018,6 +2023,7 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
   return { success: true };
 }
 

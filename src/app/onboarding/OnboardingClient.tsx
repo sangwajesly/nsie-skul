@@ -716,7 +716,7 @@ export function OnboardingClient({
         )}
 
         {/* Cameroon Education Support & WhatsApp Assisted Setup */}
-        <div className="p-4 sm:p-5 rounded-[10px] bg-gradient-to-r from-[#F0FDF4] to-[#FFFDF5] border border-[#BBF7D0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-4 sm:p-5 rounded-[10px] bg-[#F0FDF4] border border-[#BBF7D0] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-full bg-[#2A7C13] text-white flex items-center justify-center shrink-0">
               <MessageCircle className="w-5 h-5" />

@@ -82,7 +82,7 @@ export function ClassStreamCoefficientsModal({
                 Subject Coefficients: {streamName}
               </h3>
               <p className="text-[11px] text-[#777777]">
-                Set the weight (coefficient) of each subject specifically for {streamName}. Only subjects assigned to a teacher for this class in &quot;Teacher Allocations&quot; (or with recorded marks) will appear on student report cards.
+                Set the weight (coefficient) of each subject specifically for {streamName}. Subjects configured here automatically appear on student report cards and in the marks entry grid, allowing teachers to record marks directly from the school administration desk even if they do not have a personal account.
               </p>
             </div>
           </div>

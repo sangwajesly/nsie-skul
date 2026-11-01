@@ -11,7 +11,7 @@ export const SAMPLE_REPORT_CARD_DATA: ReportCardFullData = {
     logo_url: null,
     address: "P.O. Box 24, Up-Station, Bamenda, NW Region",
     phone: "+237 670 11 22 33",
-    email: "gbhs.bamenda@minesec.cm",
+    email: "info@school.cm",
     regionalDelegation: "NORTH WEST REGION",
     divisionalDelegation: "MEZAM DIVISION",
     subsystem: "bilingual",

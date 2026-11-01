@@ -20,6 +20,9 @@ import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
 import { LandingFaq } from "@/components/landing/LandingFaq";
+import { PlatformSchoolsCounter } from "@/components/landing/PlatformSchoolsCounter";
+import { PlainEnglishCapabilities } from "@/components/landing/PlainEnglishCapabilities";
+import { getPlatformPublicStats } from "@/lib/public-stats";
 import { BRAND } from "@/lib/design-tokens";
 
 // ─── Shared primitive classes ────────────────────────────────────────────────
@@ -36,10 +39,12 @@ const WORKFLOW_POINTS = [
   "Support relevant Cameroonian academic structures, sequences and assessment workflows.",
   "Give school administrators, teachers and department heads clear, least-privilege responsibilities.",
   "Keep records consistent with controlled access, audit trails and traceable mark edits.",
-  "Configure report-card presentation to match approved MINESEC secondary requirements.",
+  "Configure report-card presentation to match Cameroon secondary education specifications.",
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const stats = await getPlatformPublicStats();
+
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       {/* ── Main Navigation ──────────────────────────────────────────────────── */}
@@ -47,7 +52,7 @@ export default function LandingPage() {
 
       <main>
         {/* ── Hero ──────────────────────────────────────────────────────────── */}
-        <section className="pt-14 sm:pt-20 pb-12 sm:pb-16 border-b border-[#E8DFC9] bg-gradient-to-b from-[#FFF8CF]/30 via-transparent to-transparent">
+        <section className="pt-14 sm:pt-20 pb-12 sm:pb-16 border-b border-[#E8DFC9] bg-[#FFFDF5]">
           <div className={CONTAINER}>
             {/* Centered copy block */}
             <div className="flex flex-col items-center text-center max-w-3xl mx-auto gap-5">
@@ -126,8 +131,14 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── Live Platform Impact & Number of Schools Counter ───────────────── */}
+        <PlatformSchoolsCounter stats={stats} />
+
+        {/* ── What a School Can Achieve in Plain English ───────────────────────── */}
+        <PlainEnglishCapabilities />
+
         {/* ── Spotlight: The Offline Sukul Hub ────────────────────────────────── */}
-        <section className="py-16 sm:py-24 border-b border-[#E8DFC9] bg-gradient-to-br from-[#142010] to-[#1c2e17] text-white">
+        <section className="py-16 sm:py-24 border-b border-[#E8DFC9] bg-[#142010] text-white">
           <div className={CONTAINER}>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
               <div className="space-y-6">

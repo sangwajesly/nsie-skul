@@ -103,15 +103,15 @@ export function SubjectDistinctionCertificate({
       {/* ── HERO BANNER: Subject Distinction / Laurel ───────────────────────── */}
       <div className="relative z-10 text-center my-1 sm:my-2">
         <div className="inline-block relative">
-          <div className="px-6 sm:px-10 py-1.5 border-y-2 border-[#92400E] bg-gradient-to-r from-transparent via-[#FEF3C7]/60 to-transparent">
+          <div className="px-6 sm:px-10 py-1.5 border-y-2 border-[#92400E] bg-[#FEF3C7]/60">
             <span className="block text-[10px] sm:text-[11px] font-sans uppercase font-extrabold tracking-[0.25em] text-[#92400E]">
-              {recipient.cycle ? `${recipient.cycle.toUpperCase()} DISTINCTION` : "ACADEMIC DISCIPLINE LAUREATE"}
+              {recipient.cycle ? `${recipient.cycle.toUpperCase()} DISTINCTION` : "ACADEMIC SUBJECT DISTINCTION"}
             </span>
             <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-widest text-[#451A03]">
-              Prix d&apos;Excellence de Discipline
+              Subject Excellence Award
             </h2>
             <p className="text-[9.5px] sm:text-[10.5px] font-sans italic text-[#6B7280]">
-              Subject Laureate &amp; Academic Distinction Award
+              Academic Distinction &amp; Top Subject Achievement Diploma
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export function SubjectDistinctionCertificate({
         {recipient.subjectName && (
           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-md bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs mx-auto">
             <span className="text-[11px] font-sans font-bold uppercase tracking-wider text-[#92400E]">
-              Discipline / Subject:
+              Subject:
             </span>
             <span className="text-sm sm:text-base font-black uppercase text-[#78350F] tracking-wide">
               {recipient.subjectName}
@@ -138,8 +138,8 @@ export function SubjectDistinctionCertificate({
 
         <p className="text-[10.5px] sm:text-xs text-[#555555] italic">
           {config.bilingualLabels
-            ? "Le Conseil Pédagogique décerne cette distinction honorifique à :"
-            : "The Academic Department and Teaching Council proudly confer this honor upon:"}
+            ? "The Academic Council and Teaching Staff proudly confer this honor upon / Le Conseil décerne cette distinction à :"
+            : "The Academic Council and Teaching Staff proudly confer this honor upon:"}
         </p>
 
         {/* Student Name */}
@@ -151,7 +151,7 @@ export function SubjectDistinctionCertificate({
 
         {/* Class & Details */}
         <div className="flex items-center justify-center gap-2 sm:gap-4 flex-wrap text-xs font-sans">
-          <span>Classe: <strong>{recipient.fullClassName}</strong></span>
+          <span>Class: <strong>{recipient.fullClassName}</strong></span>
           <span className="text-[#92400E]">●</span>
           <span>Matricule: <strong className="font-mono">{recipient.matricule}</strong></span>
           {recipient.cycle && (
@@ -182,9 +182,11 @@ export function SubjectDistinctionCertificate({
             <p className="text-[9.5px] sm:text-[11px] font-bold text-[#1F2937]">
               {config.signatory2Title || "Head of Department / Subject Lead"}
             </p>
-            {config.signatory2Name && (
+            {config.signatory2Name ? (
               <p className="text-[9px] text-[#6B7280] italic">{config.signatory2Name}</p>
-            )}
+            ) : recipient.teacherName ? (
+              <p className="text-[9px] text-[#6B7280] italic">{recipient.teacherName}</p>
+            ) : null}
             <div className="w-28 sm:w-36 h-9 border-b border-dashed border-gray-400 mx-auto" />
             <p className="text-[7.5px] text-[#9CA3AF] uppercase">Signature</p>
           </div>

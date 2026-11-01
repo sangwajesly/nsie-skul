@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getGradeAppreciation } from "./grading";
+import { resolveDelegations, resolveSchoolCity, formatReportCardDate } from "./report-card-utils";
+export { resolveDelegations, resolveSchoolCity, formatReportCardDate };
 import {
   School,
   Student,
@@ -371,9 +373,27 @@ export async function getStudentReportCard(
     streamMarks = (streamMarksData as AssessmentMark[]) || [];
   }
 
-  // 7. Fetch Subjects strictly assigned to this class group (by teacher assignment or recorded marks)
+  // 7. Fetch Subjects strictly assigned to this class group (by class curriculum, teacher assignment, or recorded marks)
   let allSubjects = sharedContext?.allSubjects || null;
   let teacherNameMap = sharedContext?.teacherNameMap || new Map<string, string>();
+  let classSubjectMap = sharedContext?.classSubjectMap || null;
+
+  // 7a. Ensure classSubjectMap is resolved first so subjects configured via class_subjects
+  // (with or without an assigned teacher account) are recognized as part of this class stream
+  if (!classSubjectMap) {
+    const { data: classSubjectsData } = await supabase
+      .from("class_subjects")
+      .select("subject_id, coefficient, max_marks")
+      .eq("class_stream_id", classStream.id);
+
+    classSubjectMap = new Map<string, { coefficient: number; max_marks: number }>();
+    (classSubjectsData || []).forEach((cs) => {
+      classSubjectMap!.set(cs.subject_id, {
+        coefficient: Number(cs.coefficient),
+        max_marks: Number(cs.max_marks),
+      });
+    });
+  }
 
   if (!allSubjects) {
     const [
@@ -406,7 +426,15 @@ export async function getStudentReportCard(
     const rawSubjects = subjectsData || [];
     const assignedSubjectIds = new Set<string>();
 
-    // 7a. Subjects assigned to a teacher for this class
+    // 7b. Subjects configured for this class stream curriculum in class_subjects
+    // (Enables teachers without accounts to have marks entered from the admin desk)
+    if (classSubjectMap) {
+      for (const subjectId of classSubjectMap.keys()) {
+        assignedSubjectIds.add(subjectId);
+      }
+    }
+
+    // 7c. Subjects assigned to a teacher for this class
     (teacherAssignmentsData || []).forEach((ta: any) => {
       if (ta.subject_id) {
         if (!ta.academic_year_id || !term.academic_year_id || ta.academic_year_id === term.academic_year_id) {
@@ -433,7 +461,7 @@ export async function getStudentReportCard(
       });
     }
 
-    // 7b. Subjects that have assessment marks entered for this class stream
+    // 7d. Subjects that have assessment marks entered for this class stream
     (streamMarks || []).forEach((m) => {
       if (m.subject_id) {
         assignedSubjectIds.add(m.subject_id);
@@ -445,23 +473,6 @@ export async function getStudentReportCard(
     allSubjects = assignedSubjectIds.size > 0
       ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
       : [];
-  }
-
-  // 7c. Fetch stream-specific class_subjects for custom coefficients and max marks
-  let classSubjectMap = sharedContext?.classSubjectMap || null;
-  if (!classSubjectMap) {
-    const { data: classSubjectsData } = await supabase
-      .from("class_subjects")
-      .select("subject_id, coefficient, max_marks")
-      .eq("class_stream_id", classStream.id);
-
-    classSubjectMap = new Map<string, { coefficient: number; max_marks: number }>();
-    (classSubjectsData || []).forEach((cs) => {
-      classSubjectMap!.set(cs.subject_id, {
-        coefficient: Number(cs.coefficient),
-        max_marks: Number(cs.max_marks),
-      });
-    });
   }
 
   // 8. Fetch stored competencies if any
@@ -809,16 +820,18 @@ export async function getStudentReportCard(
     }
   }
 
+  const delegations = resolveDelegations(school.address, school.name);
+
   return {
     school: {
-      name: school.name || "GOVERNMENT BILINGUAL HIGH SCHOOL",
-      code: school.code || "GBHS",
+      name: school.name || "SECONDARY HIGH SCHOOL",
+      code: school.code || (school.name ? school.name.trim().split(/\s+/).map((w: string) => w[0]?.toUpperCase()).join("").slice(0, 6) : "SCH"),
       logo_url: school.logo_url || null,
-      address: school.address || "P.O. Box 144, Bamenda, NW Region",
-      phone: school.phone || "+237 670 000 000",
-      email: school.email || "info@school.cm",
-      regionalDelegation: "NORTH WEST REGION",
-      divisionalDelegation: "MEZAM DIVISION",
+      address: school.address || null,
+      phone: school.phone || null,
+      email: school.email || null,
+      regionalDelegation: delegations.regional,
+      divisionalDelegation: delegations.divisional,
       subsystem: school.subsystem || "bilingual",
       motto: school.motto || null,
       reportCardTemplate: school.report_card_template || "cba_grouped_classic",
@@ -962,9 +975,15 @@ export async function getClassStreamReportCards(
 
   const streamMarks = (streamMarksData as AssessmentMark[]) || [];
 
-  // 2b. Filter strictly to subjects assigned to this class group (by teacher assignment or entered marks)
+  // 2b. Filter strictly to subjects assigned to this class group (by class curriculum, teacher assignment, or entered marks)
   const assignedSubjectIds = new Set<string>();
   const teacherNameMap = new Map<string, string>();
+
+  // Include subjects configured for this class stream curriculum in class_subjects
+  // (Enables teachers without accounts to have marks entered from the admin desk)
+  (classSubjectsData || []).forEach((cs: any) => {
+    if (cs.subject_id) assignedSubjectIds.add(cs.subject_id);
+  });
 
   (teacherAssignmentsData || []).forEach((ta: any) => {
     if (ta.subject_id) {

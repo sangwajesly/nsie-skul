@@ -137,6 +137,13 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
           </div>
 
           <Link 
+            href="/#capabilities" 
+            className="hover:text-[#142010] transition-colors"
+          >
+            Capabilities
+          </Link>
+
+          <Link 
             href="/blog" 
             className={`hover:text-[#142010] transition-colors ${
               currentPath.startsWith("/blog") ? "text-[#2A7C13] font-semibold" : ""
@@ -261,6 +268,13 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
           </div>
 
           <div className="border-t border-[#E8DFC9] pt-3 space-y-2">
+            <Link
+              href="/#capabilities"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block p-2 text-[13px] font-semibold text-[#142010]"
+            >
+              What You Can Achieve (In Plain English)
+            </Link>
             <Link
               href="/blog"
               onClick={() => setMobileMenuOpen(false)}

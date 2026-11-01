@@ -42,7 +42,7 @@ export function ModernLaureateCertificate({
       {/* Top Left Corner Ribbon & Angles */}
       <div className="absolute top-0 left-0 w-20 h-20 overflow-hidden pointer-events-none">
         <div className="absolute transform -rotate-45 bg-[#0F5132] text-white text-[7px] font-black tracking-widest text-center py-1 -left-7 top-4 w-28 uppercase shadow-xs">
-          MINESEC
+          HONOR ROLL
         </div>
       </div>
 
@@ -115,14 +115,14 @@ export function ModernLaureateCertificate({
         <div className="inline-flex items-center gap-2 px-5 py-1 rounded-full bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E] text-[10px] font-bold uppercase tracking-widest mb-1 shadow-2xs">
           <span>Official Academic Distinction</span>
           <span>·</span>
-          <span>Tableau d&apos;Honneur CBA</span>
+          <span>Roll of Honour</span>
         </div>
         <h2 className="text-xl sm:text-2xl md:text-3xl font-black uppercase tracking-tight text-[#064E3B]">
-          Certificate of Excellence &amp; Merit
+          Certificate of Academic Excellence
         </h2>
         <p className="text-xs sm:text-[13px] font-medium text-[#4B5563] mt-0.5">
           {config.bilingualLabels
-            ? "Pour résultats scolaires exemplaires et assiduité remarquable"
+            ? "Awarded for outstanding scholastic achievement and exemplary character / Décerné pour excellence académique"
             : "In recognition of distinguished scholastic accomplishment and exemplary discipline"}
         </p>
       </div>
@@ -154,7 +154,7 @@ export function ModernLaureateCertificate({
         {/* Award Distinction Card */}
         <div className="inline-flex items-center gap-3 px-5 py-2 rounded-xl bg-gradient-to-r from-[#ECFDF5] via-[#FFFBEB] to-[#ECFDF5] border border-[#A7F3D0] shadow-2xs mx-auto">
           <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#0F5132]">
-            🏅 {recipient.awardTitle}
+            ★ {recipient.awardTitle} ★
           </span>
           {typeof recipient.average === "number" && (
             <div className="flex items-baseline gap-1 pl-3 border-l border-[#D1D5DB]">
@@ -202,7 +202,7 @@ export function ModernLaureateCertificate({
               <strong>{config.issueDate}</strong>
             </div>
             <div className="text-[8px] text-[#9CA3AF] font-mono">
-              VERIFIED ACADEMIC RECORD · MINESEC CBA
+              VERIFIED ACADEMIC RECORD · OFFICIAL DISTINCTION
             </div>
           </div>
 
