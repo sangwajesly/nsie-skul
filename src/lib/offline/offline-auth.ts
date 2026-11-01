@@ -18,6 +18,23 @@ export interface OfflineUserProfile {
   leaseExpiresAt: number; // 30 days offline lease
 }
 
+export interface OfflineTimetableSlot {
+  id: string;
+  dayOfWeek: number;
+  periodNumber: number;
+  startTime: string;
+  endTime: string;
+  isBreak?: boolean;
+  periodName?: string;
+  subjectName: string;
+  subjectCode: string;
+  className: string;
+  classStreamId: string;
+  roomName?: string | null;
+  teacherId?: string | null;
+  teacherName?: string | null;
+}
+
 export interface OfflineTeachingScope {
   academicYearId: string;
   academicYearName: string;
@@ -32,6 +49,7 @@ export interface OfflineTeachingScope {
     fullName: string;
     gender: string;
   }[];
+  timetable?: OfflineTimetableSlot[];
 }
 
 export interface OfflineSchoolMembership {

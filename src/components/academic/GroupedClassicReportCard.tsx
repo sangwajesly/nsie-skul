@@ -24,7 +24,7 @@ function getAppreciationBadge(mark: number | null): { label: string; bg: string;
 }
 
 function formatRank(rank: number | null | undefined, total: number, subsystem?: string): string {
-  if (!rank) return "—";
+  if (!rank) return "-";
   if (subsystem === "francophone") {
     const suffix = rank === 1 ? "er" : "e";
     return `${rank}${suffix} / ${total}`;
@@ -153,13 +153,13 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
   const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
 
   return (
-    <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
+    <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full print:max-h-[296mm] print:overflow-hidden print:break-inside-avoid print:page-break-inside-avoid">
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
         {/* English National Header (Left) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
-          <div className="text-[7.5px] font-normal italic lowercase">Peace – Work – Fatherland</div>
+          <div className="text-[7.5px] font-normal italic lowercase">Peace - Work - Fatherland</div>
           <div className="text-[6.5px]">*************</div>
           <div>MINISTRY OF SECONDARY EDUCATION</div>
           <div>REGIONAL DELEGATION OF {school.regionalDelegation}</div>
@@ -180,14 +180,14 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
               <span className="font-extrabold text-[11px] font-mono">{school.code || "SEAL"}</span>
             )}
           </div>
-          <div className="text-[8.5px] font-serif italic text-zinc-700">Knowledge – Integrity – Excellence</div>
+          <div className="text-[8.5px] font-serif italic text-zinc-700">Knowledge - Integrity - Excellence</div>
           <div className="text-[7.5px] font-mono text-zinc-600 mt-0.5">{school.address}</div>
         </div>
 
         {/* Francophone Subsystem Header (Right) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>RÉPUBLIQUE DU CAMEROUN</div>
-          <div className="text-[7.5px] font-normal italic lowercase">Paix – Travail – Patrie</div>
+          <div className="text-[7.5px] font-normal italic lowercase">Paix - Travail - Patrie</div>
           <div className="text-[6.5px]">*************</div>
           <div>MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
           <div>DÉLÉGATION RÉGIONALE DU {school.regionalDelegation}</div>
@@ -256,9 +256,9 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
         <div className="grid grid-cols-12 border-b border-black/40 divide-x divide-black/40 p-0 text-[9px]">
           <div className="col-span-5 p-1.5">
             <span className="font-bold text-zinc-700">Né(e) le / Born on:</span>{" "}
-            <span className="font-mono">{student.dateOfBirth || "—"}</span>{" "}
+            <span className="font-mono">{student.dateOfBirth || "-"}</span>{" "}
             <span className="font-bold text-zinc-700 ml-1">à / At:</span>{" "}
-            <span>{student.placeOfBirth || "—"}</span>
+            <span>{student.placeOfBirth || "-"}</span>
           </div>
           <div className="col-span-3 p-1.5">
             <span className="font-bold text-zinc-700">Sexe / Sex:</span>{" "}
@@ -279,7 +279,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
           <div className="col-span-6 p-1.5">
             <span className="font-bold text-zinc-700">Parent´s Contact:</span>{" "}
             <span>
-              {student.guardianName || "—"} {student.guardianPhone ? `(${student.guardianPhone})` : ""}
+              {student.guardianName || "-"} {student.guardianPhone ? `(${student.guardianPhone})` : ""}
             </span>
           </div>
           <div className="col-span-6 p-1.5">
@@ -328,42 +328,42 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                   const badge = getAppreciationBadge(sub.termAverage);
                   return (
                     <tr key={sub.subjectId} className="divide-x divide-black/30 align-middle hover:bg-zinc-50/50">
-                      <td className="py-1 px-1.5 font-bold uppercase text-[9px]">
+                      <td className="py-1 print:py-0.5 px-1.5 font-bold uppercase text-[9px] print:text-[8px] print:leading-none">
                         <div>{sub.subjectName}</div>
-                        <div className="text-[7.5px] font-normal italic text-zinc-600 capitalize">
+                        <div className="text-[7.5px] print:text-[7px] font-normal italic text-zinc-600 capitalize print:leading-none">
                           {sub.teacherName}
                         </div>
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqBMark !== null ? sub.seqBMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-black text-[9.5px] bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-black text-[9.5px] print:text-[8.5px] bg-zinc-100/60 print:leading-none">
                         {sub.termAverage !== null ? sub.termAverage.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold">{sub.coefficient}</td>
-                      <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold print:text-[8px] print:leading-none">{sub.coefficient}</td>
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold bg-zinc-100/60 print:text-[8px] print:leading-none">
                         {sub.weightedScore !== null ? sub.weightedScore.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold text-zinc-800">
-                        {sub.subjectRank ? `${sub.subjectRank}` : "—"}
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold text-zinc-800 print:text-[8px] print:leading-none">
+                        {sub.subjectRank ? `${sub.subjectRank}` : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-zinc-700">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-zinc-700 print:text-[8px] print:leading-none">
                         {sub.subjectAverage !== null && sub.subjectAverage !== undefined
                           ? sub.subjectAverage.toFixed(1)
-                          : "—"}
+                          : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-[8px] print:text-[7.5px] text-zinc-600 print:leading-none">
                         [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
-                      <td className="py-0.5 px-1.5 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
+                      <td className="py-0.5 print:py-0.2 px-1.5 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 print:py-0 rounded text-[8px] print:text-[7px] font-bold ${badge.bg} ${badge.text}`}>
                           {badge.label}
                         </span>
                       </td>
-                      <td className="py-1 px-1 text-center border-dashed border-black/20"></td>
+                      <td className="py-1 print:py-0.5 px-1 text-center border-dashed border-black/20"></td>
                     </tr>
                   );
                 })}
@@ -393,42 +393,42 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                   const badge = getAppreciationBadge(sub.termAverage);
                   return (
                     <tr key={sub.subjectId} className="divide-x divide-black/30 align-middle hover:bg-zinc-50/50">
-                      <td className="py-1 px-1.5 font-bold uppercase text-[9px]">
+                      <td className="py-1 print:py-0.5 px-1.5 font-bold uppercase text-[9px] print:text-[8px] print:leading-none">
                         <div>{sub.subjectName}</div>
-                        <div className="text-[7.5px] font-normal italic text-zinc-600 capitalize">
+                        <div className="text-[7.5px] print:text-[7px] font-normal italic text-zinc-600 capitalize print:leading-none">
                           {sub.teacherName}
                         </div>
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqBMark !== null ? sub.seqBMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-black text-[9.5px] bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-black text-[9.5px] print:text-[8.5px] bg-zinc-100/60 print:leading-none">
                         {sub.termAverage !== null ? sub.termAverage.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold">{sub.coefficient}</td>
-                      <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold print:text-[8px] print:leading-none">{sub.coefficient}</td>
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold bg-zinc-100/60 print:text-[8px] print:leading-none">
                         {sub.weightedScore !== null ? sub.weightedScore.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold text-zinc-800">
-                        {sub.subjectRank ? `${sub.subjectRank}` : "—"}
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold text-zinc-800 print:text-[8px] print:leading-none">
+                        {sub.subjectRank ? `${sub.subjectRank}` : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-zinc-700">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-zinc-700 print:text-[8px] print:leading-none">
                         {sub.subjectAverage !== null && sub.subjectAverage !== undefined
                           ? sub.subjectAverage.toFixed(1)
-                          : "—"}
+                          : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-[8px] print:text-[7.5px] text-zinc-600 print:leading-none">
                         [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
-                      <td className="py-0.5 px-1.5 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
+                      <td className="py-0.5 print:py-0.2 px-1.5 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 print:py-0 rounded text-[8px] print:text-[7px] font-bold ${badge.bg} ${badge.text}`}>
                           {badge.label}
                         </span>
                       </td>
-                      <td className="py-1 px-1 text-center border-dashed border-black/20"></td>
+                      <td className="py-1 print:py-0.5 px-1 text-center border-dashed border-black/20"></td>
                     </tr>
                   );
                 })}
@@ -458,42 +458,42 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
                   const badge = getAppreciationBadge(sub.termAverage);
                   return (
                     <tr key={sub.subjectId} className="divide-x divide-black/30 align-middle hover:bg-zinc-50/50">
-                      <td className="py-1 px-1.5 font-bold uppercase text-[9px]">
+                      <td className="py-1 print:py-0.5 px-1.5 font-bold uppercase text-[9px] print:text-[8px] print:leading-none">
                         <div>{sub.subjectName}</div>
-                        <div className="text-[7.5px] font-normal italic text-zinc-600 capitalize">
+                        <div className="text-[7.5px] print:text-[7px] font-normal italic text-zinc-600 capitalize print:leading-none">
                           {sub.teacherName}
                         </div>
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqAMark !== null ? sub.seqAMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-semibold">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-semibold print:text-[8px] print:leading-none">
                         {sub.seqBMark !== null ? sub.seqBMark.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-black text-[9.5px] bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-black text-[9.5px] print:text-[8.5px] bg-zinc-100/60 print:leading-none">
                         {sub.termAverage !== null ? sub.termAverage.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold">{sub.coefficient}</td>
-                      <td className="py-1 px-1 text-center font-mono font-bold bg-zinc-100/60">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold print:text-[8px] print:leading-none">{sub.coefficient}</td>
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold bg-zinc-100/60 print:text-[8px] print:leading-none">
                         {sub.weightedScore !== null ? sub.weightedScore.toFixed(1) : "//"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono font-bold text-zinc-800">
-                        {sub.subjectRank ? `${sub.subjectRank}` : "—"}
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono font-bold text-zinc-800 print:text-[8px] print:leading-none">
+                        {sub.subjectRank ? `${sub.subjectRank}` : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-zinc-700">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-zinc-700 print:text-[8px] print:leading-none">
                         {sub.subjectAverage !== null && sub.subjectAverage !== undefined
                           ? sub.subjectAverage.toFixed(1)
-                          : "—"}
+                          : "-"}
                       </td>
-                      <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
+                      <td className="py-1 print:py-0.5 px-1 text-center font-mono text-[8px] print:text-[7.5px] text-zinc-600 print:leading-none">
                         [{sub.minClassScore != null ? sub.minClassScore.toFixed(1) : "//"} - {sub.maxClassScore != null ? sub.maxClassScore.toFixed(1) : "//"}]
                       </td>
-                      <td className="py-0.5 px-1.5 text-center">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold ${badge.bg} ${badge.text}`}>
+                      <td className="py-0.5 print:py-0.2 px-1.5 text-center">
+                        <span className={`inline-block px-1.5 py-0.5 print:py-0 rounded text-[8px] print:text-[7px] font-bold ${badge.bg} ${badge.text}`}>
                           {badge.label}
                         </span>
                       </td>
-                      <td className="py-1 px-1 text-center border-dashed border-black/20"></td>
+                      <td className="py-1 print:py-0.5 px-1 text-center border-dashed border-black/20"></td>
                     </tr>
                   );
                 })}
@@ -555,7 +555,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
               <span className="font-mono font-bold">
                 {summary.seqAAverage !== null && summary.seqAAverage !== undefined
                   ? `${summary.seqAAverage.toFixed(2)} / 20`
-                  : "—"}
+                  : "-"}
               </span>
             </div>
             <div className="flex justify-between pt-0.5 font-bold text-[10.5px] text-black">
@@ -567,7 +567,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
             <div className="flex justify-between pt-0.5">
               <span className="text-zinc-700">Term Rank / Rang:</span>
               <span className="font-mono font-bold text-black">
-                {summary.rankingEnabled && summary.rank ? formatRank(summary.rank, totalCount, school.subsystem) : "—"}
+                {summary.rankingEnabled && summary.rank ? formatRank(summary.rank, totalCount, school.subsystem) : "-"}
               </span>
             </div>
             <div className="flex justify-between pt-0.5">
@@ -654,9 +654,9 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
       </div>
 
       {/* ── 6. SIGNATURES & STAMPS ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-12 divide-x-2 divide-black text-[9px] pt-2">
+      <div className="grid grid-cols-12 divide-x-2 divide-black text-[9px] pt-2 print:pt-1">
         {/* Class Master */}
-        <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28">
+        <div className="col-span-4 p-2 print:p-1 text-center flex flex-col justify-between h-28 print:h-20">
           <div>
             <div className="font-black uppercase text-[9.5px]">CLASS MASTER / PROF TITULAIRE</div>
             <div className="text-[8px] text-zinc-600 mt-0.5">{classInfo.classMasterName}</div>
@@ -667,7 +667,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
         </div>
 
         {/* Principal Stamp & Seal */}
-        <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28 bg-zinc-50/40">
+        <div className="col-span-4 p-2 print:p-1 text-center flex flex-col justify-between h-28 print:h-20 bg-zinc-50/40">
           <div>
             <div className="text-[8px] font-mono text-zinc-700">
               {doneLocationEn}
@@ -687,7 +687,7 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
         </div>
 
         {/* Parent Signature */}
-        <div className="col-span-4 p-2 text-center flex flex-col justify-between h-28">
+        <div className="col-span-4 p-2 print:p-1 text-center flex flex-col justify-between h-28 print:h-20">
           <div>
             <div className="font-black uppercase text-[9.5px]">SIGNATURE OF PARENTS / PARENT</div>
             <div className="text-[8px] text-zinc-600 mt-0.5">Signature du Parent / Tuteur</div>

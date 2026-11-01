@@ -80,13 +80,37 @@ export function SessionExpiredModal({
       });
 
       if (authError) {
-        setError(authError.message || "Invalid credentials. Please verify your email and password.");
+        const rawMsg = authError.message || "";
+        if (
+          rawMsg.includes("<!DOCTYPE") ||
+          rawMsg.includes("Unexpected token") ||
+          rawMsg.includes("Failed to fetch") ||
+          rawMsg.includes("Load failed")
+        ) {
+          setError(
+            "Cannot connect to the authentication server. You appear to be offline or network connection was lost. Please verify your internet or unlock with your offline PIN."
+          );
+        } else {
+          setError(rawMsg || "Invalid credentials. Please verify your email and password.");
+        }
       } else if (data?.user) {
         if (onSuccess) onSuccess();
         window.location.reload();
       }
     } catch (err: any) {
-      setError(err?.message || "Authentication failed. Please verify your connection.");
+      const rawMsg = err?.message || "";
+      if (
+        rawMsg.includes("<!DOCTYPE") ||
+        rawMsg.includes("Unexpected token") ||
+        rawMsg.includes("Failed to fetch") ||
+        rawMsg.includes("Load failed")
+      ) {
+        setError(
+          "Cannot connect to the authentication server. You appear to be offline or network connection was lost. Please verify your internet or unlock with your offline PIN."
+        );
+      } else {
+        setError(rawMsg || "Authentication failed. Please verify your connection.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -290,12 +314,15 @@ export function SessionExpiredModal({
 
         {/* Footer Navigation Links */}
         <div className="pt-2 border-t border-[#F0EFEA] flex flex-col items-center gap-2">
-          <a
-            href={loginRedirectUrl}
-            className="text-xs font-semibold text-[#525E4B] hover:text-[#142010] transition-colors"
+          <button
+            type="button"
+            onClick={() => {
+              window.location.assign(loginRedirectUrl);
+            }}
+            className="text-xs font-semibold text-[#525E4B] hover:text-[#142010] transition-colors cursor-pointer bg-transparent border-none py-1"
           >
             Go to Standard Sign-in Page
-          </a>
+          </button>
 
           {isOffline && (
             <a

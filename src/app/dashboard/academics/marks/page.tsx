@@ -67,14 +67,21 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
     getSchoolClassSubjects(schoolId),
   ]);
 
-  // If HOD, restrict to subjects under their department (plus any subject they teach)
-  // If pure teacher, restrict to subjects they are assigned to teach
-  // If admin, show all school subjects
-  const subjects = hodScope && hodScope.subjectIds.length > 0
-    ? rawSubjects.filter((s) => hodScope.subjectIds.includes(s.id) || teacherAssignments.some((a) => a.subject_id === s.id))
-    : isTeacher && teacherAssignments.length > 0
+  // Strict Subject Scope:
+  // - Administrator / Principal: All school subjects
+  // - Head of Department (HOD): Strictly subjects in their department + any personally assigned teaching subject
+  // - Subject Teacher: Strictly subjects they are assigned to teach
+  const subjects = isAdmin
+    ? rawSubjects
+    : isHodUser
+    ? rawSubjects.filter(
+        (s) =>
+          (hodScope?.subjectIds || []).includes(s.id) ||
+          teacherAssignments.some((a) => a.subject_id === s.id)
+      )
+    : isTeacher
     ? rawSubjects.filter((s) => teacherAssignments.some((a) => a.subject_id === s.id))
-    : rawSubjects;
+    : [];
 
   const allStreams = classesWithStreams.flatMap((c) => c.streams);
 
@@ -107,24 +114,27 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
   }
 
   // Streams visible in the dropdown:
-  // - Pure teachers: only show assigned streams
-  // - HOD: show all streams that have subjects in their department (fallback to all streams)
-  // - Admins: show all streams
+  // - Subject teachers: strictly assigned streams
+  // - HOD: strictly streams that offer their departmental or assigned subjects (no leaking to other departments)
+  // - Admins: all streams
   let visibleStreams = allStreams;
-  if (isTeacher && teacherAssignments.length > 0) {
+  if (isTeacher) {
     visibleStreams = allStreams.filter((s) => assignedStreamIds.has(s.id));
-  } else if (isHodUser && hodScope && hodScope.subjectIds.length > 0) {
-    const deptSubjectSet = new Set(hodScope.subjectIds);
+  } else if (isHodUser) {
+    const hodSubjectIds = new Set([
+      ...(hodScope?.subjectIds || []),
+      ...teacherAssignments.map((a) => a.subject_id),
+    ]);
     const streamsWithDeptSubjects = allStreams.filter((s) => {
       const streamSubjs = streamToSubjects.get(s.id);
       if (streamSubjs) {
-        for (const subId of deptSubjectSet) {
+        for (const subId of hodSubjectIds) {
           if (streamSubjs.has(subId)) return true;
         }
       }
       return false;
     });
-    visibleStreams = streamsWithDeptSubjects.length > 0 ? streamsWithDeptSubjects : allStreams;
+    visibleStreams = streamsWithDeptSubjects;
   }
 
   // Default selections
@@ -175,16 +185,15 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
 
   // Authorization check:
   // - Admins are authorized for all classes and subjects
-  // - HODs are authorized for all subjects under their department across any class, plus any personally assigned subjects
-  // - Teachers are authorized for their assigned class + subject combinations
+  // - HODs are strictly authorized for subjects under their department across any class, plus any personally assigned subjects
+  // - Teachers are strictly authorized for their assigned class + subject combinations
   const isAuthorizedForSelection =
     isAdmin ||
     (isHodUser && (
-      (selectedSubject && hodScope?.subjectIds.includes(selectedSubject.id)) ||
+      (selectedSubject && (hodScope?.subjectIds || []).includes(selectedSubject.id)) ||
       teacherAssignments.some((a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id)
     )) ||
     (isTeacher && (
-      teacherAssignments.length === 0 ||
       teacherAssignments.some((a) => a.class_stream_id === selectedStream?.id && a.subject_id === selectedSubject?.id)
     ));
 

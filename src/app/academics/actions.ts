@@ -1652,19 +1652,34 @@ export async function saveSequenceMarksAction(payload: {
 
   const supabase = await createClient();
 
-  // Server-side teacher assignment enforcement:
-  // Teachers can only save marks for class+subject combinations they are assigned to
+  // Server-side teacher assignment and departmental scope enforcement:
   const roleCode = context.role?.code || "";
-  const isTeacherRole = roleCode === "teacher" || roleCode === "class_master";
-  const isHodOrAdmin =
-    context.hasPermission("marks.approve_hod") ||
-    context.hasPermission("academics.manage") ||
-    context.isHod ||
-    roleCode === "school_admin" ||
-    roleCode === "principal" ||
-    roleCode === "hod";
+  const isAdminRole = ["school_admin", "principal", "superadmin"].includes(roleCode);
+  const isHodRole = !isAdminRole && (roleCode === "hod" || Boolean(context.isHod));
+  const isTeacherRole = !isAdminRole && !isHodRole && (roleCode === "teacher" || roleCode === "class_master");
 
-  if (isTeacherRole && !isHodOrAdmin && context.user?.id) {
+  // HOD scope check: HOD can only save marks for subjects within their department OR personally assigned
+  if (isHodRole && context.user?.id) {
+    const { subjectIds } = await getHodScope(context.school.id, payload.academicYearId, context.user.id);
+    const { data: ownAssignment } = await supabase
+      .from("teacher_assignments")
+      .select("id")
+      .eq("school_id", context.school.id)
+      .eq("academic_year_id", payload.academicYearId)
+      .eq("teacher_user_id", context.user.id)
+      .eq("class_stream_id", payload.classStreamId)
+      .eq("subject_id", payload.subjectId)
+      .maybeSingle();
+
+    if (!subjectIds.includes(payload.subjectId) && !ownAssignment) {
+      return {
+        error: "As Head of Department, you can only enter or update marks for subjects within your department.",
+      };
+    }
+  }
+
+  // Teacher scope check: Teacher can only save marks for assigned classes & subjects
+  if (isTeacherRole && context.user?.id) {
     const { data: assignment } = await supabase
       .from("teacher_assignments")
       .select("id")
@@ -1706,7 +1721,7 @@ export async function saveSequenceMarksAction(payload: {
     }
   }
 
-  // Check if locked — only allow if HOD or administrator
+  // Check if locked: only allow if HOD or administrator
   const { data: existingMarks } = await supabase
     .from("assessment_marks")
     .select("is_locked")
@@ -1715,7 +1730,7 @@ export async function saveSequenceMarksAction(payload: {
     .eq("subject_id", payload.subjectId)
     .limit(1);
 
-  if (existingMarks && existingMarks.length > 0 && existingMarks[0].is_locked && !isHodOrAdmin) {
+  if (existingMarks && existingMarks.length > 0 && existingMarks[0].is_locked && !isAdminRole && !isHodRole) {
     return { error: "This mark sheet is locked. Only the Head of Department or School Administrator can modify approved marks." };
   }
 
@@ -1930,6 +1945,20 @@ export async function approveDepartmentalSequenceAction(formData: FormData) {
 
   if (!sequenceId || !classStreamId) {
     return { error: "Missing required parameters for approval." };
+  }
+
+  // Departmental scope enforcement:
+  // Head of Department can only approve marks for subjects within their department
+  const roleCode = context.role?.code || "";
+  const isAdminRole = ["school_admin", "principal", "superadmin"].includes(roleCode);
+  const isHodRole = !isAdminRole && (roleCode === "hod" || Boolean(context.isHod));
+
+  if (isHodRole && context.user?.id) {
+    const { departmentIds, subjectIds } = await getHodScope(context.school.id, academicYearId, context.user.id);
+    const inScope = (subjectId && subjectIds.includes(subjectId)) || (departmentId && departmentIds.includes(departmentId));
+    if (!inScope) {
+      return { error: "As Head of Department, you can only approve marks for subjects within your department." };
+    }
   }
 
   const supabase = await createClient();
@@ -2602,6 +2631,58 @@ export async function deleteTimetableSlotAction(formData: FormData) {
 
   revalidatePath("/dashboard/academics/timetable");
   return { success: true };
+}
+
+/**
+ * Remove a subject assignment from a class stream in class_subjects.
+ * Prevents subjects from appearing on report cards when unassigned.
+ */
+export async function removeClassSubjectAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage"]);
+  const classStreamId = String(formData.get("classStreamId") || "");
+  const subjectId = String(formData.get("subjectId") || "");
+
+  if (!classStreamId || !subjectId) {
+    return { error: "Class group and Subject are required." };
+  }
+
+  const supabase = await createClient();
+
+  // Safety check: Cannot remove if marks have already been recorded for this class group and subject
+  const { count: marksCount } = await supabase
+    .from("assessment_marks")
+    .select("id", { count: "exact", head: true })
+    .eq("class_stream_id", classStreamId)
+    .eq("subject_id", subjectId);
+
+  if (marksCount && marksCount > 0) {
+    return {
+      error: `Cannot remove this subject: ${marksCount} assessment mark(s) have already been entered for this class group. Delete the marks first if you wish to remove the subject.`,
+    };
+  }
+
+  // Remove teacher assignments for this stream and subject
+  await supabase
+    .from("teacher_assignments")
+    .delete()
+    .eq("class_stream_id", classStreamId)
+    .eq("subject_id", subjectId);
+
+  // Remove from class_subjects
+  const { error } = await supabase
+    .from("class_subjects")
+    .delete()
+    .eq("class_stream_id", classStreamId)
+    .eq("subject_id", subjectId);
+
+  if (error) {
+    return { error: `Could not remove subject: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
+  return { success: true as const, message: "Subject removed from class group." };
 }
 
 

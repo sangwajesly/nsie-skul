@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useEffect, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { getOfflineTeachingScope } from "@/lib/offline/offline-auth";
 import {
   Calendar,
   Clock,
@@ -148,16 +149,87 @@ export function TimetableViewClient({
     return [...activeProfile.periods].sort((a, b) => a.period_number - b.period_number);
   }, [activeProfile]);
 
+  // Offline timetable slots state
+  const [activeSlots, setActiveSlots] = useState<TimetableSlot[]>(initialSlots);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (initialSlots.length === 0 || !navigator.onLine) {
+      const scope = getOfflineTeachingScope();
+      if (scope?.timetable && scope.timetable.length > 0) {
+        const mapped = scope.timetable.map((t) => ({
+          id: t.id,
+          school_id: school?.id || "",
+          academic_year_id: academicYear?.id || "",
+          profile_id: "",
+          class_stream_id: t.classStreamId,
+          period_id: t.id,
+          day_of_week: t.dayOfWeek,
+          subject_id: t.id,
+          teacher_id: t.teacherId || null,
+          room_name: t.roomName || null,
+          created_at: "",
+          updated_at: "",
+          period: {
+            id: t.id,
+            profile_id: "",
+            school_id: school?.id || "",
+            period_number: t.periodNumber,
+            name: t.periodName || `Period ${t.periodNumber}`,
+            start_time: t.startTime,
+            end_time: t.endTime,
+            is_break: Boolean(t.isBreak),
+            applies_to_days: [1, 2, 3, 4, 5],
+            created_at: "",
+            updated_at: "",
+          },
+          subject: {
+            id: t.id,
+            school_id: school?.id || "",
+            department_id: null,
+            name: t.subjectName,
+            code: t.subjectCode,
+            default_coefficient: 2,
+            default_max_marks: 20,
+            created_at: "",
+            updated_at: "",
+          },
+          teacher: t.teacherId
+            ? {
+                id: t.teacherId,
+                full_name: t.teacherName || "Teacher",
+                email: "",
+                phone: null,
+                avatar_url: null,
+                created_at: "",
+                updated_at: "",
+              }
+            : undefined,
+          class_stream: {
+            id: t.classStreamId,
+            class_id: "",
+            name: t.className,
+            created_at: "",
+            updated_at: "",
+          },
+        })) as unknown as TimetableSlot[];
+        setActiveSlots(mapped);
+      }
+    } else {
+      setActiveSlots(initialSlots);
+    }
+  }, [initialSlots, school?.id, academicYear?.id]);
+
   // Map of slots for the selected stream: key = `${dayOfWeek}-${periodId}`
   const streamSlotsMap = useMemo(() => {
     const map = new Map<string, TimetableSlot>();
-    for (const slot of initialSlots) {
+    for (const slot of activeSlots) {
       if (slot.class_stream_id === selectedStreamId) {
         map.set(`${slot.day_of_week}-${slot.period_id}`, slot);
       }
     }
     return map;
-  }, [initialSlots, selectedStreamId]);
+  }, [activeSlots, selectedStreamId]);
 
   // Teacher availability map for selected teacher: key = dayOfWeek
   const teacherAvailMap = useMemo(() => {

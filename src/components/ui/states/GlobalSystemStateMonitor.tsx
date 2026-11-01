@@ -5,6 +5,7 @@ import { NoInternetBanner } from "./NoInternetState";
 import { SlowNetworkAlert } from "./SlowNetworkState";
 import { SessionExpiredModal } from "./SessionExpiredState";
 import { initHubAutoSyncListener } from "@/lib/academic/hub-auto-sync";
+import { isOfflineUnlocked } from "@/lib/offline/offline-auth";
 import { Wifi, CheckCircle2, X } from "lucide-react";
 
 /**
@@ -50,9 +51,11 @@ export function GlobalSystemStateMonitor() {
 
     // 4. Session & network warning events
     const handleSessionExpired = () => {
-      // Do not display cloud session expiration when offline.
-      // Offline mode operates under the teacher's local offline vault.
+      // Do not display cloud session expiration when offline or unlocked locally
       if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+      if (isOfflineUnlocked()) {
         return;
       }
       setIsSessionExpired(true);

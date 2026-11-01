@@ -1,11 +1,12 @@
 // Service Worker for Nsei Sukul Offline Support & Sukul Hub LAN Sync
-const STATIC_CACHE = "nsei-static-v5";
-const PAGES_CACHE = "nsei-pages-v5";
+const STATIC_CACHE = "nsei-static-v6";
+const PAGES_CACHE = "nsei-pages-v6";
 
 // Essential standalone assets pre-cached on service worker install
 const PRECACHE_ASSETS = [
   "/offline.html",
-  "/icon.svg"
+  "/icon.svg",
+  "/login"
 ];
 
 self.addEventListener("install", (event) => {

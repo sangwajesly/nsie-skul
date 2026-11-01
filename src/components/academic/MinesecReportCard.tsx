@@ -41,14 +41,14 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
   const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
 
   return (
-    <div className="bg-white text-black p-4 sm:p-6 max-w-[960px] mx-auto border border-black/80 font-sans text-[11px] leading-tight print:p-0 print:border-none print:max-w-none print:w-full">
+    <div className="bg-white text-black p-4 sm:p-6 max-w-[960px] mx-auto border border-black/80 font-sans text-[11px] leading-tight print:p-0 print:border-none print:max-w-none print:w-full print:max-h-[296mm] print:overflow-hidden print:break-inside-avoid print:page-break-inside-avoid">
       
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
         {/* English National Header (Left) */}
         <div className="col-span-5 text-center space-y-0.5 text-[9px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
-          <div className="text-[8px] font-normal italic lowercase">Peace – Work – Fatherland</div>
+          <div className="text-[8px] font-normal italic lowercase">Peace - Work - Fatherland</div>
           <div className="text-[7px]">*************</div>
           <div>MINISTRY OF SECONDARY EDUCATION</div>
           <div className="text-[7px]">*************</div>
@@ -78,7 +78,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
         {/* Francophone Subsystem Header (Right) */}
         <div className="col-span-5 text-center space-y-0.5 text-[9px] uppercase font-bold tracking-tight">
           <div>RÉPUBLIQUE DU CAMEROUN</div>
-          <div className="text-[8px] font-normal italic lowercase">Paix – Travail – Patrie</div>
+          <div className="text-[8px] font-normal italic lowercase">Paix - Travail - Patrie</div>
           <div className="text-[7px]">*************</div>
           <div>MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
           <div className="text-[7px]">*************</div>
@@ -131,7 +131,7 @@ export function MinesecReportCard({ data }: MinesecReportCardProps) {
         <div className="grid grid-cols-12 border-b border-black/30 divide-x divide-black/30">
           <div className="col-span-5 p-1">
             <span className="font-bold">Date &amp; place of birth:</span>{" "}
-            <span>{student.dateOfBirth || "—"} at {student.placeOfBirth || "—"}</span>
+            <span>{student.dateOfBirth || "-"} at {student.placeOfBirth || "-"}</span>
           </div>
           <div className="col-span-3 p-1">
             <span className="font-bold">Gender:</span>{" "}

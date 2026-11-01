@@ -8,7 +8,7 @@ interface TraditionalReportCardProps {
 }
 
 function getLetterGrade(mark: number | null): string {
-  if (mark === null) return "—";
+  if (mark === null) return "-";
   if (mark >= 16) return "A";
   if (mark >= 14) return "B";
   if (mark >= 12) return "C";
@@ -28,7 +28,7 @@ function getGradeRemark(mark: number | null): string {
 }
 
 function formatRank(rank: number | null | undefined, total: number, subsystem?: string): string {
-  if (!rank) return "—";
+  if (!rank) return "-";
   if (subsystem === "francophone") {
     const suffix = rank === 1 ? "er" : "e";
     return `${rank}${suffix} / ${total}`;
@@ -69,13 +69,13 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
   const verifyUrl = `/verify?matricule=${encodeURIComponent(student.matricule)}&studentName=${encodeURIComponent(student.fullName)}&school=${encodeURIComponent(school.name)}&className=${encodeURIComponent(classInfo.streamName)}&term=${encodeURIComponent(term.name)}&score=${encodeURIComponent(summary.studentAverage.toFixed(2))}&type=report_card`;
 
   return (
-    <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full">
+    <div className="bg-white text-black p-4 sm:p-5 max-w-[1020px] mx-auto border-2 border-black font-sans text-[10.5px] leading-snug print:p-0 print:border-none print:max-w-none print:w-full print:max-h-[296mm] print:overflow-hidden print:break-inside-avoid print:page-break-inside-avoid">
       {/* ── 1. BILINGUAL NATIONAL HEADER ────────────────────────────────────────── */}
       <div className="grid grid-cols-12 gap-2 border-b-2 border-black pb-2 items-center text-center">
         {/* English National Header (Left) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>REPUBLIC OF CAMEROON</div>
-          <div className="text-[7.5px] font-normal italic lowercase">Peace – Work – Fatherland</div>
+          <div className="text-[7.5px] font-normal italic lowercase">Peace - Work - Fatherland</div>
           <div className="text-[6.5px]">*************</div>
           <div>MINISTRY OF SECONDARY EDUCATION</div>
           <div>REGIONAL DELEGATION OF {school.regionalDelegation}</div>
@@ -107,7 +107,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
         {/* Francophone Subsystem Header (Right) */}
         <div className="col-span-4 text-center space-y-0.5 text-[8.5px] uppercase font-bold tracking-tight">
           <div>RÉPUBLIQUE DU CAMEROUN</div>
-          <div className="text-[7.5px] font-normal italic lowercase">Paix – Travail – Patrie</div>
+          <div className="text-[7.5px] font-normal italic lowercase">Paix - Travail - Patrie</div>
           <div className="text-[6.5px]">*************</div>
           <div>MINISTÈRE DES ENSEIGNEMENTS SECONDAIRES</div>
           <div>DÉLÉGATION RÉGIONALE DE {school.regionalDelegation}</div>
@@ -160,9 +160,9 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
         <div className="grid grid-cols-12 border-b border-black/40 divide-x divide-black/40 p-0 text-[9px]">
           <div className="col-span-5 p-1.5">
             <span className="font-bold text-zinc-700">Date of Birth:</span>{" "}
-            <span className="font-mono">{student.dateOfBirth || "—"}</span>{" "}
+            <span className="font-mono">{student.dateOfBirth || "-"}</span>{" "}
             <span className="font-bold text-zinc-700 ml-1">Place:</span>{" "}
-            <span>{student.placeOfBirth || "—"}</span>
+            <span>{student.placeOfBirth || "-"}</span>
           </div>
           <div className="col-span-3 p-1.5">
             <span className="font-bold text-zinc-700">Gender:</span>{" "}
@@ -182,7 +182,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
         <div className="grid grid-cols-12 divide-x divide-black/40 p-0 text-[9px]">
           <div className="col-span-4 p-1.5">
             <span className="font-bold text-zinc-700">Matricule / ID:</span>{" "}
-            <span className="font-bold font-mono text-[10px]">{student.matricule || "—"}</span>
+            <span className="font-bold font-mono text-[10px]">{student.matricule || "-"}</span>
           </div>
           <div className="col-span-4 p-1.5">
             <span className="font-bold text-zinc-700">Class Enrolment:</span>{" "}
@@ -266,13 +266,13 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
                       </span>
                     </td>
                     <td className="py-1 px-1 text-center font-mono font-semibold text-[9px]">
-                      {sub.subjectRank ? `${sub.subjectRank}` : "—"}
+                      {sub.subjectRank ? `${sub.subjectRank}` : "-"}
                     </td>
                     <td className="py-1 px-1 text-center font-mono text-zinc-700">
-                      {sub.subjectAverage !== null && sub.subjectAverage !== undefined ? sub.subjectAverage.toFixed(1) : "—"}
+                      {sub.subjectAverage !== null && sub.subjectAverage !== undefined ? sub.subjectAverage.toFixed(1) : "-"}
                     </td>
                     <td className="py-1 px-1 text-center font-mono text-[8px] text-zinc-600">
-                      [{sub.minClassScore.toFixed(1)} – {sub.maxClassScore.toFixed(1)}]
+                      [{sub.minClassScore.toFixed(1)} - {sub.maxClassScore.toFixed(1)}]
                     </td>
                     <td className="py-1 px-2 text-[8.5px]">
                       <div className="font-semibold text-zinc-800">{remark}</div>
@@ -303,38 +303,38 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
             <div className="flex justify-between border-b border-dotted border-black/30 pb-0.5">
               <span className="font-sans font-bold">Total Weighted Score:</span>
               <span className="font-black text-[10.5px]">
-                {summary.totalWeightedScore?.toFixed(2) || "—"} / {((summary.totalCoef || 0) * 20).toFixed(0)}
+                {summary.totalWeightedScore?.toFixed(2) || "-"} / {((summary.totalCoef || 0) * 20).toFixed(0)}
               </span>
             </div>
 
             <div className="flex justify-between border-b border-dotted border-black/30 pb-0.5">
               <span className="font-sans font-bold">Total Coefficients:</span>
-              <span className="font-bold">{summary.totalCoef?.toFixed(1) || "—"}</span>
+              <span className="font-bold">{summary.totalCoef?.toFixed(1) || "-"}</span>
             </div>
 
             <div className="flex justify-between border-b border-black pb-1 bg-zinc-100 p-1 rounded">
               <span className="font-sans font-black text-[10.5px]">STUDENT TERM AVERAGE:</span>
               <span className="font-black text-[13px] text-black">
-                {summary.studentAverage !== null ? `${summary.studentAverage.toFixed(2)} / 20` : "—"}
+                {summary.studentAverage !== null ? `${summary.studentAverage.toFixed(2)} / 20` : "-"}
               </span>
             </div>
 
             <div className="flex justify-between border-b border-black pb-1 bg-zinc-200/60 p-1 rounded">
               <span className="font-sans font-black text-[10px]">CLASS RANK / POSITION:</span>
               <span className="font-black text-[12px] text-black">
-                {summary.totalSubjects > 0 ? formatRank(summary.rank, totalCount, school.subsystem) : "—"}
+                {summary.totalSubjects > 0 ? formatRank(summary.rank, totalCount, school.subsystem) : "-"}
               </span>
             </div>
 
             <div className="flex justify-between pt-0.5 text-[8.5px]">
               <span className="font-sans">Class General Average:</span>
-              <span className="font-bold">{classProfile.classAverage?.toFixed(2) || "—"} / 20</span>
+              <span className="font-bold">{classProfile.classAverage?.toFixed(2) || "-"} / 20</span>
             </div>
 
             <div className="flex justify-between text-[8.5px]">
               <span className="font-sans">Class Range [Lowest / Highest]:</span>
               <span className="font-bold font-mono">
-                [{classProfile.minAverage?.toFixed(2) || "—"} / {classProfile.maxAverage?.toFixed(2) || "—"}]
+                [{classProfile.minAverage?.toFixed(2) || "-"} / {classProfile.maxAverage?.toFixed(2) || "-"}]
               </span>
             </div>
 
@@ -348,7 +348,7 @@ export function TraditionalReportCard({ data }: TraditionalReportCardProps) {
             <div className="flex justify-between text-[8.5px]">
               <span className="font-sans">Class Success Rate:</span>
               <span className="font-bold">
-                {classProfile.numberPassed} of {totalCount} passed ({classProfile.successRate?.toFixed(1) || "—"}%)
+                {classProfile.numberPassed} of {totalCount} passed ({classProfile.successRate?.toFixed(1) || "-"}%)
               </span>
             </div>
           </div>

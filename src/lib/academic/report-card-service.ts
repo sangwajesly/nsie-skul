@@ -429,8 +429,10 @@ export async function getStudentReportCard(
     // 7b. Subjects configured for this class stream curriculum in class_subjects
     // (Enables teachers without accounts to have marks entered from the admin desk)
     if (classSubjectMap) {
-      for (const subjectId of classSubjectMap.keys()) {
-        assignedSubjectIds.add(subjectId);
+      for (const [subjectId, config] of classSubjectMap.entries()) {
+        if (config.coefficient > 0) {
+          assignedSubjectIds.add(subjectId);
+        }
       }
     }
 
@@ -982,7 +984,7 @@ export async function getClassStreamReportCards(
   // Include subjects configured for this class stream curriculum in class_subjects
   // (Enables teachers without accounts to have marks entered from the admin desk)
   (classSubjectsData || []).forEach((cs: any) => {
-    if (cs.subject_id) assignedSubjectIds.add(cs.subject_id);
+    if (cs.subject_id && Number(cs.coefficient) > 0) assignedSubjectIds.add(cs.subject_id);
   });
 
   (teacherAssignmentsData || []).forEach((ta: any) => {

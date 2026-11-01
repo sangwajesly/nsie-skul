@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getTenantContext, getUserSchools } from "@/lib/tenancy/context";
+import { createClient } from "@/lib/supabase/server";
 import {
   getActiveAcademicYear,
   getSchoolSequences,
@@ -7,6 +8,7 @@ import {
   getSchoolSubjects,
   getSchoolTeacherAssignments,
   getEnrolledStudents,
+  getHodScope,
 } from "@/lib/academic/service";
 import type { OfflineTeachingScope } from "@/lib/offline/offline-auth";
 
@@ -41,7 +43,8 @@ export async function GET(request: NextRequest) {
 
     const userId = context.user.id;
     const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
-    const isTeacher = !isAdmin && (roleCode === "teacher" || roleCode === "class_master");
+    const isHod = !isAdmin && (roleCode === "hod" || Boolean(context.isHod));
+    const isTeacher = !isAdmin && !isHod && (roleCode === "teacher" || roleCode === "class_master");
 
     const activeYear = await getActiveAcademicYear(schoolId);
     if (!activeYear) {
@@ -51,13 +54,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [sequencesRaw, classesRaw, subjectsRaw, teacherAssignmentsRaw] = await Promise.all([
+    const [sequencesRaw, classesRaw, subjectsRaw, teacherAssignmentsRaw, hodScope] = await Promise.all([
       getSchoolSequences(schoolId),
       getSchoolClasses(schoolId, activeYear.id),
       getSchoolSubjects(schoolId),
       isTeacher
         ? getSchoolTeacherAssignments(schoolId, activeYear.id, userId)
         : getSchoolTeacherAssignments(schoolId, activeYear.id),
+      isHod
+        ? getHodScope(schoolId, activeYear.id, userId)
+        : Promise.resolve(null),
     ]);
 
     // Format sequences
@@ -78,8 +84,24 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
+    // Filter subjects strictly according to role:
+    // - Superadmin / School Admin: all school subjects
+    // - HOD: only subjects within their department + personally assigned subjects
+    // - Teacher: only subjects they are assigned to teach
+    let filteredSubjectsRaw = subjectsRaw;
+    if (isHod) {
+      const hodSubjectIds = new Set([
+        ...(hodScope?.subjectIds || []),
+        ...teacherAssignmentsRaw.filter((a) => a.teacher_user_id === userId).map((a) => a.subject_id),
+      ]);
+      filteredSubjectsRaw = subjectsRaw.filter((s) => hodSubjectIds.has(s.id));
+    } else if (isTeacher) {
+      const assignedSubIds = new Set(teacherAssignmentsRaw.map((a) => a.subject_id));
+      filteredSubjectsRaw = subjectsRaw.filter((s) => assignedSubIds.has(s.id));
+    }
+
     // Format subjects
-    const subjects = subjectsRaw.map((sub) => ({
+    const subjects = filteredSubjectsRaw.map((sub) => ({
       id: sub.id,
       name: sub.name,
       code: sub.code,
@@ -99,8 +121,17 @@ export async function GET(request: NextRequest) {
 
     if (isTeacher && teacherAssignmentsRaw.length > 0) {
       targetStreamIds = Array.from(new Set(teacherAssignmentsRaw.map((a) => a.class_stream_id)));
+    } else if (isHod) {
+      const allowedSubIds = new Set(filteredSubjectsRaw.map((s) => s.id));
+      const hodStreamIds = teacherAssignmentsRaw
+        .filter((a) => allowedSubIds.has(a.subject_id))
+        .map((a) => a.class_stream_id);
+      targetStreamIds = Array.from(new Set(hodStreamIds));
+      if (targetStreamIds.length === 0) {
+        targetStreamIds = allStreams.map((s) => s.id);
+      }
     } else {
-      // Admin, HOD, or teacher without assignments: cache all streams
+      // Admin: cache all streams
       targetStreamIds = allStreams.map((s) => s.id);
     }
 
@@ -125,6 +156,46 @@ export async function GET(request: NextRequest) {
       gender: e.student?.gender || "M",
     }));
 
+    // Fetch timetable slots for this school and academic year
+    const supabase = await createClient();
+    let timetableQuery = supabase
+      .from("timetable_slots")
+      .select(`
+        id,
+        day_of_week,
+        room_name,
+        teacher_id,
+        class_stream_id,
+        period:timetable_periods(id, period_number, start_time, end_time, is_break, name),
+        subject:subjects(id, name, code),
+        teacher:users(id, full_name),
+        class_stream:class_streams(id, name)
+      `)
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", activeYear.id);
+
+    if (isTeacher && !isHod) {
+      timetableQuery = timetableQuery.eq("teacher_id", userId);
+    }
+
+    const { data: slotsRaw } = await timetableQuery;
+    const timetable = ((slotsRaw as any[]) || []).map((s) => ({
+      id: s.id,
+      dayOfWeek: s.day_of_week,
+      periodNumber: s.period?.period_number || 1,
+      startTime: s.period?.start_time || "08:00",
+      endTime: s.period?.end_time || "08:50",
+      isBreak: s.period?.is_break || false,
+      periodName: s.period?.name || `Period ${s.period?.period_number || 1}`,
+      subjectName: s.subject?.name || "Subject",
+      subjectCode: s.subject?.code || "SUB",
+      className: s.class_stream?.name || "Class",
+      classStreamId: s.class_stream_id,
+      roomName: s.room_name || null,
+      teacherId: s.teacher_id || null,
+      teacherName: s.teacher?.full_name || null,
+    }));
+
     const scope: OfflineTeachingScope = {
       academicYearId: activeYear.id,
       academicYearName: activeYear.name,
@@ -133,6 +204,7 @@ export async function GET(request: NextRequest) {
       subjects,
       assignedStreams,
       enrolledStudents,
+      timetable,
     };
 
     return NextResponse.json(scope, {

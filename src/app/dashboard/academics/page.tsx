@@ -49,21 +49,22 @@ export default async function AcademicsPage({ searchParams }: AcademicsPageProps
       : Promise.resolve(null),
   ]);
 
-  // If the user is an HOD, strictly filter subjects, departments, and allocations to their department
-  const visibleSubjects = hodScope
-    ? subjects.filter((s) => hodScope.subjectIds.includes(s.id))
+  // If the user is an HOD, strictly filter subjects, departments, and allocations to their department.
+  // Superadmins and School Administrators have school-wide scope.
+  const visibleSubjects = isHodUser
+    ? (hodScope && hodScope.subjectIds.length > 0 ? subjects.filter((s) => hodScope.subjectIds.includes(s.id)) : [])
     : subjects;
 
-  const visibleDepartments = hodScope
-    ? departments.filter((d) => hodScope.departmentIds.includes(d.id))
+  const visibleDepartments = isHodUser
+    ? (hodScope && hodScope.departmentIds.length > 0 ? departments.filter((d) => hodScope.departmentIds.includes(d.id)) : [])
     : departments;
 
-  const visibleTeacherAssignments = hodScope
-    ? teacherAssignments.filter((ta) => hodScope.subjectIds.includes(ta.subject_id))
+  const visibleTeacherAssignments = isHodUser
+    ? (hodScope && hodScope.subjectIds.length > 0 ? teacherAssignments.filter((ta) => hodScope.subjectIds.includes(ta.subject_id)) : [])
     : teacherAssignments;
 
-  const visibleClassSubjects = hodScope
-    ? classSubjects.filter((cs) => hodScope.subjectIds.includes(cs.subject_id))
+  const visibleClassSubjects = isHodUser
+    ? (hodScope && hodScope.subjectIds.length > 0 ? classSubjects.filter((cs) => hodScope.subjectIds.includes(cs.subject_id)) : [])
     : classSubjects;
 
   const teachingStaff = staff

@@ -1,13 +1,26 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition, useCallback } from "react";
 import { saveRollCallAction } from "@/app/attendance/actions";
 import {
   Save,
   CheckCircle2,
   AlertCircle,
   Check,
+  WifiOff,
+  CloudUpload,
+  HardDrive,
 } from "lucide-react";
+import {
+  saveAttendanceDraftLocally,
+  getAttendanceDraftLocally,
+  enqueueAttendanceOutbox,
+  getAttendanceOutboxCount,
+  flushAttendanceOutbox,
+  initAttendanceAutoSync,
+  buildAttendanceSessionKey,
+} from "@/lib/attendance/offline-attendance-db";
+import { getOfflineTeachingScope } from "@/lib/offline/offline-auth";
 
 interface StudentRollItem {
   studentId: string;
@@ -36,7 +49,83 @@ export function RollCallClient({
 }: RollCallClientProps) {
   const [students, setStudents] = useState<StudentRollItem[]>(initialStudents);
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [outboxCount, setOutboxCount] = useState(0);
+  const [isSyncingOutbox, setIsSyncingOutbox] = useState(false);
+
+  // Load unsynced local drafts & set up auto-sync listeners
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkNet = () => setIsOffline(!navigator.onLine);
+    checkNet();
+    window.addEventListener("online", checkNet);
+    window.addEventListener("offline", checkNet);
+
+    // Update pending count
+    const updateCount = async () => {
+      const c = await getAttendanceOutboxCount();
+      setOutboxCount(c);
+    };
+    updateCount();
+    window.addEventListener("nsei:attendance-outbox-changed", updateCount);
+
+    // Check for offline draft on this device
+    getAttendanceDraftLocally(academicYearId, classStreamId, sessionDate).then((draft) => {
+      if (draft && Array.isArray(draft.records) && draft.records.length > 0) {
+        // Merge cached offline records
+        setStudents((prev) =>
+          prev.map((s) => {
+            const cached = draft.records.find((r) => r.studentId === s.studentId);
+            return cached
+              ? {
+                  ...s,
+                  status: cached.status,
+                  hoursMissed: cached.hoursMissed,
+                  justificationNote: cached.justificationNote || s.justificationNote,
+                }
+              : s;
+          })
+        );
+        if (!draft.isSynced) {
+          setMessage({
+            type: "info",
+            text: "Restored offline draft saved on this device.",
+          });
+        }
+      } else if (initialStudents.length === 0) {
+        // Fallback to offline cached roster for this stream
+        const offlineScope = getOfflineTeachingScope();
+        if (offlineScope?.enrolledStudents?.length) {
+          const streamStudents = offlineScope.enrolledStudents
+            .filter((e) => e.classStreamId === classStreamId)
+            .map((e) => ({
+              studentId: e.studentId,
+              matricule: e.matricule,
+              fullName: e.fullName,
+              gender: e.gender,
+              status: "present" as const,
+              hoursMissed: 0,
+              justificationNote: "",
+            }));
+          if (streamStudents.length > 0) {
+            setStudents(streamStudents);
+          }
+        }
+      }
+    });
+
+    // Initialize auto-sync background listener
+    const cleanup = initAttendanceAutoSync(saveRollCallAction);
+
+    return () => {
+      window.removeEventListener("online", checkNet);
+      window.removeEventListener("offline", checkNet);
+      window.removeEventListener("nsei:attendance-outbox-changed", updateCount);
+      cleanup();
+    };
+  }, [academicYearId, classStreamId, sessionDate]);
 
   const handleStatusChange = (
     index: number,
@@ -70,28 +159,111 @@ export function RollCallClient({
     setStudents(updated);
   };
 
-  const handleSave = () => {
-    setMessage(null);
-    startTransition(async () => {
-      const res = await saveRollCallAction({
-        academicYearId,
-        termId,
-        classStreamId,
-        sessionDate,
-        records: students.map((s) => ({
-          studentId: s.studentId,
-          status: s.status,
-          hoursMissed: s.hoursMissed,
-          justificationNote: s.justificationNote,
-        })),
+  const triggerManualSync = async () => {
+    if (!navigator.onLine) {
+      setMessage({
+        type: "error",
+        text: "Cannot sync while offline. Please connect to internet or School Wi-Fi.",
       });
-
-      if (res?.error) {
-        setMessage({ type: "error", text: res.error });
-      } else {
+      return;
+    }
+    setIsSyncingOutbox(true);
+    try {
+      const res = await flushAttendanceOutbox(saveRollCallAction);
+      const count = await getAttendanceOutboxCount();
+      setOutboxCount(count);
+      if (res.successCount > 0) {
         setMessage({
           type: "success",
-          text: `Attendance for ${sessionDate} has been saved.`,
+          text: `Successfully synced ${res.successCount} queued attendance session(s) with the school cloud.`,
+        });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Sync failed. Will retry automatically." });
+    } finally {
+      setIsSyncingOutbox(false);
+    }
+  };
+
+  const handleSave = () => {
+    setMessage(null);
+    const sessionKey = buildAttendanceSessionKey(academicYearId, classStreamId, sessionDate);
+    const draftPayload = {
+      sessionKey,
+      academicYearId,
+      termId,
+      classStreamId,
+      sessionDate,
+      records: students.map((s) => ({
+        studentId: s.studentId,
+        matricule: s.matricule,
+        fullName: s.fullName,
+        gender: s.gender,
+        status: s.status,
+        hoursMissed: s.hoursMissed,
+        justificationNote: s.justificationNote,
+      })),
+      updatedAt: Date.now(),
+      isSynced: false,
+    };
+
+    // 1. Immediately cache in local device storage
+    saveAttendanceDraftLocally(draftPayload);
+
+    // 2. If completely offline: queue to outbox and notify immediately
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      enqueueAttendanceOutbox(draftPayload).then(() => {
+        getAttendanceOutboxCount().then(setOutboxCount);
+      });
+      setMessage({
+        type: "success",
+        text: `Attendance saved locally on device. It will automatically upload when reconnected.`,
+      });
+      return;
+    }
+
+    // 3. Online: flush to server action
+    startTransition(async () => {
+      try {
+        const res = await saveRollCallAction({
+          academicYearId,
+          termId,
+          classStreamId,
+          sessionDate,
+          records: students.map((s) => ({
+            studentId: s.studentId,
+            status: s.status,
+            hoursMissed: s.hoursMissed,
+            justificationNote: s.justificationNote,
+          })),
+        });
+
+        if (res?.error) {
+          // If server rejects with error, queue to device outbox to prevent data loss
+          await enqueueAttendanceOutbox(draftPayload);
+          const count = await getAttendanceOutboxCount();
+          setOutboxCount(count);
+          setMessage({
+            type: "error",
+            text: `${res.error} (Draft is preserved in your device outbox).`,
+          });
+        } else {
+          // Mark draft as synced
+          draftPayload.isSynced = true;
+          await saveAttendanceDraftLocally(draftPayload);
+          setMessage({
+            type: "success",
+            text: `Attendance for ${sessionDate} has been saved to the school cloud.`,
+          });
+        }
+      } catch {
+        // Network drop during submit: queue safely into outbox
+        await enqueueAttendanceOutbox(draftPayload);
+        const count = await getAttendanceOutboxCount();
+        setOutboxCount(count);
+        setMessage({
+          type: "success",
+          text: "Connection dropped. Attendance is safely saved on this device and will sync automatically.",
         });
       }
     });
@@ -115,6 +287,27 @@ export function RollCallClient({
             <Check className="w-3.5 h-3.5 text-[#2A7C13]" />
             <span>Mark All Present</span>
           </button>
+
+          {outboxCount > 0 && (
+            <button
+              type="button"
+              onClick={triggerManualSync}
+              disabled={isSyncingOutbox || isOffline}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#7A5B00] font-bold text-xs hover:bg-[#FFF3B0] transition-colors cursor-pointer disabled:opacity-60"
+              title="Click to sync queued sessions with school cloud"
+            >
+              <CloudUpload className={`w-3.5 h-3.5 ${isSyncingOutbox ? "animate-bounce" : "animate-pulse"}`} />
+              <span>{isSyncingOutbox ? "Syncing..." : `${outboxCount} Queued to Sync`}</span>
+            </button>
+          )}
+
+          {isOffline && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] bg-[#2B1B04] text-[#FDE68A] border border-[#78350F] font-bold text-xs">
+              <WifiOff className="w-3.5 h-3.5" />
+              <span>Working Offline</span>
+            </span>
+          )}
+
           <div className="h-4 w-px bg-[#E8DFC9] hidden sm:block" />
           <div className="text-[#525E4B]">
             Present: <strong className="text-[#2A7C13">{presentCount}</strong> · No reason given:{" "}
@@ -129,7 +322,7 @@ export function RollCallClient({
           className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs shadow-xs transition-colors disabled:opacity-50"
         >
           <Save className="w-3.5 h-3.5" />
-          <span>{isPending ? "Saving Attendance..." : "Save Attendance"}</span>
+          <span>{isPending ? "Saving Attendance..." : isOffline ? "Save to Device (Offline)" : "Save Attendance"}</span>
         </button>
       </div>
 
@@ -139,11 +332,15 @@ export function RollCallClient({
           className={`p-3 rounded-[6px] text-xs flex items-center gap-2 ${
             message.type === "success"
               ? "bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40"
+              : message.type === "info"
+              ? "bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2]"
               : "bg-red-50 text-red-700 border border-red-200"
           }`}
         >
           {message.type === "success" ? (
             <CheckCircle2 className="w-4 h-4 shrink-0" />
+          ) : message.type === "info" ? (
+            <HardDrive className="w-4 h-4 shrink-0 text-[#7A5B00]" />
           ) : (
             <AlertCircle className="w-4 h-4 shrink-0" />
           )}
