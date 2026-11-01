@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getTenantContext } from "@/lib/tenancy/context";
+import { NextResponse, type NextRequest } from "next/server";
+import { getTenantContext, getUserSchools } from "@/lib/tenancy/context";
 import {
   getActiveAcademicYear,
   getSchoolSequences,
@@ -12,16 +12,34 @@ import type { OfflineTeachingScope } from "@/lib/offline/offline-auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const context = await getTenantContext();
     if (!context || !context.school?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const schoolId = context.school.id;
+    const { searchParams } = new URL(request.url);
+    const requestedSchoolId = searchParams.get("schoolId");
+
+    let schoolId = context.school.id;
+    let roleCode = context.role.code || "teacher";
+
+    // If teacher is synchronizing a specific school from their authorized memberships
+    if (requestedSchoolId && requestedSchoolId !== context.school.id) {
+      const memberships = await getUserSchools();
+      const targetMembership = memberships.find((m) => m.school.id === requestedSchoolId);
+      if (!targetMembership) {
+        return NextResponse.json(
+          { error: "Access denied to the requested school." },
+          { status: 403 }
+        );
+      }
+      schoolId = targetMembership.school.id;
+      roleCode = targetMembership.role.code || "teacher";
+    }
+
     const userId = context.user.id;
-    const roleCode = context.role.code || "teacher";
     const isAdmin = ["school_admin", "principal", "superadmin"].includes(roleCode);
     const isTeacher = !isAdmin && (roleCode === "teacher" || roleCode === "class_master");
 

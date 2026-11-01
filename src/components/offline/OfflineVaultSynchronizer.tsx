@@ -4,9 +4,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   saveOfflineSession,
   saveOfflineTeachingScope,
+  saveOfflineSchools,
   hasOfflinePin,
   setOfflinePin,
   getOfflineVaultStatus,
+  type OfflineSchoolMembership,
 } from "@/lib/offline/offline-auth";
 import { ShieldCheck, KeyRound, CheckCircle2, X, HardDrive, AlertCircle } from "lucide-react";
 
@@ -24,6 +26,7 @@ interface OfflineVaultSynchronizerProps {
     id: string;
     name: string;
   };
+  availableSchools?: OfflineSchoolMembership[];
 }
 
 const PIN_PROMPT_DISMISSED_KEY = "nsei_pin_prompt_dismissed_at";
@@ -32,6 +35,7 @@ export function OfflineVaultSynchronizer({
   user,
   role,
   school,
+  availableSchools = [],
 }: OfflineVaultSynchronizerProps) {
   const [showPinPrompt, setShowPinPrompt] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
@@ -42,7 +46,7 @@ export function OfflineVaultSynchronizer({
   const [pinSuccess, setPinSuccess] = useState(false);
   const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
 
-  // Synchronize user profile & teaching scope into offline vault
+  // Synchronize user profile, schools list & teaching scopes into offline vault
   const syncScope = useCallback(async () => {
     if (typeof window === "undefined" || !navigator.onLine) return;
 
@@ -57,24 +61,48 @@ export function OfflineVaultSynchronizer({
       schoolName: school.name,
     });
 
-    // 2. Fetch and cache teaching scope (classes, subjects, student roster)
+    // 2. Cache full authorized schools list for offline switcher
+    if (availableSchools.length > 0) {
+      saveOfflineSchools(availableSchools);
+    }
+
+    // 3. Fetch and cache primary teaching scope (classes, subjects, student roster)
     try {
       setSyncStatus("syncing");
-      const res = await fetch("/api/v1/offline/scope", {
+      const res = await fetch(`/api/v1/offline/scope?schoolId=${encodeURIComponent(school.id)}`, {
         method: "GET",
         headers: { "Cache-Control": "no-cache" },
       });
       if (res.ok) {
         const scopeData = await res.json();
-        saveOfflineTeachingScope(scopeData);
+        saveOfflineTeachingScope(scopeData, school.id);
         setSyncStatus("synced");
+
+        // 4. Background-cache secondary schools if teacher belongs to multiple campuses
+        if (availableSchools.length > 1) {
+          const secondarySchools = availableSchools.filter((s) => s.school.id !== school.id);
+          for (const sec of secondarySchools) {
+            try {
+              const secRes = await fetch(
+                `/api/v1/offline/scope?schoolId=${encodeURIComponent(sec.school.id)}`,
+                { headers: { "Cache-Control": "no-cache" } }
+              );
+              if (secRes.ok) {
+                const secScope = await secRes.json();
+                saveOfflineTeachingScope(secScope, sec.school.id);
+              }
+            } catch {
+              // Non-blocking background sync
+            }
+          }
+        }
       } else {
         setSyncStatus("error");
       }
     } catch {
       setSyncStatus("error");
     }
-  }, [user, role, school]);
+  }, [user, role, school, availableSchools]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

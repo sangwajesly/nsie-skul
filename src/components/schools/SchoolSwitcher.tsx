@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useTransition } from "react";
 import { Building2, Check, ChevronsUpDown, Loader2, ArrowRight } from "lucide-react";
 import { setActiveSchoolAction } from "@/app/schools/actions";
+import { switchOfflineSchool, getOfflineSchools } from "@/lib/offline/offline-auth";
 import Link from "next/link";
 
 export interface SchoolOption {
@@ -49,7 +50,20 @@ export function SchoolSwitcher({
   const [isPending, startTransition] = useTransition();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const hasMultipleSchools = availableSchools.length > 1;
+  // Sync available schools from offline vault cache if running offline
+  const [schoolsList, setSchoolsList] = useState<SchoolOption[]>(availableSchools);
+
+  useEffect(() => {
+    setSchoolsList(availableSchools);
+    if (typeof window !== "undefined") {
+      const cached = getOfflineSchools();
+      if (cached && cached.length > availableSchools.length) {
+        setSchoolsList(cached);
+      }
+    }
+  }, [availableSchools]);
+
+  const hasMultipleSchools = schoolsList.length > 1;
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -73,6 +87,18 @@ export function SchoolSwitcher({
     }
 
     setSwitchingId(schoolId);
+
+    // If completely offline, switch active school locally without failing on cloud server action
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const switched = switchOfflineSchool(schoolId);
+      if (switched) {
+        if (onSwitch) onSwitch();
+        setIsOpen(false);
+        window.location.reload();
+        return;
+      }
+    }
+
     startTransition(async () => {
       const formData = new FormData();
       formData.set("schoolId", schoolId);
@@ -83,6 +109,12 @@ export function SchoolSwitcher({
         await setActiveSchoolAction(formData);
       } catch (err) {
         console.error("Failed to switch school:", err);
+        // Fallback to local offline switch if network abruptly failed during action
+        const switched = switchOfflineSchool(schoolId);
+        if (switched) {
+          window.location.reload();
+          return;
+        }
         setSwitchingId(null);
       }
     });
@@ -151,7 +183,7 @@ export function SchoolSwitcher({
                 {currentRole?.name || "Teacher"}
               </span>
               <span className="text-[9px] px-1 py-0.2 rounded bg-[#EAF7E4] text-[#166534] font-semibold border border-[#BBF7D0]">
-                {availableSchools.length} schools
+                {schoolsList.length} schools
               </span>
             </div>
           </div>
@@ -179,7 +211,7 @@ export function SchoolSwitcher({
           </div>
 
           <div className="max-h-60 overflow-y-auto divide-y divide-[#F0EFEA] py-1">
-            {availableSchools.map((item) => {
+            {schoolsList.map((item) => {
               const isCurrent = item.school.id === currentSchool.id;
               const isSwitchingThis = switchingId === item.school.id;
 

@@ -110,6 +110,16 @@
       </div>
     </header>
 
+    <!-- School Switcher (shown if teacher has multiple schools cached offline) -->
+    <div id="schoolSwitcherContainer" style="display:none; margin-bottom: 1rem;">
+      <div style="display:flex; align-items:center; gap:0.65rem; background:#FFFDF5; border:1px solid var(--border); padding:0.6rem 0.85rem; border-radius:8px;">
+        <span style="font-size:0.75rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em;">School Campus:</span>
+        <select id="offlineSchoolSelect" class="form-select" style="flex:1; max-width:320px;" onchange="handleOfflineSchoolChange(this.value)">
+        </select>
+        <span style="font-size:0.72rem; color:var(--muted); font-weight:600;">(Cached for offline use)</span>
+      </div>
+    </div>
+
     <!-- Offline Status Advisory -->
     <div id="connectionAlert" class="alert alert-offline">
       <div>
@@ -323,6 +333,9 @@
       document.getElementById("schoolBadge").innerText = profile.schoolName || "School Workspace";
       document.getElementById("teacherBadge").innerText = profile.fullName || "Teacher";
 
+      // Initialize offline schools switcher if user has access to multiple schools
+      initOfflineSchoolsSwitcher();
+
       // Check PIN lock
       const pinHash = localStorage.getItem(VAULT_KEY_PIN_HASH);
       const isUnlocked = sessionStorage.getItem("nsei_offline_unlocked") === "true";
@@ -333,6 +346,67 @@
         initWorkspace();
       }
     });
+
+    // Populate offline campus selector when teacher belongs to multiple schools
+    function initOfflineSchoolsSwitcher() {
+      const rawSchools = localStorage.getItem("nsei_offline_schools");
+      if (!rawSchools) return;
+      try {
+        const schools = JSON.parse(rawSchools);
+        if (Array.isArray(schools) && schools.length > 1) {
+          const container = document.getElementById("schoolSwitcherContainer");
+          const sel = document.getElementById("offlineSchoolSelect");
+          sel.innerHTML = "";
+          schools.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.school.id;
+            opt.innerText = s.school.name + (s.role ? ` (${s.role.name})` : "");
+            if (profile && s.school.id === profile.schoolId) {
+              opt.selected = true;
+            }
+            sel.appendChild(opt);
+          });
+          container.style.display = "block";
+        }
+      } catch (err) {
+        console.warn("[Offline] Error loading cached schools:", err);
+      }
+    }
+
+    // Switch campus offline without internet
+    function handleOfflineSchoolChange(targetSchoolId) {
+      const rawSchools = localStorage.getItem("nsei_offline_schools");
+      if (!rawSchools) return;
+      try {
+        const schools = JSON.parse(rawSchools);
+        const target = schools.find(s => s.school.id === targetSchoolId);
+        if (!target) return;
+
+        if (profile) {
+          profile.schoolId = target.school.id;
+          profile.schoolName = target.school.name;
+          if (target.role) {
+            profile.roleCode = target.role.code;
+            profile.roleName = target.role.name;
+          }
+          localStorage.setItem(VAULT_KEY_PROFILE, JSON.stringify(profile));
+        }
+
+        const schoolScopeKey = "nsei_offline_scope_" + targetSchoolId;
+        const targetScopeRaw = localStorage.getItem(schoolScopeKey);
+        if (targetScopeRaw) {
+          localStorage.setItem(VAULT_KEY_SCOPE, targetScopeRaw);
+          scope = JSON.parse(targetScopeRaw);
+        }
+
+        document.cookie = `nsei_active_school_id=${targetSchoolId}; path=/; max-age=31536000; SameSite=Lax`;
+        document.getElementById("schoolBadge").innerText = target.school.name;
+        showToast("Switched to " + target.school.name, "success");
+        initWorkspace();
+      } catch (err) {
+        console.warn("[Offline] Switch error:", err);
+      }
+    }
 
     // Handle PIN Unlock
     async function handleUnlock(e) {

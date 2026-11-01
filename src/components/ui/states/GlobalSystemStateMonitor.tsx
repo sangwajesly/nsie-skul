@@ -49,24 +49,45 @@ export function GlobalSystemStateMonitor() {
     };
 
     // 4. Session & network warning events
-    const handleSessionExpired = () => setIsSessionExpired(true);
+    const handleSessionExpired = () => {
+      // Do not display cloud session expiration when offline.
+      // Offline mode operates under the teacher's local offline vault.
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+      setIsSessionExpired(true);
+    };
+
     const handleSlowNetwork = (e: any) => {
       setSlowNetworkWarning(e?.detail?.message || "Slow network detected. Request is in transit.");
       setTimeout(() => setSlowNetworkWarning(null), 8000);
+    };
+
+    const handleNetworkChange = () => {
+      if (!navigator.onLine) {
+        // Automatically suppress cloud session expired popup when switching offline
+        setIsSessionExpired(false);
+      }
     };
 
     window.addEventListener("nsei:hub-sync-success", handleHubSyncSuccess);
     window.addEventListener("nsei:cloud-sync-success", handleCloudSyncSuccess);
     window.addEventListener("nsei:session-expired", handleSessionExpired);
     window.addEventListener("nsei:slow-network", handleSlowNetwork);
+    window.addEventListener("offline", handleNetworkChange);
 
     // Global fetch interceptor to detect 401 unauthorized responses
     const originalFetch = window.fetch;
     window.fetch = async (...args) => {
       try {
         const response = await originalFetch(...args);
-        if (response.status === 401) {
-          window.dispatchEvent(new CustomEvent("nsei:session-expired"));
+        // Only trigger session expiration if the browser is online and not checking offline routes
+        if (response.status === 401 && typeof navigator !== "undefined" && navigator.onLine) {
+          const urlStr = typeof args[0] === "string" ? args[0] : (args[0] as Request)?.url || "";
+          const isInternalOfflineCheck = urlStr.includes("/offline/") || urlStr.includes("/hub/");
+          if (!isInternalOfflineCheck) {
+            window.dispatchEvent(new CustomEvent("nsei:session-expired"));
+          }
         }
         return response;
       } catch (error) {
@@ -80,13 +101,14 @@ export function GlobalSystemStateMonitor() {
       window.removeEventListener("nsei:cloud-sync-success", handleCloudSyncSuccess);
       window.removeEventListener("nsei:session-expired", handleSessionExpired);
       window.removeEventListener("nsei:slow-network", handleSlowNetwork);
+      window.removeEventListener("offline", handleNetworkChange);
       window.fetch = originalFetch;
     };
   }, []);
 
   return (
     <>
-      {/* 4. No Internet Banner — Auto-activates on offline */}
+      {/* 4. No Internet Banner - Auto-activates on offline */}
       <NoInternetBanner />
 
       {/* Sukul Hub Wi-Fi LAN Sync Toast */}
@@ -146,7 +168,7 @@ export function GlobalSystemStateMonitor() {
         </div>
       )}
 
-      {/* 8. Session Expired Modal — Pops up on 401 */}
+      {/* 8. Session Expired Modal - Pops up on 401 */}
       <SessionExpiredModal
         isOpen={isSessionExpired}
         onSuccess={() => setIsSessionExpired(false)}

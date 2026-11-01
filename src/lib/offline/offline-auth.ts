@@ -34,8 +34,25 @@ export interface OfflineTeachingScope {
   }[];
 }
 
+export interface OfflineSchoolMembership {
+  membershipId: string;
+  school: {
+    id: string;
+    name: string;
+    code?: string | null;
+    slug?: string | null;
+    logo_url?: string | null;
+  };
+  role: {
+    name: string;
+    code: string;
+  };
+}
+
 const VAULT_KEY_PROFILE = "nsei_offline_profile";
 const VAULT_KEY_SCOPE = "nsei_offline_scope";
+const VAULT_KEY_SCHOOLS = "nsei_offline_schools";
+const VAULT_KEY_SCOPE_PREFIX = "nsei_offline_scope_";
 const VAULT_KEY_PIN_HASH = "nsei_offline_pin_hash";
 const VAULT_KEY_PIN_SALT = "nsei_offline_pin_salt";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -143,12 +160,48 @@ export function getOfflineSession(): OfflineUserProfile | null {
 }
 
 /**
- * Cache teaching workspace (classes, subjects, student rosters) into local storage
+ * Cache list of all user school memberships for offline switching
  */
-export function saveOfflineTeachingScope(scope: OfflineTeachingScope): void {
+export function saveOfflineSchools(schools: OfflineSchoolMembership[]): void {
+  if (typeof window === "undefined" || !Array.isArray(schools)) return;
+  try {
+    localStorage.setItem(VAULT_KEY_SCHOOLS, JSON.stringify(schools));
+  } catch (err) {
+    console.warn("[OfflineAuth] Could not cache school list:", err);
+  }
+}
+
+/**
+ * Retrieve cached school memberships for offline switcher
+ */
+export function getOfflineSchools(): OfflineSchoolMembership[] {
+  if (typeof window === "undefined") return [];
+  const raw = localStorage.getItem(VAULT_KEY_SCHOOLS);
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as OfflineSchoolMembership[];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Cache teaching workspace (classes, subjects, student rosters) into local storage
+ * Supports per-school caching so teachers can switch between schools offline.
+ */
+export function saveOfflineTeachingScope(scope: OfflineTeachingScope, schoolId?: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(VAULT_KEY_SCOPE, JSON.stringify(scope));
+    const serialized = JSON.stringify(scope);
+    localStorage.setItem(VAULT_KEY_SCOPE, serialized);
+    if (schoolId) {
+      localStorage.setItem(`${VAULT_KEY_SCOPE_PREFIX}${schoolId}`, serialized);
+    } else {
+      const profile = getOfflineSession();
+      if (profile?.schoolId) {
+        localStorage.setItem(`${VAULT_KEY_SCOPE_PREFIX}${profile.schoolId}`, serialized);
+      }
+    }
   } catch (err) {
     console.warn("[OfflineAuth] Could not cache teaching scope:", err);
   }
@@ -157,9 +210,10 @@ export function saveOfflineTeachingScope(scope: OfflineTeachingScope): void {
 /**
  * Retrieve cached teaching workspace for offline marks entry
  */
-export function getOfflineTeachingScope(): OfflineTeachingScope | null {
+export function getOfflineTeachingScope(schoolId?: string): OfflineTeachingScope | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(VAULT_KEY_SCOPE);
+  const key = schoolId ? `${VAULT_KEY_SCOPE_PREFIX}${schoolId}` : VAULT_KEY_SCOPE;
+  const raw = localStorage.getItem(key) || (schoolId ? localStorage.getItem(VAULT_KEY_SCOPE) : null);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as OfflineTeachingScope;
@@ -169,15 +223,65 @@ export function getOfflineTeachingScope(): OfflineTeachingScope | null {
 }
 
 /**
+ * Switch the active school in offline mode without requiring cloud re-auth.
+ * Updates local profile and loads corresponding teaching scope.
+ */
+export function switchOfflineSchool(targetSchoolId: string): boolean {
+  if (typeof window === "undefined") return false;
+
+  const schools = getOfflineSchools();
+  const target = schools.find((s) => s.school.id === targetSchoolId);
+  if (!target) return false;
+
+  const currentProfile = getOfflineSession();
+  if (currentProfile) {
+    const updatedProfile: OfflineUserProfile = {
+      ...currentProfile,
+      schoolId: target.school.id,
+      schoolName: target.school.name,
+      roleCode: target.role.code,
+      roleName: target.role.name,
+    };
+    localStorage.setItem(VAULT_KEY_PROFILE, JSON.stringify(updatedProfile));
+  }
+
+  // Swap active scope if a school-specific scope was cached
+  const schoolScope = localStorage.getItem(`${VAULT_KEY_SCOPE_PREFIX}${targetSchoolId}`);
+  if (schoolScope) {
+    localStorage.setItem(VAULT_KEY_SCOPE, schoolScope);
+  }
+
+  // Update cookie so browser requests / service worker align
+  document.cookie = `nsei_active_school_id=${targetSchoolId}; path=/; max-age=31536000; SameSite=Lax`;
+
+  window.dispatchEvent(
+    new CustomEvent("nsei:offline-school-changed", {
+      detail: { schoolId: targetSchoolId, schoolName: target.school.name },
+    })
+  );
+
+  return true;
+}
+
+/**
  * Clear offline vault when teacher explicitly signs out
  */
 export function clearOfflineVault(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(VAULT_KEY_PROFILE);
   localStorage.removeItem(VAULT_KEY_SCOPE);
+  localStorage.removeItem(VAULT_KEY_SCHOOLS);
   localStorage.removeItem(VAULT_KEY_PIN_HASH);
   localStorage.removeItem(VAULT_KEY_PIN_SALT);
   localStorage.removeItem("nsei_offline_unlocked");
+
+  // Clean any school-scoped caches
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(VAULT_KEY_SCOPE_PREFIX)) {
+      localStorage.removeItem(k);
+    }
+  }
 }
 
 /**
