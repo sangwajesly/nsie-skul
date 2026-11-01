@@ -336,24 +336,123 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
   }
 
   const supabase = await createClient();
+
+  // Prevent duplicate subjects with the same name (case-insensitive) in this school
+  const cleanName = parsed.data.name.trim();
+  const { data: existingName } = await supabase
+    .from("subjects")
+    .select("id, name, code")
+    .eq("school_id", context.school.id)
+    .ilike("name", cleanName)
+    .maybeSingle();
+
+  if (existingName) {
+    return {
+      error: `A subject named "${existingName.name}" (Code: ${existingName.code}) already exists in the school catalog. You do not need to create it again; you can assign this subject to classes under the Class Subjects tab.`,
+    };
+  }
+
   const { error } = await supabase.from("subjects").insert({
     school_id: context.school.id,
     department_id: parsed.data.departmentId || null,
-    name: parsed.data.name,
-    code: parsed.data.code,
+    name: cleanName,
+    code: parsed.data.code.trim().toUpperCase(),
     default_coefficient: parsed.data.defaultCoefficient,
     default_max_marks: parsed.data.defaultMaxMarks,
   });
 
   if (error) {
     if (error.code === "23505") {
-      return { error: `A subject with code "${parsed.data.code}" already exists.` };
+      return { error: `A subject with code "${parsed.data.code}" already exists in this school.` };
     }
     return { error: error.message };
   }
 
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: `Subject "${parsed.data.name}" created.` };
+  return { success: true as const, message: `Subject "${cleanName}" created.` };
+}
+
+export async function updateSubjectAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const subjectId = String(formData.get("subjectId") || "");
+  if (!subjectId) return { error: "Subject ID is required." };
+
+  const name = String(formData.get("name") || "").trim();
+  const code = String(formData.get("code") || "").trim().toUpperCase();
+  const departmentId = formData.get("departmentId") ? String(formData.get("departmentId")) : null;
+  const defaultCoefficient = parseFloat(String(formData.get("defaultCoefficient") || "2"));
+  const defaultMaxMarks = parseFloat(String(formData.get("defaultMaxMarks") || "20"));
+
+  if (!name || !code) return { error: "Subject name and code are required." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("subjects")
+    .update({
+      name,
+      code,
+      department_id: departmentId || null,
+      default_coefficient: isNaN(defaultCoefficient) ? 2 : defaultCoefficient,
+      default_max_marks: isNaN(defaultMaxMarks) ? 20 : defaultMaxMarks,
+    })
+    .eq("id", subjectId)
+    .eq("school_id", context.school.id);
+
+  if (error) {
+    if (error.code === "23505") return { error: `A subject with code "${code}" already exists.` };
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/academics");
+  return { success: true as const, message: `Subject "${name}" updated.` };
+}
+
+export async function deleteSubjectAction(_state: unknown, formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const subjectId = String(formData.get("subjectId") || "");
+  const confirmDelete = formData.get("confirmDeleteMarks") === "true";
+
+  if (!subjectId) return { error: "Subject ID is required." };
+
+  const supabase = await createClient();
+
+  const { data: sub } = await supabase
+    .from("subjects")
+    .select("id, name, school_id")
+    .eq("id", subjectId)
+    .eq("school_id", context.school.id)
+    .maybeSingle();
+
+  if (!sub) return { error: "Subject not found." };
+
+  const { count: marksCount } = await supabase
+    .from("assessment_marks")
+    .select("id", { count: "exact", head: true })
+    .eq("subject_id", subjectId);
+
+  if (marksCount && marksCount > 0 && !confirmDelete) {
+    return {
+      error: `Cannot delete "${sub.name}": ${marksCount} assessment mark(s) are recorded for this subject across the school. Confirm deletion to remove it and its marks.`,
+      needsConfirmation: true,
+      marksCount,
+    };
+  }
+
+  if (marksCount && marksCount > 0 && confirmDelete) {
+    await supabase.from("assessment_marks").delete().eq("subject_id", subjectId);
+  }
+
+  await supabase.from("class_subjects").delete().eq("subject_id", subjectId);
+  await supabase.from("teacher_assignments").delete().eq("subject_id", subjectId);
+  await supabase.from("timetable_slots").delete().eq("subject_id", subjectId);
+
+  const { error } = await supabase.from("subjects").delete().eq("id", subjectId).eq("school_id", context.school.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
+  return { success: true as const, message: `Subject "${sub.name}" removed from school catalog.` };
 }
 
 export async function createClassAction(_state: unknown, formData: FormData) {

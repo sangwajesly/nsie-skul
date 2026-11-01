@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import {
   Building2,
   BookOpen,
@@ -12,10 +12,12 @@ import {
   X,
   Filter,
   Users,
+  Trash2,
 } from "lucide-react";
 import { DepartmentListItem } from "./DepartmentListItem";
 import { DepartmentCreateForm, SubjectCreateForm } from "./AcademicSetupForms";
 import HodAssignmentForm from "./HodAssignmentForm";
+import { deleteSubjectAction } from "@/app/academics/actions";
 
 interface DepartmentItem {
   id: string;
@@ -67,6 +69,39 @@ export function DepartmentsSubjectsManager({
   const [showAddDeptForm, setShowAddDeptForm] = useState(false);
   const [showAddSubjectForm, setShowAddSubjectForm] = useState(false);
   const [showAssignHodForm, setShowAssignHodForm] = useState(false);
+  const [subjectToDelete, setSubjectToDelete] = useState<SubjectItem | null>(null);
+  const [deleteConfirmMarks, setDeleteConfirmMarks] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  const handleDeleteCatalogSubject = (confirmMarks = false) => {
+    if (!subjectToDelete) return;
+    setFeedback(null);
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("subjectId", subjectToDelete.id);
+      if (confirmMarks) {
+        fd.set("confirmDeleteMarks", "true");
+      }
+      const res = await deleteSubjectAction(null, fd);
+      if (res && "error" in res && res.error) {
+        if ("needsConfirmation" in res && res.needsConfirmation) {
+          setDeleteConfirmMarks(true);
+        } else {
+          setFeedback({ type: "error", text: res.error });
+          setSubjectToDelete(null);
+          setDeleteConfirmMarks(false);
+        }
+      } else {
+        setFeedback({
+          type: "success",
+          text: `Subject "${subjectToDelete.name}" removed from school catalog.`,
+        });
+        setSubjectToDelete(null);
+        setDeleteConfirmMarks(false);
+      }
+    });
+  };
 
   // Filtered Departments
   const filteredDepartments = useMemo(() => {
@@ -321,15 +356,17 @@ export function DepartmentsSubjectsManager({
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="space-y-3">
               {filteredDepartments.map((dept) => {
                 const assignedHod = hodAssignments.find(
                   (a) => a.department_id === dept.id && a.scope_type === "department"
                 );
+                const deptSubjects = subjects.filter((s) => s.department_id === dept.id);
                 return (
                   <DepartmentListItem
                     key={dept.id}
                     dept={dept}
+                    subjects={deptSubjects}
                     hodName={assignedHod?.hod_user?.full_name || null}
                     canManage={canManageAcademics}
                   />
@@ -362,6 +399,7 @@ export function DepartmentsSubjectsManager({
                   <th className="py-2.5 px-3">Department</th>
                   <th className="py-2.5 px-3 text-center">Coefficient (Weight)</th>
                   <th className="py-2.5 px-3 text-center">Max Mark</th>
+                  {canManageAcademics && <th className="py-2.5 px-3 text-center w-16">Action</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F1ED] text-[#191919]">
@@ -384,11 +422,76 @@ export function DepartmentsSubjectsManager({
                     <td className="py-2.5 px-3 text-center font-mono font-bold text-[#191919]">
                       /{sub.default_max_marks}
                     </td>
+                    {canManageAcademics && (
+                      <td className="py-2.5 px-3 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSubjectToDelete(sub);
+                            setDeleteConfirmMarks(false);
+                          }}
+                          disabled={isPending}
+                          className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                          title={`Delete ${sub.name} from catalog`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Delete Subject from Catalog Confirmation Modal */}
+      {subjectToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-[10px] border border-red-200 shadow-2xl w-full max-w-md p-5 space-y-3">
+            <div className="flex items-start gap-2.5 text-red-700">
+              <div className="p-2 rounded-full bg-red-100 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-extrabold text-red-900">
+                  Delete &ldquo;{subjectToDelete.name}&rdquo; from school?
+                </h4>
+                <p className="text-[11px] text-red-700">
+                  Code: <strong>{subjectToDelete.code}</strong> · Department:{" "}
+                  <strong>{subjectToDelete.department?.name || "General"}</strong>
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#525E4B] leading-relaxed">
+              {deleteConfirmMarks
+                ? "Assessment marks exist for this subject. Confirming will delete all recorded marks and permanently delete the subject from the school catalog."
+                : "This subject will be permanently removed from the school catalog, class curricula, and report cards."}
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F0EFEA]">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubjectToDelete(null);
+                  setDeleteConfirmMarks(false);
+                }}
+                className="px-3.5 py-1.5 rounded-[5px] border border-[#D5CBB2] text-xs font-semibold text-[#525E4B] hover:bg-[#FAF8F2] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteCatalogSubject(deleteConfirmMarks)}
+                disabled={isPending}
+                className="px-4 py-1.5 rounded-[5px] bg-red-700 hover:bg-red-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+              >
+                {isPending ? "Deleting..." : deleteConfirmMarks ? "Delete Marks & Subject" : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
