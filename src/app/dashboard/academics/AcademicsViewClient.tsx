@@ -11,6 +11,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { ClassesStreamsManager } from "./ClassesStreamsManager";
+import { ClassCurriculumManager } from "./ClassCurriculumManager";
 import { TeacherAssignmentsManager } from "./TeacherAssignmentsManager";
 import { DepartmentsSubjectsManager } from "./DepartmentsSubjectsManager";
 import { AcademicSequencesManager } from "./AcademicSequencesManager";
@@ -90,7 +91,7 @@ interface Props {
   hodDepartmentNames?: string[];
 }
 
-type TabKey = "classes" | "teachers" | "departments" | "sequences";
+type TabKey = "classes" | "curriculum" | "teachers" | "departments" | "sequences";
 
 export function AcademicsViewClient({
   academicYearId,
@@ -120,7 +121,7 @@ export function AcademicsViewClient({
 
   useEffect(() => {
     const tabFromUrl = searchParams?.get("tab") as TabKey;
-    if (tabFromUrl && ["classes", "teachers", "departments", "sequences"].includes(tabFromUrl)) {
+    if (tabFromUrl && ["classes", "curriculum", "teachers", "departments", "sequences"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -197,7 +198,30 @@ export function AcademicsViewClient({
             </span>
           </button>
 
-          {/* Tab 2: Teacher Allocations */}
+          {/* Tab 2: Class Subjects (Curriculum) */}
+          <button
+            type="button"
+            onClick={() => handleTabChange("curriculum")}
+            className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+              activeTab === "curriculum"
+                ? "border-[#191919] text-[#191919] font-bold"
+                : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
+            }`}
+          >
+            <BookOpen className={`w-4 h-4 shrink-0 ${activeTab === "curriculum" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
+            <span>Class Subjects</span>
+            <span
+              className={`ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono shrink-0 ${
+                activeTab === "curriculum"
+                  ? "bg-[#191919] text-white font-bold"
+                  : "bg-[#EAEAE6] text-[#555555]"
+              }`}
+            >
+              {classSubjects.length}
+            </span>
+          </button>
+
+          {/* Tab 3: Teacher Allocations */}
           {canManageAssignments && (
             <button
               type="button"
@@ -283,6 +307,16 @@ export function AcademicsViewClient({
             classSubjects={classSubjects}
             canManageAcademics={canManageAcademics}
             canManageAssignments={canManageAssignments}
+          />
+        )}
+
+        {activeTab === "curriculum" && (
+          <ClassCurriculumManager
+            classesWithStreams={classesWithStreams}
+            subjects={subjects}
+            classSubjects={classSubjects}
+            teacherAssignments={teacherAssignments}
+            canManageAcademics={canManageAcademics}
           />
         )}
 

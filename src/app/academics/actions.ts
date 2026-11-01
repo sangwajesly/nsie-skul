@@ -2641,6 +2641,7 @@ export async function removeClassSubjectAction(formData: FormData) {
   const context = await requireAnyPermission(["academics.manage"]);
   const classStreamId = String(formData.get("classStreamId") || "");
   const subjectId = String(formData.get("subjectId") || "");
+  const confirmDeleteMarks = formData.get("confirmDeleteMarks") === "true";
 
   if (!classStreamId || !subjectId) {
     return { error: "Class group and Subject are required." };
@@ -2655,10 +2656,20 @@ export async function removeClassSubjectAction(formData: FormData) {
     .eq("class_stream_id", classStreamId)
     .eq("subject_id", subjectId);
 
-  if (marksCount && marksCount > 0) {
+  if (marksCount && marksCount > 0 && !confirmDeleteMarks) {
     return {
-      error: `Cannot remove this subject: ${marksCount} assessment mark(s) have already been entered for this class group. Delete the marks first if you wish to remove the subject.`,
+      error: `Cannot remove this subject: ${marksCount} assessment mark(s) have already been entered for this class group. Delete the marks first or confirm deletion to remove.`,
+      needsConfirmation: true,
+      marksCount,
     };
+  }
+
+  if (marksCount && marksCount > 0 && confirmDeleteMarks) {
+    await supabase
+      .from("assessment_marks")
+      .delete()
+      .eq("class_stream_id", classStreamId)
+      .eq("subject_id", subjectId);
   }
 
   // Remove teacher assignments for this stream and subject
@@ -2682,7 +2693,100 @@ export async function removeClassSubjectAction(formData: FormData) {
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/report-cards");
   revalidatePath("/dashboard/academics/marks");
-  return { success: true as const, message: "Subject removed from class group." };
+  return { success: true as const, message: "Subject removed from class." };
+}
+
+/**
+ * Add a single subject to a class stream curriculum with a coefficient.
+ */
+export async function addClassSubjectAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage"]);
+  const classStreamId = String(formData.get("classStreamId") || "");
+  const subjectId = String(formData.get("subjectId") || "");
+  const coefficient = parseFloat(String(formData.get("coefficient") || "2"));
+  const maxMarks = parseFloat(String(formData.get("maxMarks") || "20"));
+
+  if (!classStreamId || !subjectId) {
+    return { error: "Class group and Subject are required." };
+  }
+  if (isNaN(coefficient) || coefficient <= 0) {
+    return { error: "Coefficient must be greater than 0." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("class_subjects").upsert(
+    {
+      school_id: context.school.id,
+      class_stream_id: classStreamId,
+      subject_id: subjectId,
+      coefficient,
+      max_marks: !isNaN(maxMarks) && maxMarks > 0 ? maxMarks : 20,
+    },
+    { onConflict: "class_stream_id,subject_id" }
+  );
+
+  if (error) {
+    return { error: `Could not add subject to class: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
+  return { success: true as const, message: "Subject added to class successfully." };
+}
+
+/**
+ * Clean up subjects in class_subjects that have NO teacher assignment and NO recorded marks.
+ */
+export async function cleanClassSubjectsAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage"]);
+  const classStreamId = String(formData.get("classStreamId") || "");
+  if (!classStreamId) {
+    return { error: "Class group is required." };
+  }
+
+  const supabase = await createClient();
+
+  const [{ data: teacherAssignments }, { data: marks }] = await Promise.all([
+    supabase.from("teacher_assignments").select("subject_id").eq("class_stream_id", classStreamId),
+    supabase.from("assessment_marks").select("subject_id").eq("class_stream_id", classStreamId),
+  ]);
+
+  const activeSubjectIds = new Set<string>([
+    ...(teacherAssignments || []).map((t) => t.subject_id),
+    ...(marks || []).map((m) => m.subject_id),
+  ]);
+
+  const { data: allClassSubjects } = await supabase
+    .from("class_subjects")
+    .select("subject_id")
+    .eq("class_stream_id", classStreamId);
+
+  const toRemove = (allClassSubjects || [])
+    .map((cs) => cs.subject_id)
+    .filter((id) => !activeSubjectIds.has(id));
+
+  if (toRemove.length === 0) {
+    return { message: "No unassigned subjects found to clean up." };
+  }
+
+  const { error } = await supabase
+    .from("class_subjects")
+    .delete()
+    .eq("class_stream_id", classStreamId)
+    .in("subject_id", toRemove);
+
+  if (error) {
+    return { error: `Could not clean subjects: ${error.message}` };
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/report-cards");
+  revalidatePath("/dashboard/academics/marks");
+  return {
+    success: true as const,
+    message: `Removed ${toRemove.length} unassigned subject(s) from this class.`,
+  };
 }
 
 
