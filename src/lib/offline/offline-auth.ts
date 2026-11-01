@@ -23,7 +23,7 @@ export interface OfflineTeachingScope {
   academicYearName: string;
   sequences: { id: string; name: string; termId: string; termName: string }[];
   classes: { id: string; name: string; streams: { id: string; name: string }[] }[];
-  subjects: { id: string; name: string; code: string; defaultCoefficient: number }[];
+  subjects: { id: string; name: string; code: string; defaultCoefficient: number; defaultMaxMarks?: number }[];
   assignedStreams: { classStreamId: string; subjectId: string }[];
   enrolledStudents: {
     classStreamId: string;
@@ -177,4 +177,65 @@ export function clearOfflineVault(): void {
   localStorage.removeItem(VAULT_KEY_SCOPE);
   localStorage.removeItem(VAULT_KEY_PIN_HASH);
   localStorage.removeItem(VAULT_KEY_PIN_SALT);
+  localStorage.removeItem("nsei_offline_unlocked");
+}
+
+/**
+ * Check if the current tab/device has verified the offline PIN in this session
+ */
+export function isOfflineUnlocked(): boolean {
+  if (typeof window === "undefined") return false;
+  return sessionStorage.getItem("nsei_offline_unlocked") === "true";
+}
+
+/**
+ * Set the offline session unlock state
+ */
+export function setOfflineUnlocked(unlocked: boolean): void {
+  if (typeof window === "undefined") return;
+  if (unlocked) {
+    sessionStorage.setItem("nsei_offline_unlocked", "true");
+  } else {
+    sessionStorage.removeItem("nsei_offline_unlocked");
+  }
+}
+
+/**
+ * Get comprehensive offline vault status for UI banners and settings
+ */
+export function getOfflineVaultStatus() {
+  if (typeof window === "undefined") {
+    return {
+      hasVault: false,
+      hasPin: false,
+      isUnlocked: false,
+      profile: null,
+      daysRemaining: 0,
+      studentCount: 0,
+      classCount: 0,
+      subjectCount: 0,
+      lastOnlineAt: null,
+    };
+  }
+
+  const profile = getOfflineSession();
+  const scope = getOfflineTeachingScope();
+  const hasPin = hasOfflinePin();
+  const isUnlocked = isOfflineUnlocked();
+
+  const daysRemaining = profile?.leaseExpiresAt
+    ? Math.max(0, Math.ceil((profile.leaseExpiresAt - Date.now()) / (24 * 60 * 60 * 1000)))
+    : 0;
+
+  return {
+    hasVault: Boolean(profile),
+    hasPin,
+    isUnlocked,
+    profile,
+    daysRemaining,
+    studentCount: scope?.enrolledStudents?.length || 0,
+    classCount: scope?.classes?.length || 0,
+    subjectCount: scope?.subjects?.length || 0,
+    lastOnlineAt: profile?.lastOnlineAt || null,
+  };
 }

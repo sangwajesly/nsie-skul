@@ -34,13 +34,12 @@ export default async function ReportCardsHubPage({
   const roleCode = context?.role?.code || "teacher";
   const canViewReportCards = Boolean(context?.hasPermission("report_cards.view"));
   const isClassMaster = Boolean(context?.isClassMaster || roleCode === "class_master");
+  const isHod = !roleCode || roleCode === "hod" || Boolean(context?.isHod);
   const isAdmin =
-    !roleCode ||
     roleCode === "school_admin" ||
     roleCode === "principal" ||
     roleCode === "superadmin" ||
-    Boolean(context?.hasPermission("school.settings.manage")) ||
-    Boolean(context?.hasPermission("academics.manage"));
+    Boolean(context?.hasPermission("school.settings.manage"));
 
   // Access check: only Class Masters, HODs and Administrators can view report cards
   if (!canViewReportCards) {
@@ -80,9 +79,9 @@ export default async function ReportCardsHubPage({
 
   const assignedStreamIds = new Set(teacherAssignments.map((a) => a.class_stream_id));
 
-  // School Administrators and Principals see all class streams in the school.
-  // Teachers and Class Masters see their assigned / supervised class groups.
-  const visibleStreams = isAdmin
+  // School Administrators, Principals, and HODs see all class streams for academic inspection.
+  // Teachers and Class Masters see their assigned or supervised class groups.
+  const visibleStreams = (isAdmin || isHod)
     ? allStreams
     : allStreams.filter((s) => s.class_master_id === context?.user?.id || assignedStreamIds.has(s.id));
 
@@ -90,7 +89,7 @@ export default async function ReportCardsHubPage({
   const selectedStream = visibleStreams.find((s) => s.id === defaultStreamId) || null;
   const selectedTermNumber = parseInt(params.termNumber || "1", 10);
 
-  const isAuthorized = isAdmin || (selectedStream && (
+  const isAuthorized = isAdmin || isHod || (selectedStream && (
     selectedStream.class_master_id === context?.user?.id || assignedStreamIds.has(selectedStream.id)
   ));
 

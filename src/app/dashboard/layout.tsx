@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import Link from "next/link";
-import { getTenantContext } from "@/lib/tenancy/context";
+import { getTenantContext, getUserSchools } from "@/lib/tenancy/context";
 import { getActiveAcademicYear } from "@/lib/academic/service";
 import { signOutAction } from "@/app/auth/actions";
 import { redirect } from "next/navigation";
@@ -8,6 +8,8 @@ import DashboardNavigation from "./DashboardNavigation";
 import { MobileNavDrawer } from "./MobileNavDrawer";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { GlobalSystemStateMonitor } from "@/components/ui/states";
+import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
+import { SchoolSwitcher } from "@/components/schools/SchoolSwitcher";
 import { LogOut, Globe } from "lucide-react";
 
 interface DashboardLayoutProps {
@@ -15,7 +17,10 @@ interface DashboardLayoutProps {
 }
 
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
-  const tenantContext = await getTenantContext();
+  const [tenantContext, userSchools] = await Promise.all([
+    getTenantContext(),
+    getUserSchools(),
+  ]);
 
   if (!tenantContext) {
     redirect("/onboarding");
@@ -31,28 +36,15 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans print:min-h-0 print:bg-white print:block">
       {/* ── Sidebar ── */}
       <aside className="hidden md:flex flex-col w-64 border-r border-[#E5E5DF] bg-white flex-shrink-0 min-h-screen sticky top-0 h-screen print:hidden">
-        {/* School brand & Public Site Tour Link */}
-        <div className="h-14 flex items-center justify-between px-3.5 border-b border-[#EBEBE6]">
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm flex-shrink-0 overflow-hidden">
-              {tenantContext.school.logo_url ? (
-                <img
-                  src={tenantContext.school.logo_url}
-                  alt={schoolName}
-                  className="w-full h-full object-contain p-0.5 bg-white"
-                />
-              ) : (
-                schoolName.charAt(0)
-              )}
-            </div>
-            <div className="overflow-hidden">
-              <div className="font-bold text-[13px] tracking-tight text-[#191919] truncate leading-tight">
-                {schoolName}
-              </div>
-              <div className="text-[10px] text-[#888888] font-semibold tracking-wide uppercase truncate">
-                Management Systems
-              </div>
-            </div>
+        {/* School brand, Switcher & Public Site Tour Link */}
+        <div className="h-14 flex items-center justify-between px-3 border-b border-[#EBEBE6] gap-2">
+          <div className="flex-1 min-w-0">
+            <SchoolSwitcher
+              currentSchool={tenantContext.school}
+              currentRole={tenantContext.role}
+              availableSchools={userSchools}
+              variant="sidebar"
+            />
           </div>
 
           <Link
@@ -114,6 +106,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         <div className="md:hidden flex items-center justify-between h-14 px-3 sm:px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20 print:hidden">
           <div className="flex items-center gap-2 overflow-hidden">
             <MobileNavDrawer
+              currentSchool={tenantContext.school}
+              availableSchools={userSchools}
               schoolName={schoolName}
               logoUrl={tenantContext.school.logo_url}
               academicYearLabel={academicYearLabel}
@@ -190,6 +184,23 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
         {/* Global Network, Offline, Slow 2G & Session States */}
         <GlobalSystemStateMonitor />
+
+        {/* Offline Vault & Teaching Scope Auto-Synchronizer */}
+        <OfflineVaultSynchronizer
+          user={{
+            id: tenantContext.user.id,
+            fullName: tenantContext.user.full_name,
+            email: tenantContext.user.email,
+          }}
+          role={{
+            code: tenantContext.role.code,
+            name: tenantContext.role.name,
+          }}
+          school={{
+            id: tenantContext.school.id,
+            name: tenantContext.school.name,
+          }}
+        />
 
         <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
           {children}

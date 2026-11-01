@@ -1,19 +1,18 @@
 // Service Worker for Nsei Sukul Offline Support & Sukul Hub LAN Sync
-const STATIC_CACHE = "nsei-static-v4";
-const PAGES_CACHE = "nsei-pages-v4";
+const STATIC_CACHE = "nsei-static-v5";
+const PAGES_CACHE = "nsei-pages-v5";
 
+// Essential standalone assets pre-cached on service worker install
 const PRECACHE_ASSETS = [
   "/offline.html",
-  "/icon.svg",
-  "/dashboard/academics/marks",
-  "/dashboard"
+  "/icon.svg"
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(PAGES_CACHE).then((cache) => {
       return cache.addAll(PRECACHE_ASSETS).catch((err) => {
-        console.warn("[PWA SW] Pre-cache notice:", err);
+        console.warn("[PWA SW] Pre-cache warning:", err);
       });
     })
   );
@@ -52,7 +51,6 @@ self.addEventListener("fetch", (event) => {
   }
 
   // 2. Cache-First / Stale-While-Revalidate for Next.js Static Assets & Chunks (_next/static/**)
-  // This is what makes the React App load and hydrate offline!
   if (url.pathname.startsWith("/_next/static/") || url.pathname.match(/\.(svg|png|jpg|jpeg|webp|woff2?|ico|css|js)$/i)) {
     event.respondWith(
       caches.open(STATIC_CACHE).then(async (cache) => {
@@ -81,10 +79,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 3. For all API calls, skip cache
+  // 3. Next.js React Server Component (RSC) requests when navigating client-side
+  if (url.searchParams.has("_rsc") || event.request.headers.get("RSC") === "1") {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        // Return 503 to signal Next.js router to fallback to full browser navigation (which will hit offline.html or cached HTML)
+        return new Response(null, { status: 503, statusText: "Offline" });
+      })
+    );
+    return;
+  }
+
+  // 4. For all other API calls, skip cache
   if (url.pathname.startsWith("/api/")) return;
 
-  // 4. HTML Navigation Requests (Network-First with Cache Fallback)
+  // 5. HTML Navigation Requests (Network-First with Cache Fallback)
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request)
@@ -98,7 +109,7 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(async () => {
-          // When offline: check if specific page is in cache
+          // When offline: check if specific requested page is in cache
           const cachedPage = await caches.match(event.request);
           if (cachedPage) return cachedPage;
 
@@ -109,7 +120,7 @@ self.addEventListener("fetch", (event) => {
           const dashboardCached = await caches.match("/dashboard");
           if (dashboardCached && url.pathname.startsWith("/dashboard")) return dashboardCached;
 
-          // Fallback to offline.html
+          // Fallback to offline interactive workspace shell
           const fallback = await caches.match("/offline.html");
           if (fallback) return fallback;
 

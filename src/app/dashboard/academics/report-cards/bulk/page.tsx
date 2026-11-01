@@ -276,12 +276,10 @@ export default async function BulkReportCardsPage({
   // Verify authorization
   const roleCode = context.role?.code || "teacher";
   const isAdmin =
-    !roleCode ||
     roleCode === "school_admin" ||
     roleCode === "principal" ||
     roleCode === "superadmin" ||
-    Boolean(context.hasPermission("school.settings.manage")) ||
-    Boolean(context.hasPermission("academics.manage"));
+    Boolean(context.hasPermission("school.settings.manage"));
 
   if (!isAdmin) {
     const isClassMasterOfStream = selectedStream.class_master_id === context.user.id;

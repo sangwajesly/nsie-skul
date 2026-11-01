@@ -283,7 +283,10 @@ export default async function DashboardPage() {
 
         {/* Academic Performance & Honor Roll Overview (Teacher Scoped) */}
         {academicAnalytics && (
-          <AcademicOverviewSection initialData={academicAnalytics} />
+          <AcademicOverviewSection
+            initialData={academicAnalytics}
+            canPrintCertificates={false}
+          />
         )}
 
         {/* Common Teacher Actions */}
@@ -457,10 +460,13 @@ export default async function DashboardPage() {
 
       {/* Institution-Wide Academic Performance & Honor Roll Overview */}
       {academicAnalytics && (
-        <AcademicOverviewSection initialData={academicAnalytics} />
+        <AcademicOverviewSection
+          initialData={academicAnalytics}
+          canPrintCertificates={isAdmin}
+        />
       )}
 
-      {/* Quick Actions — the most important section */}
+      {/* Quick Actions: the most important section */}
       <div>
         <h2 className="text-[13px] font-bold text-[#555555] uppercase tracking-wider mb-3">
           Common Tasks

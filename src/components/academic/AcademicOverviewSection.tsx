@@ -21,6 +21,7 @@ import {
   Percent,
   Search,
   X,
+  Lock,
 } from "lucide-react";
 import type { AcademicAnalyticsData, StudentRankItem } from "@/lib/academic/analytics-service";
 import { fetchSequenceAnalyticsAction } from "@/app/dashboard/analytics-actions";
@@ -40,9 +41,10 @@ function resolveDisplayMatricule(matricule?: string | null, schoolCode?: string 
 
 interface Props {
   initialData: AcademicAnalyticsData;
+  canPrintCertificates?: boolean;
 }
 
-export function AcademicOverviewSection({ initialData }: Props) {
+export function AcademicOverviewSection({ initialData, canPrintCertificates = false }: Props) {
   const [data, setData] = useState<AcademicAnalyticsData>(initialData);
   const [activeTab, setActiveTab] = useState<"honor_roll" | "classes" | "subjects">("honor_roll");
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>(initialData.selectedSequenceId);
@@ -181,27 +183,35 @@ export function AcademicOverviewSection({ initialData }: Props) {
             </div>
           </div>
 
-          {/* Honor Roll Certificate Generator Button */}
-          <button
-            type="button"
-            onClick={() => handleOpenCertificates()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-2xs cursor-pointer print:hidden"
-            title="Generate and print Roll of Honour Certificates"
-          >
-            <Award className="w-3.5 h-3.5" />
-            <span>Roll of Honour</span>
-          </button>
+          {/* Honor Roll Certificate Generator & Roster Buttons (Admin / Principal Only) */}
+          {canPrintCertificates ? (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenCertificates()}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-colors shadow-2xs cursor-pointer print:hidden"
+                title="Generate and print Roll of Honour Certificates"
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>Roll of Honour</span>
+              </button>
 
-          {/* Print / Export Button */}
-          <button
-            type="button"
-            onClick={handlePrintSummary}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[6px] bg-white hover:bg-[#F9F6ED] border border-[#D5CBB2] text-[#142010] transition-colors shadow-2xs cursor-pointer print:hidden"
-            title="Print official Roll of Honour notice board and assembly roster"
-          >
-            <Printer className="w-3.5 h-3.5 text-[#555555]" />
-            <span className="hidden sm:inline">Print Roll Roster</span>
-          </button>
+              <button
+                type="button"
+                onClick={handlePrintSummary}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-[6px] bg-white hover:bg-[#F9F6ED] border border-[#D5CBB2] text-[#142010] transition-colors shadow-2xs cursor-pointer print:hidden"
+                title="Print official Roll of Honour notice board and assembly roster"
+              >
+                <Printer className="w-3.5 h-3.5 text-[#555555]" />
+                <span className="hidden sm:inline">Print Roll Roster</span>
+              </button>
+            </>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-[5px] bg-[#FFF8CF] border border-[#FBE6C2] text-[11px] font-semibold text-[#7A5B00] print:hidden">
+              <Lock className="w-3.5 h-3.5 text-[#B45309]" />
+              <span>Certificates by Administration Only</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,7 +267,7 @@ export function AcademicOverviewSection({ initialData }: Props) {
                   </div>
                 </div>
 
-                {dux && (
+                {dux && canPrintCertificates && (
                   <button
                     type="button"
                     onClick={() =>
@@ -439,37 +449,39 @@ export function AcademicOverviewSection({ initialData }: Props) {
                           <span className="text-[#15803D] font-medium truncate">
                             {st.appreciation.split("(")[0].trim()}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleOpenCertificates(
-                                {
-                                  studentId: st.studentId,
-                                  studentName: st.name,
-                                  matricule: resolveDisplayMatricule(st.matricule, data.schoolInfo?.code),
-                                  gender: st.gender,
-                                  className: st.className,
-                                  streamName: st.streamName,
-                                  fullClassName: st.fullClassName || `${st.className} ${st.streamName}`,
-                                  awardCategory: "school_podium",
-                                  awardTitle:
-                                    idx === 0
-                                      ? "School Dux - 1st Position School-Wide"
-                                      : idx === 1
-                                      ? "2nd Position - School-Wide Excellence"
-                                      : "3rd Position - School-Wide Excellence",
-                                  rankLabel: `#${idx + 1} in School`,
-                                  average: st.average,
-                                  appreciation: st.appreciation,
-                                  cycle: st.cycle,
-                                },
-                                "school_podium"
-                              )
-                            }
-                            className="font-semibold text-[#2A7C13] hover:underline cursor-pointer shrink-0 ml-2 print:hidden"
-                          >
-                            Certificate &rarr;
-                          </button>
+                          {canPrintCertificates && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleOpenCertificates(
+                                  {
+                                    studentId: st.studentId,
+                                    studentName: st.name,
+                                    matricule: resolveDisplayMatricule(st.matricule, data.schoolInfo?.code),
+                                    gender: st.gender,
+                                    className: st.className,
+                                    streamName: st.streamName,
+                                    fullClassName: st.fullClassName || `${st.className} ${st.streamName}`,
+                                    awardCategory: "school_podium",
+                                    awardTitle:
+                                      idx === 0
+                                        ? "School Dux - 1st Position School-Wide"
+                                        : idx === 1
+                                        ? "2nd Position - School-Wide Excellence"
+                                        : "3rd Position - School-Wide Excellence",
+                                    rankLabel: `#${idx + 1} in School`,
+                                    average: st.average,
+                                    appreciation: st.appreciation,
+                                    cycle: st.cycle,
+                                  },
+                                  "school_podium"
+                                )
+                              }
+                              className="font-semibold text-[#2A7C13] hover:underline cursor-pointer shrink-0 ml-2 print:hidden"
+                            >
+                              Certificate &rarr;
+                            </button>
+                          )}
                         </div>
                       </div>
                     );
@@ -556,38 +568,40 @@ export function AcademicOverviewSection({ initialData }: Props) {
                                 <span className="font-mono font-bold text-xs text-[#166534]">
                                   {st.average.toFixed(2)}
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleOpenCertificates(
-                                      {
-                                        studentId: st.studentId,
-                                        studentName: st.name,
-                                        matricule: st.matricule,
-                                        gender: st.gender,
-                                        className: cls.className,
-                                        streamName: cls.streamName,
-                                        fullClassName: cls.fullClassName,
-                                        awardCategory: "class_podium",
-                                        awardTitle:
-                                          i === 0
-                                            ? `1st Position in ${cls.fullClassName}`
-                                            : i === 1
-                                            ? `2nd Position in ${cls.fullClassName}`
-                                            : `3rd Position in ${cls.fullClassName}`,
-                                        rankLabel: `#${i + 1} in ${cls.fullClassName}`,
-                                        average: st.average,
-                                        appreciation: st.appreciation,
-                                        cycle: cls.cycle,
-                                      },
-                                      "class_podium"
-                                    )
-                                  }
-                                  className="p-1 rounded text-[#B45309] hover:bg-[#FFF8CF] transition-colors cursor-pointer print:hidden"
-                                  title={`Print certificate for ${st.name}`}
-                                >
-                                  <Award className="w-3.5 h-3.5" />
-                                </button>
+                                {canPrintCertificates && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleOpenCertificates(
+                                        {
+                                          studentId: st.studentId,
+                                          studentName: st.name,
+                                          matricule: st.matricule,
+                                          gender: st.gender,
+                                          className: cls.className,
+                                          streamName: cls.streamName,
+                                          fullClassName: cls.fullClassName,
+                                          awardCategory: "class_podium",
+                                          awardTitle:
+                                            i === 0
+                                              ? `1st Position in ${cls.fullClassName}`
+                                              : i === 1
+                                              ? `2nd Position in ${cls.fullClassName}`
+                                              : `3rd Position in ${cls.fullClassName}`,
+                                          rankLabel: `#${i + 1} in ${cls.fullClassName}`,
+                                          average: st.average,
+                                          appreciation: st.appreciation,
+                                          cycle: cls.cycle,
+                                        },
+                                        "class_podium"
+                                      )
+                                    }
+                                    className="p-1 rounded text-[#B45309] hover:bg-[#FFF8CF] transition-colors cursor-pointer print:hidden"
+                                    title={`Print certificate for ${st.name}`}
+                                  >
+                                    <Award className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           ))
@@ -861,7 +875,9 @@ export function AcademicOverviewSection({ initialData }: Props) {
                           <th className="p-3 text-right">Highest Mark</th>
                           <th className="p-3 text-right">Class Avg</th>
                           <th className="p-3 text-right">Pass Rate</th>
-                          <th className="p-3 text-right print:hidden">Action</th>
+                          {canPrintCertificates && (
+                            <th className="p-3 text-right print:hidden">Action</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#F0EFEA]">
@@ -943,34 +959,36 @@ export function AcademicOverviewSection({ initialData }: Props) {
                               </span>
                             </td>
 
-                            {/* Action Button */}
-                            <td className="p-3 text-right print:hidden">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  handleOpenCertificates(
-                                    {
-                                      studentId: `${sub.studentMatricule}_${sub.subjectId}`,
-                                      studentName: sub.studentName,
-                                      matricule: resolveDisplayMatricule(sub.studentMatricule, data.schoolInfo?.code),
-                                      className: sub.className,
-                                      fullClassName: sub.className,
-                                      awardCategory: "subject_laureate",
-                                      awardTitle: `Subject Excellence · 1st in ${sub.subjectName}`,
-                                      subjectName: sub.subjectName,
-                                      subjectCode: sub.subjectCode,
-                                      subjectMark: sub.bestMark,
-                                      teacherName: sub.topTeacher || sub.teachers?.[0],
-                                      cycle: sub.cycle,
-                                    },
-                                    "subject_laureate"
-                                  )
-                                }
-                                className="text-[11px] font-semibold text-[#2A7C13] hover:text-[#1F5C0E] hover:underline cursor-pointer"
-                              >
-                                Award Certificate &rarr;
-                              </button>
-                            </td>
+                            {/* Action Button (Admin / Principal Only) */}
+                            {canPrintCertificates && (
+                              <td className="p-3 text-right print:hidden">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleOpenCertificates(
+                                      {
+                                        studentId: `${sub.studentMatricule}_${sub.subjectId}`,
+                                        studentName: sub.studentName,
+                                        matricule: resolveDisplayMatricule(sub.studentMatricule, data.schoolInfo?.code),
+                                        className: sub.className,
+                                        fullClassName: sub.className,
+                                        awardCategory: "subject_laureate",
+                                        awardTitle: `Subject Excellence · 1st in ${sub.subjectName}`,
+                                        subjectName: sub.subjectName,
+                                        subjectCode: sub.subjectCode,
+                                        subjectMark: sub.bestMark,
+                                        teacherName: sub.topTeacher || sub.teachers?.[0],
+                                        cycle: sub.cycle,
+                                      },
+                                      "subject_laureate"
+                                    )
+                                  }
+                                  className="text-[11px] font-semibold text-[#2A7C13] hover:text-[#1F5C0E] hover:underline cursor-pointer"
+                                >
+                                  Award Certificate &rarr;
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                       </tbody>

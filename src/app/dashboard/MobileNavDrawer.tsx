@@ -6,8 +6,17 @@ import { Menu, X, LogOut } from "lucide-react";
 import DashboardNavigation from "./DashboardNavigation";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { signOutAction } from "@/app/auth/actions";
+import { SchoolSwitcher, type SchoolOption } from "@/components/schools/SchoolSwitcher";
 
 interface Props {
+  currentSchool?: {
+    id: string;
+    name: string;
+    code?: string | null;
+    slug?: string | null;
+    logo_url?: string | null;
+  };
+  availableSchools?: SchoolOption[];
   schoolName: string;
   logoUrl?: string | null;
   academicYearLabel: string;
@@ -19,6 +28,8 @@ interface Props {
 }
 
 export function MobileNavDrawer({
+  currentSchool,
+  availableSchools = [],
   schoolName,
   logoUrl,
   academicYearLabel,
@@ -73,33 +84,45 @@ export function MobileNavDrawer({
           {/* Drawer container */}
           <div className="relative flex flex-col w-[280px] max-w-[85vw] h-full bg-white shadow-2xl z-10 overflow-hidden">
             {/* Header */}
-            <div className="h-14 flex items-center justify-between px-4 border-b border-[#EBEBE6] bg-[#FAFAF8]">
-              <div className="flex items-center gap-2.5 overflow-hidden">
-                <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt={schoolName}
-                      className="w-full h-full object-contain p-0.5 bg-white"
-                    />
-                  ) : (
-                    schoolName.charAt(0)
-                  )}
-                </div>
-                <div className="overflow-hidden">
-                  <span className="font-bold text-xs text-[#191919] truncate block">
-                    {schoolName}
-                  </span>
-                  <span className="text-[10px] text-[#888888] truncate block">
-                    {academicYearLabel}
-                  </span>
-                </div>
+            <div className="h-14 flex items-center justify-between px-3 border-b border-[#EBEBE6] bg-[#FAFAF8] gap-2">
+              <div className="flex-1 min-w-0">
+                {currentSchool && availableSchools.length > 1 ? (
+                  <SchoolSwitcher
+                    currentSchool={currentSchool}
+                    currentRole={{ name: userRole, code: roleCode || "teacher" }}
+                    availableSchools={availableSchools}
+                    variant="mobile"
+                    onSwitch={() => setIsOpen(false)}
+                  />
+                ) : (
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-white flex items-center justify-center font-bold text-xs shrink-0 overflow-hidden">
+                      {logoUrl ? (
+                        <img
+                          src={logoUrl}
+                          alt={schoolName}
+                          className="w-full h-full object-contain p-0.5 bg-white"
+                        />
+                      ) : (
+                        schoolName.charAt(0)
+                      )}
+                    </div>
+                    <div className="overflow-hidden">
+                      <span className="font-bold text-xs text-[#191919] truncate block">
+                        {schoolName}
+                      </span>
+                      <span className="text-[10px] text-[#888888] truncate block">
+                        {academicYearLabel}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-full text-[#777777] hover:text-[#191919] hover:bg-black/5 flex items-center justify-center min-w-[36px] min-h-[36px]"
+                className="p-1.5 rounded-full text-[#777777] hover:text-[#191919] hover:bg-black/5 flex items-center justify-center min-w-[36px] min-h-[36px] shrink-0"
                 aria-label="Close menu"
               >
                 <X className="w-4 h-4" />

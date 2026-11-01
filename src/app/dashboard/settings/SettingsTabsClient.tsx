@@ -24,6 +24,7 @@ import StaffRolesClient from "./StaffRolesClient";
 import { SchoolBillingSubscription } from "./SchoolBillingSubscription";
 import { SchoolHubSettings } from "./SchoolHubSettings";
 import SchoolDataPrivacyClient from "./SchoolDataPrivacyClient";
+import { OfflinePinCard } from "./OfflinePinCard";
 
 export type SettingsTabId = "profile" | "staff" | "billing" | "hub" | "logs" | "privacy";
 
@@ -336,6 +337,7 @@ export function SettingsTabsClient({
         {activeTab === "profile" && (
           <div className="space-y-6 animate-in fade-in-50 duration-150">
             <SchoolSettingsClient school={school} />
+            <OfflinePinCard />
           </div>
         )}
 
@@ -365,6 +367,7 @@ export function SettingsTabsClient({
         {/* Tab 4: Offline School Hub */}
         {activeTab === "hub" && (
           <div className="space-y-6 animate-in fade-in-50 duration-150">
+            <OfflinePinCard />
             <SchoolHubSettings
               schoolId={school.id}
               schoolName={school.name}

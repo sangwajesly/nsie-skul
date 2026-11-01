@@ -129,6 +129,17 @@ export function MarksSyncStatusBadge({
         )}
       </div>
 
+      {/* Offline Class & Subject Switcher link when disconnected */}
+      {!isOnline && (
+        <a
+          href="/offline.html"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#142010] hover:bg-[#1e3318] text-[#86EFAC] border border-[#2A7C13] transition-colors shadow-2xs"
+          title="Switch classes and enter marks offline"
+        >
+          <span>Offline Class Switcher</span>
+        </a>
+      )}
+
       {/* Direct Peer-to-LAN School Hub Transfer Button */}
       {onTransferToHub && (
         <button

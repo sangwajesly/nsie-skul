@@ -145,12 +145,10 @@ export default async function StudentReportCardPage({
 
   const roleCode = context?.role?.code || "teacher";
   const isAdmin =
-    !roleCode ||
     roleCode === "school_admin" ||
     roleCode === "principal" ||
     roleCode === "superadmin" ||
-    Boolean(context?.hasPermission("school.settings.manage")) ||
-    Boolean(context?.hasPermission("academics.manage"));
+    Boolean(context?.hasPermission("school.settings.manage"));
 
   // Fetch student enrolment to determine class stream and class master
   const { data: studentEnrolment } = await supabase

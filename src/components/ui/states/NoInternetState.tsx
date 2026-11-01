@@ -78,15 +78,23 @@ export function NoInternetBanner({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleCheckConnection}
-        disabled={isChecking}
-        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#B45309] hover:bg-[#92400E] text-white text-[11px] font-bold transition-colors shrink-0 cursor-pointer shadow-2xs disabled:opacity-50"
-      >
-        <RefreshCw className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`} />
-        <span>{isChecking ? "Checking..." : "Check Connection"}</span>
-      </button>
+      <div className="flex items-center gap-2 shrink-0">
+        <a
+          href="/offline.html"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#142010] hover:bg-[#1e3318] text-[#86EFAC] text-[11px] font-bold border border-[#2A7C13] transition-colors shrink-0 shadow-2xs"
+        >
+          <span>Open Offline Workspace</span>
+        </a>
+        <button
+          type="button"
+          onClick={handleCheckConnection}
+          disabled={isChecking}
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#B45309] hover:bg-[#92400E] text-white text-[11px] font-bold transition-colors shrink-0 cursor-pointer shadow-2xs disabled:opacity-50"
+        >
+          <RefreshCw className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`} />
+          <span>{isChecking ? "Checking..." : "Check Connection"}</span>
+        </button>
+      </div>
     </div>
   );
 }

@@ -3,40 +3,793 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Offline · Nsei Sukul</title>
+  <title>Offline Teaching Workspace · Nsei Sukul</title>
   <link rel="icon" href="/icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#142010">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background-color: #FFFDF5; color: #142010; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1.5rem; text-align: center; }
-    .card { background: white; border: 1px solid #E8DFC9; border-radius: 12px; padding: 2.5rem 2rem; max-width: 440px; width: 100%; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
-    .icon { width: 56px; height: 56px; border-radius: 12px; background: #142010; color: white; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
-    h1 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.5rem; }
-    p { font-size: 0.85rem; color: #666666; line-height: 1.5; margin-bottom: 1.5rem; }
-    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; background: #2A7C13; color: white; font-weight: 600; font-size: 0.85rem; padding: 0.75rem 1.5rem; border-radius: 6px; text-decoration: none; border: none; cursor: pointer; transition: background 0.2s; }
-    .btn:hover { background: #20600E; }
-    .note { margin-top: 1rem; font-size: 0.75rem; color: #999999; }
+    :root {
+      --bg: #FFFDF5;
+      --card-bg: #FFFFFF;
+      --primary: #2A7C13;
+      --primary-hover: #20600E;
+      --dark: #142010;
+      --border: #E8DFC9;
+      --text: #142010;
+      --muted: #525E4B;
+      --amber-bg: #FFF8CF;
+      --amber-border: #FBE6C2;
+      --amber-text: #7A5B00;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; padding: 1rem; }
+    .container { max-width: 1100px; margin: 0 auto; }
+    
+    /* Header */
+    .header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+    .brand { display: flex; align-items: center; gap: 0.75rem; }
+    .brand-icon { width: 40px; height: 40px; border-radius: 8px; background: var(--dark); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.2rem; }
+    .brand-title { font-size: 1.15rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+    .brand-sub { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+    .header-badges { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .badge-offline { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.65rem; border-radius: 999px; background: #2B1B04; color: #FDE68A; border: 1px solid #78350F; font-size: 0.75rem; font-weight: 700; }
+    .badge-school { padding: 0.25rem 0.65rem; border-radius: 4px; background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber-border); font-size: 0.75rem; font-weight: 700; }
+
+    /* Alert boxes */
+    .alert { padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.8rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .alert-offline { background: #2B1B04; color: #FDE68A; border: 1px solid #78350F; }
+    .alert-success { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+    .alert-warning { background: var(--amber-bg); color: var(--amber-text); border: 1px solid var(--amber-border); }
+    .alert-error { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+
+    /* Cards */
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+
+    /* Selectors Bar */
+    .selector-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; }
+    .form-group { display: flex; flex-direction: column; gap: 0.3rem; }
+    .form-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .form-select, .form-input { padding: 0.55rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: #FFFDF5; font-size: 0.85rem; font-weight: 600; color: var(--dark); outline: none; transition: border-color 0.2s; }
+    .form-select:focus, .form-input:focus { border-color: var(--primary); }
+
+    /* Stats summary */
+    .stats-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.5rem; margin-top: 0.75rem; }
+    .stat-box { background: #FBF9F0; border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.8rem; }
+    .stat-label { font-size: 0.7rem; color: var(--muted); font-weight: 600; }
+    .stat-val { font-size: 1.1rem; font-weight: 800; color: var(--dark); margin-top: 0.15rem; }
+
+    /* Table */
+    .table-responsive { overflow-x: auto; margin-top: 0.75rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; }
+    th { background: #F8F5EC; padding: 0.65rem 0.75rem; font-size: 0.75rem; font-weight: 700; color: var(--dark); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #EFEAE0; vertical-align: middle; }
+    tr:hover { background: #FFFDF8; }
+    .mark-input { width: 70px; padding: 0.4rem 0.5rem; text-align: center; font-weight: 700; font-size: 0.95rem; border-radius: 4px; border: 1px solid #D5CBB2; background: #fff; }
+    .mark-input:focus { border-color: var(--primary); outline: none; background: #F0FDF4; }
+    .mark-input.invalid { border-color: #DC2626; background: #FEF2F2; }
+    .status-select { padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid #D5CBB2; background: #fff; }
+    .remark-input { width: 100%; min-width: 140px; padding: 0.35rem 0.5rem; font-size: 0.8rem; border-radius: 4px; border: 1px solid #D5CBB2; background: #fff; }
+
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.6rem 1.1rem; border-radius: 6px; font-size: 0.82rem; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-outline { background: #fff; border: 1px solid var(--border); color: var(--dark); }
+    .btn-outline:hover { background: #F5F5F0; }
+    .btn-hub { background: #142010; color: #86EFAC; border: 1px solid #2A7C13; }
+    .btn-hub:hover { background: #1C2D17; }
+    .actions-bar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; justify-content: space-between; margin-top: 1rem; }
+
+    /* PIN Unlock Guard */
+    .pin-overlay { max-width: 420px; margin: 3rem auto; text-align: center; }
+    .pin-card { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 2rem; box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+    .pin-dots { display: flex; justify-content: center; gap: 0.5rem; margin: 1.5rem 0; }
+    .pin-input { font-size: 1.8rem; font-family: monospace; letter-spacing: 0.5em; text-align: center; width: 160px; padding: 0.5rem; border: 2px solid var(--border); border-radius: 8px; outline: none; }
+    .pin-input:focus { border-color: var(--primary); }
+
+    /* Floating Toast */
+    #toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 100; max-width: 380px; padding: 0.85rem 1.15rem; border-radius: 8px; font-size: 0.82rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: none; }
+    #toast.show { display: block; animation: slideIn 0.25s ease-out; }
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="icon">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="1" y1="1" x2="23" y2="23"></line>
-        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"></path>
-        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"></path>
-        <path d="M10.71 5.05A16 16 0 0 1 22.58 9"></path>
-        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"></path>
-        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
-        <line x1="12" y1="20" x2="12.01" y2="20"></line>
-      </svg>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">S</div>
+        <div>
+          <div class="brand-title">Nsei Sukul</div>
+          <div class="brand-sub">Offline Teaching Workspace</div>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge-offline">Offline Mode Active</span>
+        <span id="schoolBadge" class="badge-school">School Loading...</span>
+        <span id="teacherBadge" class="badge-school" style="background:#EAF7E4; color:#166534; border-color:#BBF7D0;">Teacher</span>
+      </div>
+    </header>
+
+    <!-- Offline Status Advisory -->
+    <div id="connectionAlert" class="alert alert-offline">
+      <div>
+        <strong>Offline Operation:</strong> No internet connection detected. You can freely enter, review, and save student marks. All data is saved on this device and syncs when reconnected.
+      </div>
+      <button class="btn btn-outline" style="font-size:0.75rem; padding:0.35rem 0.75rem; background:#fff; color:#142010;" onclick="checkReconnection()">
+        Check Connection
+      </button>
     </div>
-    <h1>You are currently offline</h1>
-    <p>Nsei Sukul could not reach the server. Please check your mobile data or Wi-Fi connection and tap below to retry.</p>
-    <button class="btn" onclick="window.location.reload()">
-      Retry Connection
-    </button>
-    <div class="note">Nsei Sukul · Management Systems</div>
+
+    <!-- PIN Unlock Guard Screen (shown if vault is locked) -->
+    <div id="pinScreen" class="pin-overlay" style="display:none;">
+      <div class="pin-card">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">🔒</div>
+        <h2 style="font-size:1.25rem; font-weight:800; margin-bottom:0.35rem;">Unlock Offline Workspace</h2>
+        <p style="font-size:0.8rem; color:var(--muted); margin-bottom:1.25rem;">
+          Enter your 4-digit PIN configured on this browser to access your student marksheets.
+        </p>
+        <div id="pinError" class="alert alert-error" style="display:none; font-size:0.75rem;"></div>
+        <form onsubmit="handleUnlock(event)">
+          <input id="pinInputField" type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}" class="pin-input" placeholder="••••" autofocus required />
+          <div style="margin-top:1.25rem;">
+            <button type="submit" class="btn btn-primary" style="width:100%;">
+              Unlock Marks Grid
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- No Offline Data Warning Screen -->
+    <div id="noDataScreen" class="pin-overlay" style="display:none;">
+      <div class="pin-card">
+        <div style="font-size:2rem; margin-bottom:0.5rem;">📡</div>
+        <h2 style="font-size:1.2rem; font-weight:800; margin-bottom:0.35rem;">No Offline Records Found</h2>
+        <p style="font-size:0.85rem; color:var(--muted); line-height:1.5; margin-bottom:1.5rem;">
+          This device has not yet synchronized an offline vault for your school account. Please connect to the internet once and sign into your dashboard to cache your classes and student rosters.
+        </p>
+        <button class="btn btn-primary" onclick="window.location.href='/login'">
+          Go to Sign In Page
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Teaching Workspace (shown once unlocked) -->
+    <main id="workspaceScreen" style="display:none;">
+      <!-- Selector Card -->
+      <div class="card">
+        <div class="selector-grid">
+          <div class="form-group">
+            <label class="form-label">Test / Sequence</label>
+            <select id="sequenceSelect" class="form-select" onchange="loadSelectedSheet()"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class Group</label>
+            <select id="streamSelect" class="form-select" onchange="updateSubjectOptions(); loadSelectedSheet();"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Subject</label>
+            <select id="subjectSelect" class="form-select" onchange="loadSelectedSheet()"></select>
+          </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="stats-bar">
+          <div class="stat-box">
+            <div class="stat-label">Enrolled</div>
+            <div id="statEnrolled" class="stat-val">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Evaluated</div>
+            <div id="statEvaluated" class="stat-val">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Class Average</div>
+            <div id="statAverage" class="stat-val">0.00 / 20</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Pass Rate</div>
+            <div id="statPassRate" class="stat-val">0.0%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Marksheet Table Card -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+          <h3 id="sheetTitle" style="font-size:0.95rem; font-weight:800;">Marks Entry Grid</h3>
+          <span id="unsavedIndicator" style="display:none; font-size:0.75rem; color:#B45309; font-weight:700;">
+            ● Unsaved changes on device
+          </span>
+        </div>
+
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40px;">#</th>
+                <th style="width:110px;">Matricule</th>
+                <th>Student Full Name</th>
+                <th style="width:50px;">Sex</th>
+                <th style="width:100px; text-align:center;">Mark (/20)</th>
+                <th style="width:110px;">Status</th>
+                <th>Appreciation / Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="marksTableBody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Actions Footer -->
+        <div class="actions-bar">
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="saveCurrentSheet()">
+              Save Marks to Device (Ctrl+S)
+            </button>
+            <button class="btn btn-hub" onclick="handleHubSync()">
+              Transfer to School Hub (Wi-Fi)
+            </button>
+            <button class="btn btn-outline" onclick="exportCsvBackup()">
+              Export CSV Backup
+            </button>
+          </div>
+          <div style="font-size:0.75rem; color:var(--muted);">
+            Auto-saves locally into device IndexedDB
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
+
+  <!-- Notification Toast -->
+  <div id="toast"></div>
+
+  <script>
+    // Constants & Keys
+    const DB_NAME = "nsei_marks_offline_db";
+    const DB_VERSION = 1;
+    const STORE_DRAFTS = "marks_drafts";
+    const STORE_OUTBOX = "marks_outbox";
+    const VAULT_KEY_PROFILE = "nsei_offline_profile";
+    const VAULT_KEY_SCOPE = "nsei_offline_scope";
+    const VAULT_KEY_PIN_HASH = "nsei_offline_pin_hash";
+    const VAULT_KEY_PIN_SALT = "nsei_offline_pin_salt";
+
+    let profile = null;
+    let scope = null;
+    let currentStudents = [];
+    let currentMarksMap = {}; // studentId -> { score, status, remarks }
+    let isDirty = false;
+
+    // Toast helper
+    function showToast(message, type = "success") {
+      const toast = document.getElementById("toast");
+      toast.innerText = message;
+      toast.style.background = type === "success" ? "#142010" : type === "error" ? "#991B1B" : "#B45309";
+      toast.style.color = "#fff";
+      toast.className = "show";
+      setTimeout(() => { toast.className = ""; }, 4000);
+    }
+
+    // SHA-256 Pin Hash Helper
+    async function hashPin(pin, salt) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(salt + ":" + pin.trim());
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    }
+
+    // Open IndexedDB instance
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_DRAFTS)) {
+            db.createObjectStore(STORE_DRAFTS, { keyPath: "sheetKey" });
+          }
+          if (!db.objectStoreNames.contains(STORE_OUTBOX)) {
+            db.createObjectStore(STORE_OUTBOX, { keyPath: "sheetKey" });
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    // Initialize application on load
+    window.addEventListener("DOMContentLoaded", () => {
+      // 1. Check profile in localStorage
+      const rawProfile = localStorage.getItem(VAULT_KEY_PROFILE);
+      const rawScope = localStorage.getItem(VAULT_KEY_SCOPE);
+
+      if (!rawProfile || !rawScope) {
+        document.getElementById("noDataScreen").style.display = "block";
+        return;
+      }
+
+      try {
+        profile = JSON.parse(rawProfile);
+        scope = JSON.parse(rawScope);
+      } catch (e) {
+        document.getElementById("noDataScreen").style.display = "block";
+        return;
+      }
+
+      // Populate header badges
+      document.getElementById("schoolBadge").innerText = profile.schoolName || "School Workspace";
+      document.getElementById("teacherBadge").innerText = profile.fullName || "Teacher";
+
+      // Check PIN lock
+      const pinHash = localStorage.getItem(VAULT_KEY_PIN_HASH);
+      const isUnlocked = sessionStorage.getItem("nsei_offline_unlocked") === "true";
+
+      if (pinHash && !isUnlocked) {
+        document.getElementById("pinScreen").style.display = "block";
+      } else {
+        initWorkspace();
+      }
+    });
+
+    // Handle PIN Unlock
+    async function handleUnlock(e) {
+      e.preventDefault();
+      const pinVal = document.getElementById("pinInputField").value.trim();
+      const storedHash = localStorage.getItem(VAULT_KEY_PIN_HASH);
+      const storedSalt = localStorage.getItem(VAULT_KEY_PIN_SALT);
+      const errBox = document.getElementById("pinError");
+
+      if (!storedHash || !storedSalt) {
+        sessionStorage.setItem("nsei_offline_unlocked", "true");
+        document.getElementById("pinScreen").style.display = "none";
+        initWorkspace();
+        return;
+      }
+
+      const computedHash = await hashPin(pinVal, storedSalt);
+      if (computedHash === storedHash) {
+        sessionStorage.setItem("nsei_offline_unlocked", "true");
+        document.getElementById("pinScreen").style.display = "none";
+        initWorkspace();
+      } else {
+        errBox.innerText = "Incorrect 4-digit PIN. Please try again.";
+        errBox.style.display = "block";
+        document.getElementById("pinInputField").value = "";
+      }
+    }
+
+    // Populate dropdowns & build workspace
+    function initWorkspace() {
+      document.getElementById("workspaceScreen").style.display = "block";
+
+      // 1. Populate Sequences
+      const seqSelect = document.getElementById("sequenceSelect");
+      seqSelect.innerHTML = "";
+      (scope.sequences || []).forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.innerText = s.name;
+        seqSelect.appendChild(opt);
+      });
+
+      // 2. Populate Class Streams
+      const streamSelect = document.getElementById("streamSelect");
+      streamSelect.innerHTML = "";
+      const streamList = [];
+      (scope.classes || []).forEach(cls => {
+        (cls.streams || []).forEach(st => {
+          streamList.push({ id: st.id, name: st.name });
+        });
+      });
+
+      streamList.forEach(st => {
+        const opt = document.createElement("option");
+        opt.value = st.id;
+        opt.innerText = st.name;
+        streamSelect.appendChild(opt);
+      });
+
+      updateSubjectOptions();
+      loadSelectedSheet();
+    }
+
+    // Update subject options based on selected stream & teacher assignments
+    function updateSubjectOptions() {
+      const streamId = document.getElementById("streamSelect").value;
+      const subSelect = document.getElementById("subjectSelect");
+      subSelect.innerHTML = "";
+
+      const assigned = (scope.assignedStreams || []).filter(a => a.classStreamId === streamId);
+      const assignedSubIds = new Set(assigned.map(a => a.subjectId));
+
+      let visibleSubjects = (scope.subjects || []);
+      if (assignedSubIds.size > 0) {
+        visibleSubjects = visibleSubjects.filter(s => assignedSubIds.has(s.id));
+      }
+
+      visibleSubjects.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.innerText = s.name + " (" + (s.code || "") + ")";
+        subSelect.appendChild(opt);
+      });
+    }
+
+    // Build unique sheet key
+    function getSheetKey() {
+      const yearId = scope.academicYearId;
+      const seqId = document.getElementById("sequenceSelect").value;
+      const streamId = document.getElementById("streamSelect").value;
+      const subId = document.getElementById("subjectSelect").value;
+      return yearId + "::" + seqId + "::" + streamId + "::" + subId;
+    }
+
+    // Load selected marksheet from scope roster + IndexedDB saved marks
+    async function loadSelectedSheet() {
+      const streamId = document.getElementById("streamSelect").value;
+      const sheetKey = getSheetKey();
+
+      // Filter students enrolled in this stream
+      currentStudents = (scope.enrolledStudents || []).filter(s => s.classStreamId === streamId);
+      currentMarksMap = {};
+
+      // Load saved marks from IndexedDB
+      try {
+        const db = await openDB();
+        const tx = db.transaction([STORE_DRAFTS], "readonly");
+        const store = tx.objectStore(STORE_DRAFTS);
+        const req = store.get(sheetKey);
+        req.onsuccess = () => {
+          const draft = req.result;
+          if (draft && draft.marks) {
+            draft.marks.forEach(m => {
+              currentMarksMap[m.studentId] = {
+                score: m.score,
+                status: m.status || "present",
+                remarks: m.remarks || ""
+              };
+            });
+          }
+          renderTable();
+          calculateStats();
+        };
+      } catch (e) {
+        renderTable();
+        calculateStats();
+      }
+    }
+
+    // Render table rows
+    function renderTable() {
+      const tbody = document.getElementById("marksTableBody");
+      tbody.innerHTML = "";
+
+      if (currentStudents.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--muted);">No students found enrolled in this class group.</td></tr>';
+        return;
+      }
+
+      currentStudents.forEach((student, idx) => {
+        const saved = currentMarksMap[student.studentId] || { score: null, status: "present", remarks: "" };
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td style="color:var(--muted); font-size:0.75rem;">${idx + 1}</td>
+          <td style="font-family:monospace; font-weight:700; font-size:0.8rem;">${student.matricule || "N/A"}</td>
+          <td style="font-weight:700;">${student.fullName}</td>
+          <td style="font-size:0.75rem;">${student.gender || "M"}</td>
+          <td style="text-align:center;">
+            <input
+              type="number"
+              step="0.25"
+              min="0"
+              max="20"
+              class="mark-input"
+              data-student-id="${student.studentId}"
+              value="${saved.score !== null && saved.score !== undefined ? saved.score : ""}"
+              oninput="handleMarkChange('${student.studentId}', this)"
+              onkeydown="handleKeyNavigation(event, ${idx})"
+            />
+          </td>
+          <td>
+            <select class="status-select" onchange="handleStatusChange('${student.studentId}', this)">
+              <option value="present" ${saved.status === "present" ? "selected" : ""}>Present</option>
+              <option value="absent" ${saved.status === "absent" ? "selected" : ""}>Absent</option>
+              <option value="exempt" ${saved.status === "exempt" ? "selected" : ""}>Exempt</option>
+            </select>
+          </td>
+          <td>
+            <input
+              type="text"
+              class="remark-input"
+              placeholder="e.g. Good"
+              value="${saved.remarks || ""}"
+              oninput="handleRemarksChange('${student.studentId}', this.value)"
+            />
+          </td>
+        `;
+
+        tbody.appendChild(tr);
+      });
+
+      setIsDirty(false);
+    }
+
+    // Get appreciation based on score
+    function getAppreciation(score) {
+      if (score === null || score === undefined || isNaN(score)) return "";
+      if (score >= 18) return "Excellent";
+      if (score >= 16) return "Very Good";
+      if (score >= 14) return "Good";
+      if (score >= 12) return "Fairly Good";
+      if (score >= 10) return "Average";
+      if (score >= 8) return "Below Average";
+      return "Fail";
+    }
+
+    // Mark input change handler
+    function handleMarkChange(studentId, inputEl) {
+      const rawVal = inputEl.value.trim();
+      let score = rawVal === "" ? null : parseFloat(rawVal);
+
+      if (score !== null && (isNaN(score) || score < 0 || score > 20)) {
+        inputEl.classList.add("invalid");
+      } else {
+        inputEl.classList.remove("invalid");
+      }
+
+      if (!currentMarksMap[studentId]) {
+        currentMarksMap[studentId] = { score: null, status: "present", remarks: "" };
+      }
+      currentMarksMap[studentId].score = score;
+
+      // Auto-set appreciation if remarks is empty
+      if (score !== null && !currentMarksMap[studentId].remarks) {
+        const app = getAppreciation(score);
+        currentMarksMap[studentId].remarks = app;
+        const row = inputEl.closest("tr");
+        const remInput = row.querySelector(".remark-input");
+        if (remInput) remInput.value = app;
+      }
+
+      setIsDirty(true);
+      calculateStats();
+    }
+
+    // Status change handler
+    function handleStatusChange(studentId, selectEl) {
+      if (!currentMarksMap[studentId]) {
+        currentMarksMap[studentId] = { score: null, status: "present", remarks: "" };
+      }
+      currentMarksMap[studentId].status = selectEl.value;
+      if (selectEl.value === "absent") {
+        currentMarksMap[studentId].score = 0;
+        const row = selectEl.closest("tr");
+        const markInput = row.querySelector(".mark-input");
+        if (markInput) markInput.value = 0;
+      }
+      setIsDirty(true);
+      calculateStats();
+    }
+
+    // Remarks change handler
+    function handleRemarksChange(studentId, val) {
+      if (!currentMarksMap[studentId]) {
+        currentMarksMap[studentId] = { score: null, status: "present", remarks: "" };
+      }
+      currentMarksMap[studentId].remarks = val;
+      setIsDirty(true);
+    }
+
+    // Keyboard navigation (Enter or ArrowDown moves to next student's score)
+    function handleKeyNavigation(e, idx) {
+      if (e.key === "Enter" || e.key === "ArrowDown") {
+        e.preventDefault();
+        const inputs = document.querySelectorAll(".mark-input");
+        if (inputs[idx + 1]) inputs[idx + 1].focus();
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const inputs = document.querySelectorAll(".mark-input");
+        if (inputs[idx - 1]) inputs[idx - 1].focus();
+      }
+    }
+
+    // Dirty state management
+    function setIsDirty(dirty) {
+      isDirty = dirty;
+      const ind = document.getElementById("unsavedIndicator");
+      if (ind) ind.style.display = dirty ? "inline" : "none";
+    }
+
+    // Calculate class statistics
+    function calculateStats() {
+      const scores = Object.values(currentMarksMap)
+        .map(m => m.score)
+        .filter(s => s !== null && !isNaN(s) && s >= 0 && s <= 20);
+
+      const enrolled = currentStudents.length;
+      const evaluated = scores.length;
+      let avg = 0;
+      let passRate = 0;
+
+      if (evaluated > 0) {
+        const sum = scores.reduce((a, b) => a + b, 0);
+        avg = sum / evaluated;
+        const passed = scores.filter(s => s >= 10).length;
+        passRate = (passed / evaluated) * 100;
+      }
+
+      document.getElementById("statEnrolled").innerText = enrolled;
+      document.getElementById("statEvaluated").innerText = evaluated;
+      document.getElementById("statAverage").innerText = avg.toFixed(2) + " / 20";
+      document.getElementById("statPassRate").innerText = passRate.toFixed(1) + "%";
+    }
+
+    // Save marksheet to IndexedDB
+    async function saveCurrentSheet() {
+      const sheetKey = getSheetKey();
+      const seqId = document.getElementById("sequenceSelect").value;
+      const streamId = document.getElementById("streamSelect").value;
+      const subId = document.getElementById("subjectSelect").value;
+
+      const marksArray = currentStudents.map(s => {
+        const entry = currentMarksMap[s.studentId] || { score: null, status: "present", remarks: "" };
+        return {
+          studentId: s.studentId,
+          score: entry.score,
+          status: entry.status || "present",
+          remarks: entry.remarks || ""
+        };
+      });
+
+      const draftPayload = {
+        sheetKey: sheetKey,
+        academicYearId: scope.academicYearId,
+        termId: "term-1",
+        sequenceId: seqId,
+        classStreamId: streamId,
+        subjectId: subId,
+        maxMarks: 20,
+        competencyDescription: "",
+        marks: marksArray,
+        updatedAt: Date.now(),
+        isSynced: false
+      };
+
+      try {
+        const db = await openDB();
+        const tx = db.transaction([STORE_DRAFTS, STORE_OUTBOX], "readwrite");
+        tx.objectStore(STORE_DRAFTS).put(draftPayload);
+        tx.objectStore(STORE_OUTBOX).put({
+          ...draftPayload,
+          enqueuedAt: Date.now(),
+          retryCount: 0
+        });
+
+        tx.oncomplete = () => {
+          setIsDirty(false);
+          showToast("Marks saved safely in device storage! Ready to sync.", "success");
+        };
+      } catch (e) {
+        showToast("Error saving marks to IndexedDB.", "error");
+      }
+    }
+
+    // Ctrl+S shortcut
+    window.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+        e.preventDefault();
+        saveCurrentSheet();
+      }
+    });
+
+    // Check Reconnection
+    async function checkReconnection() {
+      showToast("Checking internet connectivity...", "warning");
+      try {
+        const res = await fetch("/api/v1/health", { method: "HEAD", cache: "no-store" });
+        if (res.ok) {
+          showToast("Internet restored! Returning to cloud dashboard...", "success");
+          setTimeout(() => { window.location.href = "/dashboard/academics/marks"; }, 800);
+        } else {
+          showToast("Still offline. Marks remain safe locally.", "warning");
+        }
+      } catch {
+        showToast("Still offline. No internet connection detected.", "warning");
+      }
+    }
+
+    // School Hub Direct LAN Sync over Wi-Fi
+    async function handleHubSync() {
+      showToast("Searching for School Hub on local Wi-Fi...", "warning");
+      const candidates = [
+        "school.local:3000",
+        "192.168.1.100:3000",
+        "192.168.1.50:3000",
+        "192.168.0.100:3000",
+        "localhost:3000"
+      ];
+
+      let targetHub = null;
+      for (const host of candidates) {
+        try {
+          const res = await fetch("http://" + host + "/api/v1/hub/lan-ping", { signal: AbortSignal.timeout(1200) });
+          if (res.ok) {
+            targetHub = host;
+            break;
+          }
+        } catch {}
+      }
+
+      if (!targetHub) {
+        showToast("School Hub not detected on Wi-Fi. Ensure phone is connected to school router.", "error");
+        return;
+      }
+
+      // Sync marks
+      const marksArray = currentStudents.map(s => {
+        const entry = currentMarksMap[s.studentId] || { score: null, status: "present", remarks: "" };
+        return {
+          studentId: s.studentId,
+          score: entry.score,
+          status: entry.status || "present",
+          remarks: entry.remarks || ""
+        };
+      });
+
+      const payload = {
+        academicYearId: scope.academicYearId,
+        termId: "term-1",
+        sequenceId: document.getElementById("sequenceSelect").value,
+        classStreamId: document.getElementById("streamSelect").value,
+        subjectId: document.getElementById("subjectSelect").value,
+        maxMarks: 20,
+        competencyDescription: "",
+        marks: marksArray
+      };
+
+      try {
+        const syncRes = await fetch("http://" + targetHub + "/api/v1/hub/lan-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        const data = await syncRes.json();
+        if (syncRes.ok) {
+          showToast("Successfully transferred " + marksArray.length + " marks to School Hub!", "success");
+        } else {
+          showToast(data.error || "Hub sync failed.", "error");
+        }
+      } catch {
+        showToast("Network error communicating with School Hub.", "error");
+      }
+    }
+
+    // Export CSV Backup
+    function exportCsvBackup() {
+      const seqName = document.getElementById("sequenceSelect").selectedOptions[0]?.text || "Sequence";
+      const streamName = document.getElementById("streamSelect").selectedOptions[0]?.text || "Class";
+      const subName = document.getElementById("subjectSelect").selectedOptions[0]?.text || "Subject";
+
+      let csv = "No,Matricule,Student Full Name,Gender,Score,Max Mark,Status,Remarks\n";
+      currentStudents.forEach((s, idx) => {
+        const entry = currentMarksMap[s.studentId] || { score: "", status: "present", remarks: "" };
+        csv += `${idx + 1},"${s.matricule || ""}","${s.fullName}","${s.gender || "M"}",${entry.score !== null ? entry.score : ""},20,"${entry.status || "present"}","${entry.remarks || ""}"\n`;
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Marks_${streamName}_${subName}_${seqName}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast("CSV backup downloaded to your device.", "success");
+    }
+  </script>
 </body>
 </html>
