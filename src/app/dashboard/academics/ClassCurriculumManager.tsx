@@ -493,7 +493,7 @@ export function ClassCurriculumManager({
 
       {/* Delete Subject Confirmation Modal Overlay */}
       {subjectToDelete && selectedStream && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-[10px] border border-red-200 shadow-2xl w-full max-w-md p-5 space-y-3">
             <div className="flex items-center gap-2.5 text-red-700">
               <div className="p-2 rounded-full bg-red-100 shrink-0">

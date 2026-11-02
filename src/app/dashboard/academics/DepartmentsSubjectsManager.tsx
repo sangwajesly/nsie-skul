@@ -192,48 +192,48 @@ export function DepartmentsSubjectsManager({
     <div className="space-y-4">
       {/* Overview Statistics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="p-4 rounded-2xl border border-stone-200/90 bg-white shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-[#2A7C13] border border-emerald-200/60 flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-[8px] border border-[#E5E5DF] bg-white shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[6px] bg-[#FAF8F2] border border-[#E8DFC9] text-[#2A7C13] flex items-center justify-center shrink-0">
             <Building2 className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#788470]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#777777]">
               Academic Departments
             </div>
-            <div className="text-xl sm:text-2xl font-black text-[#142010] mt-0.5">
+            <div className="text-xl font-bold text-[#142010] mt-0.5">
               {departments.length}
             </div>
-            <p className="text-[11px] text-[#525E4B]">General, Arts, Sciences &amp; Technical</p>
+            <p className="text-[10px] text-[#525E4B]">Arts, Sciences &amp; Technical</p>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-stone-200/90 bg-white shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 border border-amber-200/60 flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-[8px] border border-[#E5E5DF] bg-white shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[6px] bg-[#FAF8F2] border border-[#E8DFC9] text-amber-700 flex items-center justify-center shrink-0">
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#788470]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#777777]">
               Subjects Catalog
             </div>
-            <div className="text-xl sm:text-2xl font-black text-[#142010] mt-0.5">
+            <div className="text-xl font-bold text-[#142010] mt-0.5">
               {subjects.length}
             </div>
-            <p className="text-[11px] text-[#525E4B]">Assigned syllabus weightings</p>
+            <p className="text-[10px] text-[#525E4B]">With syllabus weightings</p>
           </div>
         </div>
 
-        <div className="p-4 rounded-2xl border border-stone-200/90 bg-white shadow-2xs flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-700 border border-blue-200/60 flex items-center justify-center shrink-0">
+        <div className="p-3.5 rounded-[8px] border border-[#E5E5DF] bg-white shadow-2xs flex items-center gap-3">
+          <div className="w-10 h-10 rounded-[6px] bg-[#FAF8F2] border border-[#E8DFC9] text-[#2A7C13] flex items-center justify-center shrink-0">
             <Award className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[10px] font-extrabold uppercase tracking-wider text-[#788470]">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-[#777777]">
               Department Heads Assigned
             </div>
-            <div className="text-xl sm:text-2xl font-black text-[#142010] mt-0.5">
+            <div className="text-xl font-bold text-[#142010] mt-0.5">
               {hodAssignments.length}
             </div>
-            <p className="text-[11px] text-[#525E4B]">Supervisors with pedagogical oversight</p>
+            <p className="text-[10px] text-[#525E4B]">Departmental supervisors</p>
           </div>
         </div>
       </div>
@@ -241,15 +241,15 @@ export function DepartmentsSubjectsManager({
       {/* Global Feedback Banner */}
       {feedback && (
         <div
-          className={`p-3 rounded-xl text-xs flex items-center justify-between gap-2 border animate-in fade-in ${
+          className={`p-2.5 rounded-[6px] text-xs flex items-center justify-between gap-2 border ${
             feedback.type === "success"
-              ? "bg-emerald-50 text-emerald-900 border-emerald-200"
+              ? "bg-[#F0FDF4] text-[#166534] border-[#BBF7D0]"
               : "bg-red-50 text-red-800 border-red-200"
           }`}
         >
           <div className="flex items-center gap-2">
             {feedback.type === "success" ? (
-              <Check className="w-4 h-4 text-emerald-700 shrink-0" />
+              <Check className="w-4 h-4 text-[#2A7C13] shrink-0" />
             ) : (
               <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             )}
@@ -266,27 +266,24 @@ export function DepartmentsSubjectsManager({
       )}
 
       {/* Control Bar: Sub-Tabs & Action Triggers */}
-      <div className="bg-white p-4 rounded-2xl border border-stone-200/90 shadow-2xs space-y-3.5">
+      <div className="bg-white p-3.5 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Segmented Sub-Tab Switcher */}
-          <div className="inline-flex rounded-xl bg-[#FAF8F2] p-1 text-xs border border-[#E8DFC9] gap-1 self-start">
+          {/* Sub-Tab Navigation */}
+          <div className="inline-flex rounded-[5px] border border-[#D5D5CF] bg-[#FAFAF8] p-0.5 text-xs gap-0.5 self-start">
             <button
               type="button"
               onClick={() => {
                 setSubTab("departments");
                 setSearchTerm("");
               }}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[11px] font-semibold transition-colors cursor-pointer ${
                 subTab === "departments"
-                  ? "bg-white text-[#142010] shadow-2xs font-extrabold"
-                  : "text-[#525E4B] hover:text-[#142010]"
+                  ? "bg-white text-[#191919] shadow-2xs font-bold"
+                  : "text-[#666666] hover:text-[#191919]"
               }`}
             >
-              <Building2 className="w-3.5 h-3.5 text-[#2A7C13]" />
-              <span>Departments &amp; Heads</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-stone-200/70 text-stone-700 text-[10px]">
-                {departments.length}
-              </span>
+              <Building2 className="w-3.5 h-3.5" />
+              <span>Departments &amp; Heads ({departments.length})</span>
             </button>
             <button
               type="button"
@@ -294,17 +291,14 @@ export function DepartmentsSubjectsManager({
                 setSubTab("subjects");
                 setSearchTerm("");
               }}
-              className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[11px] font-semibold transition-colors cursor-pointer ${
                 subTab === "subjects"
-                  ? "bg-white text-[#142010] shadow-2xs font-extrabold"
-                  : "text-[#525E4B] hover:text-[#142010]"
+                  ? "bg-white text-[#191919] shadow-2xs font-bold"
+                  : "text-[#666666] hover:text-[#191919]"
               }`}
             >
-              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-              <span>Subjects Catalog</span>
-              <span className="px-1.5 py-0.2 rounded-full bg-stone-200/70 text-stone-700 text-[10px]">
-                {subjects.length}
-              </span>
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Subjects Catalog ({subjects.length})</span>
             </button>
           </div>
 
@@ -315,27 +309,19 @@ export function DepartmentsSubjectsManager({
                 <button
                   type="button"
                   onClick={() => setShowAddDeptForm((p) => !p)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer shadow-2xs ${
-                    showAddDeptForm
-                      ? "bg-stone-200 text-stone-800 border-stone-300"
-                      : "bg-[#FAF8F2] text-[#142010] border-[#D5CBB2] hover:bg-[#F3EFE3]"
-                  }`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-[4px] border border-[#D5D5CF] bg-white hover:bg-[#FAFAF8] text-[#191919] transition-colors shadow-2xs cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>{showAddDeptForm ? "Close Form" : "New Department"}</span>
+                  <Plus className="w-3 h-3 text-[#2A7C13]" />
+                  <span>{showAddDeptForm ? "Close Dept Form" : "Add Department"}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowAddSubjectForm((p) => !p)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer shadow-2xs ${
-                    showAddSubjectForm
-                      ? "bg-stone-200 text-stone-800 border-stone-300"
-                      : "bg-[#FAF8F2] text-[#142010] border-[#D5CBB2] hover:bg-[#F3EFE3]"
-                  }`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-[4px] border border-[#D5D5CF] bg-white hover:bg-[#FAFAF8] text-[#191919] transition-colors shadow-2xs cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>{showAddSubjectForm ? "Close Form" : "New Master Subject"}</span>
+                  <Plus className="w-3 h-3 text-[#2A7C13]" />
+                  <span>{showAddSubjectForm ? "Close Subject Form" : "Add Subject"}</span>
                 </button>
               </>
             )}
@@ -344,23 +330,19 @@ export function DepartmentsSubjectsManager({
               <button
                 type="button"
                 onClick={() => setShowAssignHodForm((p) => !p)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer shadow-2xs ${
-                  showAssignHodForm
-                    ? "bg-amber-100 text-amber-900 border-amber-300"
-                    : "bg-emerald-50 text-[#2A7C13] border-emerald-200 hover:bg-emerald-100"
-                }`}
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-[4px] border border-[#D5D5CF] bg-white hover:bg-[#FAFAF8] text-[#1F5C0E] transition-colors shadow-2xs cursor-pointer"
               >
-                <Award className="w-3.5 h-3.5" />
-                <span>{showAssignHodForm ? "Close HOD" : "Assign HOD"}</span>
+                <Award className="w-3 h-3" />
+                <span>{showAssignHodForm ? "Close HOD Form" : "Assign HOD"}</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Search Bar & Filters */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-stone-100">
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2.5 border-t border-[#EEEEEC]">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-[#888888]" />
             <input
               type="text"
               value={searchTerm}
@@ -368,30 +350,30 @@ export function DepartmentsSubjectsManager({
               placeholder={
                 subTab === "departments"
                   ? "Search departments by name or code..."
-                  : "Search master subjects by name or code..."
+                  : "Search subjects by name, code, or department..."
               }
-              className="w-full pl-9 pr-8 py-2 text-xs rounded-xl border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/10"
+              className="w-full pl-9 pr-7 py-1.5 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] focus:outline-none focus:border-[#191919]"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={() => setSearchTerm("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-700 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#888888] hover:text-[#191919] cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             )}
           </div>
 
           {subTab === "subjects" && (
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-[11px] font-bold text-[#525E4B] flex items-center gap-1">
-                <Filter className="w-3 h-3 text-[#2A7C13]" /> Department:
+              <span className="text-[11px] font-semibold text-[#777777] flex items-center gap-1">
+                <Filter className="w-3 h-3 text-[#2A7C13]" /> Dept:
               </span>
               <select
                 value={selectedDeptFilter}
                 onChange={(e) => setSelectedDeptFilter(e.target.value)}
-                className="px-3 py-1.5 text-xs rounded-xl border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
+                className="px-2 py-1 text-[11px] rounded-[4px] border border-[#D5D5CF] bg-white text-[#191919] focus:outline-none"
               >
                 <option value="">All Departments ({departments.length})</option>
                 {departments.map((d) => (
@@ -405,20 +387,17 @@ export function DepartmentsSubjectsManager({
         </div>
       </div>
 
-      {/* Collapsible Setup Forms */}
+      {/* Setup Forms Drawers */}
       {showAddDeptForm && canManageAcademics && (
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-sm space-y-3 animate-in slide-in-from-top-2">
-          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-            <span className="text-xs font-black text-[#142010] uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-[#2A7C13]" />
-              <span>Create New Department</span>
-            </span>
+        <div className="bg-white p-4 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-2">
+          <div className="flex items-center justify-between pb-2 border-b border-[#EEEEEC]">
+            <span className="text-xs font-bold text-[#191919]">Create New Department</span>
             <button
               type="button"
               onClick={() => setShowAddDeptForm(false)}
-              className="text-stone-400 hover:text-stone-700 cursor-pointer"
+              className="text-[#888888] hover:text-[#191919] cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <DepartmentCreateForm />
@@ -426,18 +405,15 @@ export function DepartmentsSubjectsManager({
       )}
 
       {showAddSubjectForm && canManageAcademics && (
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-sm space-y-3 animate-in slide-in-from-top-2">
-          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-            <span className="text-xs font-black text-[#142010] uppercase tracking-wider flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-[#2A7C13]" />
-              <span>Add Master Subject to Catalog</span>
-            </span>
+        <div className="bg-white p-4 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-2">
+          <div className="flex items-center justify-between pb-2 border-b border-[#EEEEEC]">
+            <span className="text-xs font-bold text-[#191919]">Add Subject to Catalog</span>
             <button
               type="button"
               onClick={() => setShowAddSubjectForm(false)}
-              className="text-stone-400 hover:text-stone-700 cursor-pointer"
+              className="text-[#888888] hover:text-[#191919] cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <SubjectCreateForm departments={departments.map(({ id, name }) => ({ id, name }))} />
@@ -445,18 +421,15 @@ export function DepartmentsSubjectsManager({
       )}
 
       {showAssignHodForm && canManageSettings && (
-        <div className="bg-white p-5 rounded-2xl border border-stone-200/90 shadow-sm space-y-3 animate-in slide-in-from-top-2">
-          <div className="flex items-center justify-between pb-2 border-b border-stone-100">
-            <span className="text-xs font-black text-[#142010] uppercase tracking-wider flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-600" />
-              <span>Assign Head of Department</span>
-            </span>
+        <div className="bg-white p-4 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-2">
+          <div className="flex items-center justify-between pb-2 border-b border-[#EEEEEC]">
+            <span className="text-xs font-bold text-[#191919]">Assign Head of Department</span>
             <button
               type="button"
               onClick={() => setShowAssignHodForm(false)}
-              className="text-stone-400 hover:text-stone-700 cursor-pointer"
+              className="text-[#888888] hover:text-[#191919] cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
           <HodAssignmentForm
@@ -471,15 +444,13 @@ export function DepartmentsSubjectsManager({
       {subTab === "departments" && (
         <div className="space-y-3">
           {filteredDepartments.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-dashed border-[#D5CBB2] p-12 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
-                <Building2 className="w-6 h-6" />
-              </div>
-              <h4 className="text-sm font-bold text-[#142010]">No Departments Found</h4>
-              <p className="text-xs text-[#525E4B] max-w-sm mx-auto">
+            <div className="bg-white rounded-[8px] border border-[#E5E5DF] p-12 text-center space-y-2">
+              <Building2 className="w-8 h-8 text-[#888888] mx-auto" />
+              <h4 className="text-sm font-bold text-[#191919]">No Departments Found</h4>
+              <p className="text-xs text-[#666666] max-w-sm mx-auto">
                 {searchTerm
                   ? "No departments match your search query."
-                  : "No departments have been configured yet. Click 'New Department' above to create one."}
+                  : "No departments have been configured yet."}
               </p>
             </div>
           ) : (
@@ -506,14 +477,12 @@ export function DepartmentsSubjectsManager({
 
       {/* --- SUB-TAB 2: MASTER SUBJECTS CATALOG TABLE --- */}
       {subTab === "subjects" && (
-        <div className="bg-white rounded-2xl border border-stone-200/90 overflow-hidden shadow-2xs">
+        <div className="bg-white rounded-[8px] border border-[#E5E5DF] overflow-hidden shadow-2xs">
           {filteredSubjects.length === 0 ? (
-            <div className="p-12 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-400 flex items-center justify-center mx-auto">
-                <BookOpen className="w-6 h-6" />
-              </div>
-              <h4 className="text-sm font-bold text-[#142010]">No Master Subjects Found</h4>
-              <p className="text-xs text-[#525E4B] max-w-sm mx-auto">
+            <div className="p-12 text-center space-y-2">
+              <BookOpen className="w-8 h-8 text-[#888888] mx-auto" />
+              <h4 className="text-sm font-bold text-[#191919]">No Subjects Found</h4>
+              <p className="text-xs text-[#666666] max-w-sm mx-auto">
                 {searchTerm || selectedDeptFilter
                   ? "No subjects match your search or department filter."
                   : "No subjects registered in the catalog yet."}
@@ -523,49 +492,43 @@ export function DepartmentsSubjectsManager({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-stone-200/90 bg-[#FAF8F2] text-[#525E4B] font-bold">
-                    <th className="py-3 px-4">Subject Code</th>
-                    <th className="py-3 px-4">Subject Name</th>
-                    <th className="py-3 px-4">Department</th>
-                    <th className="py-3 px-4 text-center">Coefficient (Weight)</th>
-                    <th className="py-3 px-4 text-center">Max Denominator</th>
-                    {canManageAcademics && <th className="py-3 px-4 text-center w-28">Actions</th>}
+                  <tr className="border-b border-[#E5E5DF] bg-[#FAFAF8] text-[11px] font-bold uppercase tracking-wider text-[#777777]">
+                    <th className="py-2.5 px-3">Code</th>
+                    <th className="py-2.5 px-3">Subject Name</th>
+                    <th className="py-2.5 px-3">Department</th>
+                    <th className="py-2.5 px-3 text-center">Coefficient (Weight)</th>
+                    <th className="py-2.5 px-3 text-center">Max Mark</th>
+                    {canManageAcademics && <th className="py-2.5 px-3 text-center w-20">Actions</th>}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-stone-100">
+                <tbody className="divide-y divide-[#F1F1ED] text-[#191919]">
                   {filteredSubjects.map((sub) => (
-                    <tr key={sub.id} className="hover:bg-[#FFFDF8] transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-[#142010]">
-                        <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-800 border border-stone-200 font-mono text-[11px]">
+                    <tr key={sub.id} className="hover:bg-[#FAFAF8] transition-colors">
+                      <td className="py-2.5 px-3 font-mono font-bold text-[#191919]">
+                        <span className="px-1.5 py-0.5 rounded-[3px] bg-[#EAEAE6] text-[#555555]">
                           {sub.code}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-bold text-[#142010]">
+                      <td className="py-2.5 px-3 font-semibold text-[#191919]">
                         {sub.name}
                       </td>
-                      <td className="py-3 px-4 text-[#525E4B]">
-                        <span className="inline-flex items-center gap-1">
-                          <Building2 className="w-3 h-3 text-[#2A7C13]" />
-                          <span>{sub.department?.name || "General / Unassigned"}</span>
-                        </span>
+                      <td className="py-2.5 px-3 text-[#555555]">
+                        {sub.department?.name || "General"}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono font-bold text-[11px] border border-emerald-200/70">
-                          <Scale className="w-3 h-3 text-[#2A7C13]" />
-                          <span>{sub.default_coefficient}</span>
-                        </span>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-[#191919]">
+                        {sub.default_coefficient}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono font-bold text-[#525E4B]">
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-[#191919]">
                         /{sub.default_max_marks}
                       </td>
                       {canManageAcademics && (
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-2.5 px-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
                               onClick={() => handleOpenEditCatalog(sub)}
                               disabled={isPending}
-                              className="p-1.5 rounded-lg text-stone-500 hover:text-[#142010] hover:bg-stone-100 transition-colors cursor-pointer"
+                              className="p-1 rounded text-stone-500 hover:text-[#191919] hover:bg-[#EAEAE6] transition-colors cursor-pointer"
                               title={`Edit ${sub.name}`}
                             >
                               <Pencil className="w-3.5 h-3.5" />
@@ -577,8 +540,8 @@ export function DepartmentsSubjectsManager({
                                 setDeleteConfirmMarks(false);
                               }}
                               disabled={isPending}
-                              className="p-1.5 rounded-lg text-stone-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-                              title={`Delete ${sub.name} from school catalog`}
+                              className="p-1 rounded text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                              title={`Delete ${sub.name} from catalog`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -596,30 +559,25 @@ export function DepartmentsSubjectsManager({
 
       {/* Edit Subject Modal Dialog (Catalog) */}
       {subjectToEdit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-stone-200 shadow-2xl w-full max-w-lg p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-[#2A7C13] flex items-center justify-center font-bold">
-                  <Pencil className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-sm sm:text-base font-extrabold text-[#142010]">
-                    Edit Subject: {subjectToEdit.name}
-                  </h4>
-                  <p className="text-[11px] text-[#525E4B]">Master School Curriculum Record</p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-[8px] border border-[#E5E5DF] shadow-xl w-full max-w-md p-5 space-y-3.5">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+              <div className="flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-[#2A7C13]" />
+                <h4 className="text-sm font-bold text-[#142010]">
+                  Edit Subject: {subjectToEdit.name}
+                </h4>
               </div>
               <button
                 type="button"
                 onClick={() => setSubjectToEdit(null)}
-                className="text-stone-400 hover:text-stone-700 p-1 rounded-lg"
+                className="text-stone-400 hover:text-stone-700"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateCatalogSubject} className="space-y-4">
+            <form onSubmit={handleUpdateCatalogSubject} className="space-y-3">
               <div>
                 <label className="block text-xs font-bold text-[#444444] mb-1">
                   Subject Name
@@ -629,7 +587,7 @@ export function DepartmentsSubjectsManager({
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/10"
+                  className="w-full px-2.5 py-1.5 text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
                 />
               </div>
 
@@ -640,7 +598,7 @@ export function DepartmentsSubjectsManager({
                 <select
                   value={editDeptId}
                   onChange={(e) => setEditDeptId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
+                  className="w-full px-2.5 py-1.5 text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
                 >
                   <option value="">General / No Department</option>
                   {departments.map((d) => (
@@ -651,7 +609,7 @@ export function DepartmentsSubjectsManager({
                 </select>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#444444] mb-1">
                     Code
@@ -661,7 +619,7 @@ export function DepartmentsSubjectsManager({
                     required
                     value={editCode}
                     onChange={(e) => setEditCode(e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2 text-center font-mono font-bold text-xs rounded-xl border border-[#D5CBB2] text-[#142010] bg-white uppercase focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/10"
+                    className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white uppercase focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
 
@@ -677,7 +635,7 @@ export function DepartmentsSubjectsManager({
                     required
                     value={editCoef}
                     onChange={(e) => setEditCoef(e.target.value)}
-                    className="w-full px-3 py-2 text-center font-bold text-xs rounded-xl border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/10"
+                    className="w-full px-2 py-1.5 text-center font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
 
@@ -693,24 +651,24 @@ export function DepartmentsSubjectsManager({
                     required
                     value={editMaxMarks}
                     onChange={(e) => setEditMaxMarks(e.target.value)}
-                    className="w-full px-3 py-2 text-center font-bold text-xs rounded-xl border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13] focus:ring-2 focus:ring-[#2A7C13]/10"
+                    className="w-full px-2 py-1.5 text-center font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-stone-100">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
                 <button
                   type="button"
                   onClick={() => setSubjectToEdit(null)}
                   disabled={isPending}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+                  className="px-3 py-1 rounded-[4px] text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-5 py-2 rounded-xl bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1"
                 >
                   {isPending ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -727,37 +685,37 @@ export function DepartmentsSubjectsManager({
 
       {/* Delete Subject from Catalog Confirmation Modal */}
       {subjectToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl sm:rounded-3xl border border-red-200 shadow-2xl w-full max-w-md p-5 sm:p-6 space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
-                <Trash2 className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-[8px] border border-red-200 shadow-xl w-full max-w-md p-5 space-y-3">
+            <div className="flex items-start gap-2.5 text-red-700">
+              <div className="p-2 rounded-full bg-red-100 shrink-0">
+                <Trash2 className="w-4 h-4" />
               </div>
-              <div className="space-y-1">
-                <h4 className="text-sm sm:text-base font-extrabold text-red-950">
-                  Delete &ldquo;{subjectToDelete.name}&rdquo;?
+              <div>
+                <h4 className="text-sm font-bold text-red-900">
+                  Delete &ldquo;{subjectToDelete.name}&rdquo; from catalog?
                 </h4>
-                <p className="text-xs text-red-800 leading-relaxed">
-                  Code: <strong className="font-mono">{subjectToDelete.code}</strong> · Department:{" "}
+                <p className="text-xs text-red-700">
+                  Code: <strong>{subjectToDelete.code}</strong> · Department:{" "}
                   <strong>{subjectToDelete.department?.name || "General"}</strong>
                 </p>
               </div>
             </div>
 
-            <p className="text-xs text-[#525E4B] leading-relaxed bg-[#FAF8F2] p-3 rounded-xl border border-[#E8DFC9]">
+            <p className="text-xs text-[#525E4B] leading-relaxed bg-[#FAF8F2] p-2.5 rounded-[6px] border border-[#E8DFC9]">
               {deleteConfirmMarks
-                ? "Assessment marks exist for this subject. Confirming will permanently delete all recorded student marks and remove this subject from all report cards."
+                ? "Assessment marks exist for this subject. Confirming will delete all recorded marks and permanently delete the subject from the school catalog."
                 : "This subject will be permanently removed from the school catalog, class curricula, and report cards."}
             </p>
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-stone-100">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#F0EFEA]">
               <button
                 type="button"
                 onClick={() => {
                   setSubjectToDelete(null);
                   setDeleteConfirmMarks(false);
                 }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-[4px] border border-[#D5CBB2] text-xs font-semibold text-[#525E4B] hover:bg-[#FAF8F2] cursor-pointer"
               >
                 Cancel
               </button>
@@ -765,16 +723,9 @@ export function DepartmentsSubjectsManager({
                 type="button"
                 onClick={() => handleDeleteCatalogSubject(deleteConfirmMarks)}
                 disabled={isPending}
-                className="px-5 py-2 rounded-xl bg-red-700 hover:bg-red-800 text-white text-xs font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-1.5 rounded-[4px] bg-red-700 hover:bg-red-800 text-white text-xs font-bold shadow-2xs transition-colors cursor-pointer"
               >
-                {isPending ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Trash2 className="w-3.5 h-3.5" />
-                )}
-                <span>
-                  {isPending ? "Deleting..." : deleteConfirmMarks ? "Delete Marks & Subject" : "Confirm Delete"}
-                </span>
+                {isPending ? "Deleting..." : deleteConfirmMarks ? "Delete Marks & Subject" : "Confirm Delete"}
               </button>
             </div>
           </div>

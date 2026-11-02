@@ -26,16 +26,19 @@ export function BlogIndexClient() {
 
   return (
     <div className="space-y-12 sm:space-y-16">
-      {/* ── Giant Bold Editorial Title (Inspiration from Reference Image) ── */}
-      <div className="text-center pt-4 sm:pt-10">
-        <h1 className="text-6xl sm:text-7xl md:text-8xl lg:text-[7.5rem] font-black tracking-tighter text-[#142010] leading-none select-none">
-          Articles
+      {/* Editorial Header */}
+      <div className="text-center pt-4 sm:pt-6 space-y-2">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-[#142010]">
+          Teacher &amp; School Guides
         </h1>
+        <p className="text-xs sm:text-sm text-[#525E4B] max-w-lg mx-auto">
+          Practical checklists and field advice for Cameroon educators, class masters, and school administrators.
+        </p>
 
         {/* Minimalist Sub-Bar with Timeline & Category Counter */}
-        <div className="mt-8 sm:mt-12 pt-3 border-t border-[#E8DFC9] flex items-center justify-between text-xs text-[#788470] font-mono">
+        <div className="mt-6 pt-3 border-t border-[#E8DFC9] flex items-center justify-between text-xs text-[#788470]">
           <span>Cameroon Secondary Education</span>
-          <span className="hidden sm:inline text-[#B5AC98]">● ● ●</span>
+          <span className="hidden sm:inline text-[#B5AC98]">·</span>
           <span>2026 / 2027 Academic Year</span>
         </div>
       </div>

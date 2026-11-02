@@ -93,18 +93,18 @@ export default async function BlogPostPage({ params }: Props) {
               </span>
             </nav>
 
-            {/* Giant Title */}
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-[#142010] tracking-tight leading-[1.12] pt-2">
+            {/* Clean Editorial Title */}
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#142010] tracking-tight leading-tight pt-2">
               {post.title}
             </h1>
 
             {/* Subtitle */}
-            <p className="text-sm sm:text-base text-[#555555] leading-relaxed max-w-2xl mx-auto">
+            <p className="text-xs sm:text-sm text-[#525E4B] leading-relaxed max-w-2xl mx-auto">
               {post.subtitle}
             </p>
 
             {/* Metadata Bar */}
-            <div className="pt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-[#788470] font-medium">
+            <div className="pt-1 flex flex-wrap items-center justify-center gap-3 text-xs text-[#788470]">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-[#555555]" />
                 <span>{post.publishDate}</span>
@@ -120,9 +120,9 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </header>
 
-        {/* ── Wide Hero Mockup Visual (Inspiration from Image 2 top laptop visual) ── */}
-        <div className="max-w-4xl mx-auto px-5 sm:px-8 my-6 sm:my-10">
-          <div className="rounded-[16px] overflow-hidden border border-[#E8DFC9] shadow-lg">
+        {/* Visual Cover Header */}
+        <div className="max-w-3xl mx-auto px-5 sm:px-8 my-4 sm:my-6">
+          <div className="rounded-[8px] overflow-hidden border border-[#E8DFC9] shadow-xs">
             <BlogVisualCover type={post.visualType} isHero={true} />
           </div>
         </div>

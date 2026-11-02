@@ -194,7 +194,7 @@ export function ClassStreamCoefficientsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-[10px] border border-[#E5E5DF] shadow-2xl w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-[#EEEEEC] flex items-center justify-between bg-[#FAFAF8]">
