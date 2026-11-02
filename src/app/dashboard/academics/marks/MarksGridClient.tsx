@@ -86,6 +86,7 @@ interface MarksGridClientProps {
   activeHodName?: string;
   isAdmin?: boolean;
   isHodUser?: boolean;
+  isOpenForMarks?: boolean;
   students: StudentRow[];
 }
 
@@ -113,6 +114,7 @@ export function MarksGridClient({
   activeHodName,
   isAdmin = false,
   isHodUser = false,
+  isOpenForMarks = true,
   students: initialStudents,
 }: MarksGridClientProps) {
   const [students, setStudents] = useState<StudentRow[]>(initialStudents);
@@ -189,9 +191,14 @@ export function MarksGridClient({
   ]);
 
   // Permission calculation:
-  // HOD and Administrator can ALWAYS edit marks (in draft, submitted, or approved states)
-  // Teachers can edit when status is 'draft' or 'rejected' (reopened for corrections)
-  const canEdit = canApprove ? true : currentStatus === "draft" || currentStatus === "rejected";
+  // Sequence window check: If sequence is closed, ONLY administrators can edit (Administrative Override).
+  // Teachers and HODs are strictly blocked from editing a closed sequence.
+  const isClosedForFaculty = !isOpenForMarks && !isAdmin;
+  const canEdit = isClosedForFaculty
+    ? false
+    : canApprove
+    ? true
+    : currentStatus === "draft" || currentStatus === "rejected";
   const isSubmitted = currentStatus === "submitted";
   const isFinalApproved = currentStatus === "approved";
   const isReopened = currentStatus === "rejected";
@@ -1048,6 +1055,18 @@ export function MarksGridClient({
 
   const renderSaveAndSubmitButtons = (size: "normal" | "large" = "normal") => {
     if (!canEdit) {
+      if (isClosedForFaculty) {
+        return (
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-[6px] bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] font-bold ${
+              size === "large" ? "px-4 py-2.5 text-xs" : "px-3 py-1.5 text-xs"
+            }`}
+          >
+            <Lock className="w-3.5 h-3.5 text-red-600" />
+            <span>Sequence Closed</span>
+          </span>
+        );
+      }
       if (isSubmitted) {
         return (
           <span
@@ -1121,6 +1140,31 @@ export function MarksGridClient({
 
   return (
     <div className="space-y-4 pb-24">
+      {/* ── Sequence Closed Status Alert Banner ──────── */}
+      {!isOpenForMarks && (
+        <div
+          className={`p-4 rounded-[8px] border text-xs flex items-start gap-3 shadow-2xs ${
+            isAdmin
+              ? "bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]"
+              : "bg-[#FFF0F0] border-[#FCA5A5] text-[#991B1B]"
+          }`}
+        >
+          <Lock className={`w-4 h-4 shrink-0 mt-0.5 ${isAdmin ? "text-[#1E40AF]" : "text-[#991B1B]"}`} />
+          <div className="flex-1 space-y-1">
+            <div className="font-bold text-sm">
+              {isAdmin
+                ? `Administrator Override: ${sequenceName} is Closed for Faculty`
+                : `${sequenceName} is Closed for Mark Entry`}
+            </div>
+            <p className="leading-relaxed">
+              {isAdmin
+                ? `This evaluation sequence is officially closed for teacher mark entry. As a School Administrator, you are able to perform administrative mark rectifications. Any modifications you make will be recorded in the institutional audit log.`
+                : `Mark entry for ${sequenceName} is currently closed. You are viewing this mark sheet in read-only mode. If a student mark requires correction, submit the physical marked test script to the School Administration for an administrative mark rectification.`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ── Top Header: 2 Distinct Columns (Details vs Offline Tools) ──────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         {/* Column 1 (Left 7 cols): Subject Details & Denominator Settings */}
@@ -1143,7 +1187,19 @@ export function MarksGridClient({
 
             {/* Workflow Status Badge */}
             <div>
-              {isFinalApproved ? (
+              {!isOpenForMarks ? (
+                isAdmin ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#1D4ED8]" />
+                    <span>Admin Override</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] text-xs font-bold">
+                    <Lock className="w-3.5 h-3.5 text-red-600" />
+                    <span>Sequence Closed</span>
+                  </span>
+                )
+              ) : isFinalApproved ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-xs font-bold">
                   <Lock className="w-3.5 h-3.5 text-[#166534]" />
                   <span>Approved &amp; Locked</span>

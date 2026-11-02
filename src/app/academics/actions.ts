@@ -1757,6 +1757,42 @@ export async function saveSequenceMarksAction(payload: {
   const isHodRole = !isAdminRole && (roleCode === "hod" || Boolean(context.isHod));
   const isTeacherRole = !isAdminRole && !isHodRole && (roleCode === "teacher" || roleCode === "class_master");
 
+  // Sequence open/closed window check:
+  // Only school administrators can modify marks for a closed sequence (Administrative Override).
+  // Teachers and HODs are strictly blocked from writing to a closed sequence.
+  const { data: sequenceRecord } = await supabase
+    .from("evaluation_sequences")
+    .select("id, name, sequence_number, is_open_for_marks")
+    .eq("school_id", context.school.id)
+    .eq("id", payload.sequenceId)
+    .maybeSingle();
+
+  if (sequenceRecord && !sequenceRecord.is_open_for_marks && !isAdminRole) {
+    return {
+      error: `${sequenceRecord.name} is closed for mark entry. Only a School Administrator can modify marks for a closed sequence.`,
+    };
+  }
+
+  // Audit log for Administrative Override on closed sequences
+  if (sequenceRecord && !sequenceRecord.is_open_for_marks && isAdminRole && context.user?.id) {
+    await supabase.from("audit_logs").insert({
+      school_id: context.school.id,
+      user_id: context.user.id,
+      action: "ADMIN_OVERRIDE_CLOSED_SEQUENCE_MARKS",
+      resource_type: "assessment_marks",
+      resource_id: `${payload.sequenceId}_${payload.classStreamId}_${payload.subjectId}`,
+      details: {
+        sequence_id: payload.sequenceId,
+        sequence_name: sequenceRecord.name,
+        class_stream_id: payload.classStreamId,
+        subject_id: payload.subjectId,
+        updated_by_role: roleCode,
+        modified_count: payload.marks.length,
+        note: "Administrator override on closed sequence mark entry",
+      },
+    });
+  }
+
   // HOD scope check: HOD can only save marks for subjects within their department OR personally assigned
   if (isHodRole && context.user?.id) {
     const { subjectIds } = await getHodScope(context.school.id, payload.academicYearId, context.user.id);

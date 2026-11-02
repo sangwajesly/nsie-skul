@@ -510,6 +510,7 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
           activeHodName={activeHodName}
           isAdmin={isAdmin}
           isHodUser={isHodUser}
+          isOpenForMarks={Boolean(selectedSequence?.is_open_for_marks)}
           students={studentRows}
         />
       )}
