@@ -9,13 +9,15 @@ import {
   Sparkles,
   BookOpen,
   Calendar,
+  RefreshCw,
 } from "lucide-react";
 import { ClassesStreamsManager } from "./ClassesStreamsManager";
 import { ClassCurriculumManager } from "./ClassCurriculumManager";
 import { TeacherAssignmentsManager } from "./TeacherAssignmentsManager";
 import { DepartmentsSubjectsManager } from "./DepartmentsSubjectsManager";
 import { AcademicSequencesManager } from "./AcademicSequencesManager";
-import { TeacherAssignment, EvaluationSequence } from "@/types/database";
+import { AcademicRolloverWizard } from "./AcademicRolloverWizard";
+import { TeacherAssignment, EvaluationSequence, AcademicYear } from "@/types/database";
 
 interface TeacherOption {
   id: string;
@@ -73,6 +75,7 @@ interface HodAssignmentItem {
 interface Props {
   academicYearId: string;
   academicYearName: string;
+  academicYears?: AcademicYear[];
   departments: DepartmentItem[];
   subjects: SubjectOption[];
   classSubjects: ClassSubjectConfig[];
@@ -91,11 +94,12 @@ interface Props {
   hodDepartmentNames?: string[];
 }
 
-type TabKey = "classes" | "curriculum" | "teachers" | "departments" | "sequences";
+type TabKey = "classes" | "curriculum" | "teachers" | "departments" | "sequences" | "rollover";
 
 export function AcademicsViewClient({
   academicYearId,
   academicYearName,
+  academicYears = [],
   departments,
   subjects,
   classSubjects,
@@ -121,7 +125,7 @@ export function AcademicsViewClient({
 
   useEffect(() => {
     const tabFromUrl = searchParams?.get("tab") as TabKey;
-    if (tabFromUrl && ["classes", "curriculum", "teachers", "departments", "sequences"].includes(tabFromUrl)) {
+    if (tabFromUrl && ["classes", "curriculum", "teachers", "departments", "sequences", "rollover"].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -293,6 +297,25 @@ export function AcademicsViewClient({
               )}
             </button>
           )}
+
+          {/* Tab 5: Annual Rollover & Promotion */}
+          {canManageAcademics && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("rollover")}
+              className={`group inline-flex items-center gap-2 py-3 px-3 border-b-2 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                activeTab === "rollover"
+                  ? "border-[#191919] text-[#191919] font-bold"
+                  : "border-transparent text-[#666666] hover:text-[#191919] hover:border-[#D5D5CF]"
+              }`}
+            >
+              <RefreshCw className={`w-4 h-4 shrink-0 ${activeTab === "rollover" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
+              <span>Annual Rollover</span>
+              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40 font-bold shrink-0">
+                New
+              </span>
+            </button>
+          )}
         </nav>
       </div>
 
@@ -349,6 +372,14 @@ export function AcademicsViewClient({
           <div className="bg-white p-6 rounded-[8px] border border-[#E5E5DF] shadow-2xs space-y-4">
             <AcademicSequencesManager sequences={sequences} />
           </div>
+        )}
+
+        {activeTab === "rollover" && canManageAcademics && (
+          <AcademicRolloverWizard
+            academicYears={academicYears}
+            currentAcademicYearId={academicYearId}
+            canManage={canManageAcademics}
+          />
         )}
       </div>
     </div>

@@ -11,7 +11,9 @@ import {
   ShieldCheck, 
   QrCode, 
   CloudSync,
-  ArrowRight
+  ArrowRight,
+  GraduationCap,
+  RefreshCw
 } from "lucide-react";
 
 interface PlatformCapability {
@@ -113,6 +115,20 @@ const CAPABILITIES: PlatformCapability[] = [
     title: "Automatic Cloud Backup and Disaster Recovery",
     description: "When using offline mode, all campus records are stored safely on-site and automatically synchronized with encrypted cloud backups once connected.",
     icon: CloudSync,
+  },
+  {
+    id: "annual-rollover",
+    number: "12",
+    title: "1-Click Academic Year Rollover and Promotion Wizard",
+    description: "Seamlessly promote passing students, place borderline candidates on trial, flag repeaters, and roll over to the next academic session without re-admitting existing students.",
+    icon: RefreshCw,
+  },
+  {
+    id: "academic-transcripts",
+    number: "13",
+    title: "Official Multi-Year Academic Transcripts (Relevé de Notes)",
+    description: "Generate ministerial-compliant cumulative academic transcripts with multi-year progression, subject coefficients, sequence marks, annual class ranks, and principal certification seals.",
+    icon: GraduationCap,
   },
 ];
 

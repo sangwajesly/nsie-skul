@@ -35,6 +35,21 @@ export const getActiveAcademicYear = cache(async function getActiveAcademicYear(
 });
 
 /**
+ * Lists all academic years for a school, sorted chronologically descending.
+ */
+export async function getSchoolAcademicYears(schoolId: string): Promise<AcademicYear[]> {
+  if (!schoolId) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("academic_years")
+    .select("*")
+    .eq("school_id", schoolId)
+    .order("start_date", { ascending: false });
+
+  return (data as AcademicYear[]) || [];
+}
+
+/**
  * Retrieves the 6 evaluation sequences for an academic year.
  * Cached per request.
  */

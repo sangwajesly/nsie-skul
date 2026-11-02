@@ -2888,5 +2888,1037 @@ export async function cleanClassSubjectsAction(formData: FormData) {
   };
 }
 
+/**
+ * ==============================================================================
+ * ANNUAL ACADEMIC ROLLOVER & PROMOTION ACTIONS
+ * ==============================================================================
+ */
+
+/**
+ * Creates a new Academic Year for the school, auto-seeding 3 terms, 6 sequences,
+ * and optionally cloning the class stream structure from an existing year.
+ */
+export async function createAcademicYearAction(formData: FormData) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const name = String(formData.get("name") || "").trim();
+  const startDate = String(formData.get("startDate") || "").trim();
+  const endDate = String(formData.get("endDate") || "").trim();
+  const copyStreamsFromYearId = String(formData.get("copyStreamsFromYearId") || "").trim();
+
+  if (!name) {
+    return { error: "Academic year name is required (e.g. 2026/2027)." };
+  }
+  if (!startDate || !endDate) {
+    return { error: "Start and end dates are required." };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Create Academic Year
+  const { data: newYear, error: yearError } = await supabase
+    .from("academic_years")
+    .insert({
+      school_id: context.school.id,
+      name,
+      start_date: startDate,
+      end_date: endDate,
+      is_current: false,
+    })
+    .select()
+    .single();
+
+  if (yearError) {
+    if (yearError.code === "23505") {
+      return { error: `Academic year "${name}" already exists in your school.` };
+    }
+    return { error: `Could not create academic year: ${yearError.message}` };
+  }
+
+  const isFrench = context.school.subsystem === "francophone";
+  const startYear = startDate.split("-")[0] || "2026";
+  const endYear = endDate.split("-")[0] || "2027";
+
+  // 2. Seed 3 Official Terms
+  const termsData = [
+    {
+      school_id: context.school.id,
+      academic_year_id: newYear.id,
+      term_number: 1,
+      name: isFrench ? "1er Trimestre" : "First Term",
+      start_date: startDate,
+      end_date: `${startYear}-12-18`,
+      is_active: true,
+    },
+    {
+      school_id: context.school.id,
+      academic_year_id: newYear.id,
+      term_number: 2,
+      name: isFrench ? "2e Trimestre" : "Second Term",
+      start_date: `${endYear}-01-05`,
+      end_date: `${endYear}-03-27`,
+      is_active: false,
+    },
+    {
+      school_id: context.school.id,
+      academic_year_id: newYear.id,
+      term_number: 3,
+      name: isFrench ? "3e Trimestre" : "Third Term",
+      start_date: `${endYear}-04-14`,
+      end_date: endDate,
+      is_active: false,
+    },
+  ];
+
+  const { data: createdTerms, error: termsError } = await supabase
+    .from("terms")
+    .insert(termsData)
+    .select();
+
+  if (!termsError && createdTerms && createdTerms.length > 0) {
+    const t1 = createdTerms.find((t) => t.term_number === 1);
+    const t2 = createdTerms.find((t) => t.term_number === 2);
+    const t3 = createdTerms.find((t) => t.term_number === 3);
+
+    // 3. Seed 6 Official Evaluation Sequences
+    const sequencesData = [
+      {
+        school_id: context.school.id,
+        term_id: t1?.id,
+        sequence_number: 1,
+        name: isFrench ? "1ère Séquence" : "Sequence 1",
+        start_date: startDate,
+        end_date: `${startYear}-10-25`,
+        is_open_for_marks: true,
+      },
+      {
+        school_id: context.school.id,
+        term_id: t1?.id,
+        sequence_number: 2,
+        name: isFrench ? "2e Séquence" : "Sequence 2",
+        start_date: `${startYear}-11-01`,
+        end_date: `${startYear}-12-18`,
+        is_open_for_marks: false,
+      },
+      {
+        school_id: context.school.id,
+        term_id: t2?.id,
+        sequence_number: 3,
+        name: isFrench ? "3e Séquence" : "Sequence 3",
+        start_date: `${endYear}-01-05`,
+        end_date: `${endYear}-02-15`,
+        is_open_for_marks: false,
+      },
+      {
+        school_id: context.school.id,
+        term_id: t2?.id,
+        sequence_number: 4,
+        name: isFrench ? "4e Séquence" : "Sequence 4",
+        start_date: `${endYear}-02-18`,
+        end_date: `${endYear}-03-27`,
+        is_open_for_marks: false,
+      },
+      {
+        school_id: context.school.id,
+        term_id: t3?.id,
+        sequence_number: 5,
+        name: isFrench ? "5e Séquence" : "Sequence 5",
+        start_date: `${endYear}-04-14`,
+        end_date: `${endYear}-05-20`,
+        is_open_for_marks: false,
+      },
+      {
+        school_id: context.school.id,
+        term_id: t3?.id,
+        sequence_number: 6,
+        name: isFrench ? "6e Séquence" : "Sequence 6",
+        start_date: `${endYear}-05-22`,
+        end_date: endDate,
+        is_open_for_marks: false,
+      },
+    ];
+
+    await supabase.from("evaluation_sequences").insert(sequencesData);
+  }
+
+  // 4. Optionally clone class streams and curriculum from source year
+  if (copyStreamsFromYearId) {
+    const { data: existingStreams } = await supabase
+      .from("class_streams")
+      .select("*, class_subjects (*)")
+      .eq("school_id", context.school.id)
+      .eq("academic_year_id", copyStreamsFromYearId);
+
+    if (existingStreams && existingStreams.length > 0) {
+      for (const stream of existingStreams) {
+        const { data: newStream } = await supabase
+          .from("class_streams")
+          .insert({
+            school_id: context.school.id,
+            academic_year_id: newYear.id,
+            class_id: stream.class_id,
+            name: stream.name,
+            stream_tag: stream.stream_tag,
+            class_master_id: stream.class_master_id,
+          })
+          .select()
+          .single();
+
+        if (newStream && stream.class_subjects && stream.class_subjects.length > 0) {
+          const subjectsToClone = stream.class_subjects.map((cs: { subject_id: string; coefficient: number; max_marks: number; is_compulsory: boolean }) => ({
+            school_id: context.school.id,
+            class_stream_id: newStream.id,
+            subject_id: cs.subject_id,
+            coefficient: cs.coefficient,
+            max_marks: cs.max_marks,
+            is_compulsory: cs.is_compulsory,
+          }));
+          await supabase.from("class_subjects").insert(subjectsToClone);
+        }
+      }
+    }
+  }
+
+  revalidatePath("/dashboard/academics");
+  return {
+    success: true as const,
+    academicYear: newYear,
+    message: `Academic Year "${name}" created successfully with terms and sequences.`,
+  };
+}
+
+/**
+ * Previews annual promotion candidates for an academic year, calculating annual averages,
+ * class ranks, and automatic progression recommendations based on customizable thresholds.
+ */
+export async function previewAnnualPromotionAction(payload: {
+  sourceAcademicYearId: string;
+  targetAcademicYearId?: string;
+  promotionThreshold?: number;
+  trialThreshold?: number;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "students.manage"]);
+  const sourceAcademicYearId = payload.sourceAcademicYearId;
+  const promotionThreshold = payload.promotionThreshold ?? 10.0;
+  const trialThreshold = payload.trialThreshold ?? 8.5;
+
+  if (!sourceAcademicYearId) {
+    return { error: "Please select a source academic year." };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Fetch source enrolments with student and class stream info
+  const { data: enrolments, error: enrolError } = await supabase
+    .from("enrolments")
+    .select(`
+      id,
+      student_id,
+      is_repeater,
+      status,
+      class_stream:class_streams (
+        id,
+        name,
+        stream_tag,
+        class_id,
+        class:classes (
+          id,
+          name,
+          level_order,
+          cycle
+        )
+      ),
+      student:students (
+        id,
+        matricule,
+        first_name,
+        last_name,
+        gender,
+        status
+      )
+    `)
+    .eq("school_id", context.school.id)
+    .eq("academic_year_id", sourceAcademicYearId);
+
+  if (enrolError) {
+    return { error: `Could not load student enrolments: ${enrolError.message}` };
+  }
+
+  // 2. Fetch all school classes sorted by level_order
+  const { data: classes } = await supabase
+    .from("classes")
+    .select("id, name, level_order, cycle")
+    .eq("school_id", context.school.id)
+    .order("level_order", { ascending: true });
+
+  const sortedClasses = classes || [];
+  const maxLevelOrder = Math.max(...sortedClasses.map((c) => c.level_order), 7);
+
+  // 3. Fetch target academic year class streams if targetAcademicYearId provided
+  let targetStreams: Array<{
+    id: string;
+    name: string;
+    stream_tag: string | null;
+    class_id: string;
+    class_name: string;
+    level_order: number;
+  }> = [];
+
+  if (payload.targetAcademicYearId) {
+    const { data: streamsData } = await supabase
+      .from("class_streams")
+      .select(`
+        id,
+        name,
+        stream_tag,
+        class_id,
+        class:classes (
+          name,
+          level_order
+        )
+      `)
+      .eq("school_id", context.school.id)
+      .eq("academic_year_id", payload.targetAcademicYearId);
+
+    if (streamsData) {
+      targetStreams = streamsData.map((s) => {
+        const cls = Array.isArray(s.class) ? s.class[0] : s.class;
+        return {
+          id: s.id,
+          name: s.name,
+          stream_tag: s.stream_tag,
+          class_id: s.class_id,
+          class_name: cls?.name || "",
+          level_order: cls?.level_order || 1,
+        };
+      });
+    }
+  }
+
+  // 4. Fetch assessment marks for all students in source academic year
+  const { data: marks } = await supabase
+    .from("assessment_marks")
+    .select("student_id, subject_id, class_stream_id, normalized_score_20, score, max_marks")
+    .eq("school_id", context.school.id)
+    .eq("academic_year_id", sourceAcademicYearId);
+
+  // 5. Fetch class_subjects for coefficients
+  const { data: classSubjects } = await supabase
+    .from("class_subjects")
+    .select("class_stream_id, subject_id, coefficient");
+
+  const coeffMap = new Map<string, number>();
+  for (const cs of classSubjects || []) {
+    coeffMap.set(`${cs.class_stream_id}:${cs.subject_id}`, Number(cs.coefficient) || 2.0);
+  }
+
+  // Group marks by student -> subject -> scores
+  const studentMarksMap = new Map<string, Map<string, number[]>>();
+  for (const m of marks || []) {
+    let score = m.normalized_score_20;
+    if (score === null || score === undefined) {
+      if (m.score !== null && m.score !== undefined && m.max_marks > 0) {
+        score = (Number(m.score) / Number(m.max_marks)) * 20;
+      }
+    }
+    if (score !== null && score !== undefined && !isNaN(score)) {
+      if (!studentMarksMap.has(m.student_id)) {
+        studentMarksMap.set(m.student_id, new Map());
+      }
+      const subMap = studentMarksMap.get(m.student_id)!;
+      if (!subMap.has(m.subject_id)) {
+        subMap.set(m.subject_id, []);
+      }
+      subMap.get(m.subject_id)!.push(Number(score));
+    }
+  }
+
+  // 6. Compute annual average for each enrolled student
+  interface Candidate {
+    enrolmentId: string;
+    studentId: string;
+    matricule: string;
+    fullName: string;
+    gender: string;
+    currentStreamId: string;
+    currentStreamName: string;
+    currentClassLevel: number;
+    currentClassName: string;
+    annualAverage: number | null;
+    rank: number;
+    totalInStream: number;
+    recommendedDecision: "promoted" | "trial" | "repeated" | "graduated";
+    recommendedTargetStreamId: string | null;
+    isCurrentRepeater: boolean;
+  }
+
+  const rawCandidates: Candidate[] = [];
+  const streamCounts = new Map<string, number>();
+
+  for (const enr of enrolments || []) {
+    const student = Array.isArray(enr.student) ? enr.student[0] : enr.student;
+    const stream = Array.isArray(enr.class_stream) ? enr.class_stream[0] : enr.class_stream;
+    const cls = stream?.class ? (Array.isArray(stream.class) ? stream.class[0] : stream.class) : null;
+
+    if (!student || !stream) continue;
+
+    streamCounts.set(stream.id, (streamCounts.get(stream.id) || 0) + 1);
+
+    const subMap = studentMarksMap.get(student.id);
+    let annualAverage: number | null = null;
+
+    if (subMap && subMap.size > 0) {
+      let totalWeighted = 0;
+      let totalCoeff = 0;
+
+      for (const [subjectId, scores] of subMap.entries()) {
+        const subjectAvg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const coeff = coeffMap.get(`${stream.id}:${subjectId}`) || 2.0;
+        totalWeighted += subjectAvg * coeff;
+        totalCoeff += coeff;
+      }
+
+      if (totalCoeff > 0) {
+        annualAverage = Math.round((totalWeighted / totalCoeff) * 100) / 100;
+      }
+    }
+
+    const currentLevel = cls?.level_order || 1;
+    const isTerminal = currentLevel >= maxLevelOrder || (currentLevel === 5 && cls?.cycle === "cycle_1");
+
+    let recommendedDecision: "promoted" | "trial" | "repeated" | "graduated" = "repeated";
+    if (annualAverage !== null) {
+      if (annualAverage >= promotionThreshold) {
+        recommendedDecision = isTerminal ? "graduated" : "promoted";
+      } else if (annualAverage >= trialThreshold) {
+        recommendedDecision = isTerminal ? "graduated" : "trial";
+      } else {
+        recommendedDecision = "repeated";
+      }
+    } else {
+      // Default to promoted if no marks are entered yet
+      recommendedDecision = "promoted";
+    }
+
+    rawCandidates.push({
+      enrolmentId: enr.id,
+      studentId: student.id,
+      matricule: student.matricule || "N/A",
+      fullName: `${student.last_name || ""} ${student.first_name || ""}`.trim(),
+      gender: student.gender || "M",
+      currentStreamId: stream.id,
+      currentStreamName: stream.name,
+      currentClassLevel: currentLevel,
+      currentClassName: cls?.name || stream.name,
+      annualAverage,
+      rank: 1,
+      totalInStream: 1,
+      recommendedDecision,
+      recommendedTargetStreamId: null,
+      isCurrentRepeater: Boolean(enr.is_repeater),
+    });
+  }
+
+  // 7. Calculate ranks within each stream
+  const groupedByStream = new Map<string, Candidate[]>();
+  for (const cand of rawCandidates) {
+    if (!groupedByStream.has(cand.currentStreamId)) {
+      groupedByStream.set(cand.currentStreamId, []);
+    }
+    groupedByStream.get(cand.currentStreamId)!.push(cand);
+  }
+
+  for (const [streamId, cands] of groupedByStream.entries()) {
+    cands.sort((a, b) => (b.annualAverage ?? -1) - (a.annualAverage ?? -1));
+    const total = cands.length;
+    cands.forEach((c, idx) => {
+      c.rank = idx + 1;
+      c.totalInStream = total;
+
+      // Suggest target stream
+      if (targetStreams.length > 0) {
+        let targetLevel = c.currentClassLevel;
+        if (c.recommendedDecision === "promoted" || c.recommendedDecision === "trial") {
+          targetLevel = c.currentClassLevel + 1;
+        }
+
+        // Find candidate streams at target level
+        const levelStreams = targetStreams.filter((ts) => ts.level_order === targetLevel);
+        if (levelStreams.length > 0) {
+          // Attempt exact name or stream tag match
+          const matchingStream = levelStreams.find(
+            (ls) =>
+              ls.name.toLowerCase().includes(c.currentStreamName.toLowerCase()) ||
+              (c.currentStreamName.includes(" ") && ls.name.endsWith(c.currentStreamName.split(" ").slice(-1)[0]))
+          );
+          c.recommendedTargetStreamId = matchingStream ? matchingStream.id : levelStreams[0].id;
+        }
+      }
+    });
+  }
+
+  return {
+    candidates: rawCandidates,
+    targetStreams,
+    promotionThreshold,
+    trialThreshold,
+    totalCount: rawCandidates.length,
+  };
+}
+
+/**
+ * Executes the annual promotion and academic year rollover for selected students.
+ * Inserts new enrolments into the target academic year, updates student statuses,
+ * and records repeater flags without requiring existing students to be re-admitted.
+ */
+export async function executeAnnualPromotionRolloverAction(payload: {
+  sourceAcademicYearId: string;
+  targetAcademicYearId: string;
+  decisions: Array<{
+    studentId: string;
+    enrolmentId?: string;
+    decision: "promoted" | "trial" | "repeated" | "graduated" | "transferred" | "withdrawn";
+    targetClassStreamId?: string | null;
+    isRepeater?: boolean;
+  }>;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "students.manage"]);
+  const { sourceAcademicYearId, targetAcademicYearId, decisions } = payload;
+
+  if (!sourceAcademicYearId || !targetAcademicYearId) {
+    return { error: "Both source and target academic years are required." };
+  }
+  if (!decisions || decisions.length === 0) {
+    return { error: "No student promotion decisions provided." };
+  }
+
+  const supabase = await createClient();
+
+  // Verify target academic year exists
+  const { data: targetYear, error: targetYearError } = await supabase
+    .from("academic_years")
+    .select("id, name")
+    .eq("school_id", context.school.id)
+    .eq("id", targetAcademicYearId)
+    .maybeSingle();
+
+  if (targetYearError || !targetYear) {
+    return { error: "Target academic year could not be verified." };
+  }
+
+  let promotedCount = 0;
+  let trialCount = 0;
+  let repeatedCount = 0;
+  let graduatedCount = 0;
+  let transferredCount = 0;
+
+  for (const item of decisions) {
+    const { studentId, decision, targetClassStreamId, isRepeater } = item;
+
+    if (decision === "graduated") {
+      await Promise.all([
+        supabase
+          .from("students")
+          .update({ status: "graduated" })
+          .eq("id", studentId)
+          .eq("school_id", context.school.id),
+        supabase
+          .from("enrolments")
+          .update({ status: "promoted" })
+          .eq("student_id", studentId)
+          .eq("academic_year_id", sourceAcademicYearId),
+      ]);
+      graduatedCount++;
+    } else if (decision === "transferred" || decision === "withdrawn") {
+      await Promise.all([
+        supabase
+          .from("students")
+          .update({ status: decision === "transferred" ? "transferred" : "withdrawn" })
+          .eq("id", studentId)
+          .eq("school_id", context.school.id),
+        supabase
+          .from("enrolments")
+          .update({ status: "withdrawn" })
+          .eq("student_id", studentId)
+          .eq("academic_year_id", sourceAcademicYearId),
+      ]);
+      transferredCount++;
+    } else {
+      // Promoted, Trial, or Repeated: Requires enrolment in target academic year
+      if (!targetClassStreamId) {
+        continue;
+      }
+
+      const repeaterFlag = decision === "repeated" || Boolean(isRepeater);
+      const enrolmentStatus = decision === "repeated" ? "repeated" : "promoted";
+
+      // 1. Update source year enrolment status
+      await supabase
+        .from("enrolments")
+        .update({ status: enrolmentStatus })
+        .eq("student_id", studentId)
+        .eq("academic_year_id", sourceAcademicYearId);
+
+      // 2. Upsert enrolment in target academic year
+      await supabase.from("enrolments").upsert(
+        {
+          school_id: context.school.id,
+          student_id: studentId,
+          academic_year_id: targetAcademicYearId,
+          class_stream_id: targetClassStreamId,
+          is_repeater: repeaterFlag,
+          status: "active",
+        },
+        { onConflict: "academic_year_id,student_id" }
+      );
+
+      // 3. Update student master profile
+      await supabase
+        .from("students")
+        .update({
+          status: "active",
+          is_repeater: repeaterFlag,
+        })
+        .eq("id", studentId)
+        .eq("school_id", context.school.id);
+
+      if (decision === "promoted") promotedCount++;
+      else if (decision === "trial") trialCount++;
+      else if (decision === "repeated") repeatedCount++;
+    }
+  }
+
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/students");
+  revalidatePath("/dashboard/academics/report-cards");
+
+  return {
+    success: true as const,
+    message: `Rollover executed: ${promotedCount} promoted, ${trialCount} promoted on trial, ${repeatedCount} repeating, ${graduatedCount} graduated, ${transferredCount} departed.`,
+    summary: {
+      promotedCount,
+      trialCount,
+      repeatedCount,
+      graduatedCount,
+      transferredCount,
+    },
+  };
+}
+
+/**
+ * ==============================================================================
+ * OFFICIAL STUDENT MULTI-YEAR ACADEMIC TRANSCRIPT (RELEVE DE NOTES)
+ * ==============================================================================
+ */
+
+export interface TranscriptSubjectRow {
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  coefficient: number;
+  term1Average: number | null;
+  term2Average: number | null;
+  term3Average: number | null;
+  annualAverage: number | null;
+  weightedPoints: number | null;
+  appreciation: string;
+}
+
+export interface TranscriptYearRecord {
+  academicYearId: string;
+  academicYearName: string;
+  startDate: string;
+  endDate: string;
+  classStreamId: string;
+  classStreamName: string;
+  className: string;
+  levelOrder: number;
+  cycle: string;
+  classMasterName: string | null;
+  isRepeater: boolean;
+  status: string;
+  subjects: TranscriptSubjectRow[];
+  totalCoefficients: number;
+  totalWeightedPoints: number;
+  annualAverage: number | null;
+  classRank: number;
+  totalClassEnrolment: number;
+  councilDecision: string;
+}
+
+export interface StudentFullTranscriptData {
+  school: {
+    id: string;
+    name: string;
+    code: string;
+    subsystem: string;
+    motto: string | null;
+    address: string | null;
+    phone: string | null;
+    email: string | null;
+    logoUrl: string | null;
+  };
+  student: {
+    id: string;
+    matricule: string;
+    fullName: string;
+    firstName: string;
+    lastName: string;
+    gender: string;
+    dateOfBirth: string | null;
+    placeOfBirth: string | null;
+    guardianName: string | null;
+    guardianPhone: string | null;
+    status: string;
+    createdAt: string;
+  };
+  years: TranscriptYearRecord[];
+  cumulativeGPA: number | null;
+  totalYearsCompleted: number;
+  overallAppreciation: string;
+  issuedAt: string;
+}
+
+/**
+ * Fetches the complete official multi-year transcript for a student across all academic years.
+ */
+export async function getStudentFullTranscriptAction(studentId: string): Promise<{
+  success?: boolean;
+  data?: StudentFullTranscriptData;
+  error?: string;
+}> {
+  const context = await requireAnyPermission([
+    "students.view_all",
+    "students.manage",
+    "academics.manage",
+    "reports.view",
+  ]);
+
+  if (!studentId) {
+    return { error: "Student ID is required." };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Fetch Student Record
+  const { data: student, error: studentError } = await supabase
+    .from("students")
+    .select("*")
+    .eq("school_id", context.school.id)
+    .eq("id", studentId)
+    .maybeSingle();
+
+  if (studentError || !student) {
+    return { error: "Student record could not be found." };
+  }
+
+  // 2. Fetch School Details
+  const { data: school } = await supabase
+    .from("schools")
+    .select("*")
+    .eq("id", context.school.id)
+    .maybeSingle();
+
+  // 3. Fetch all enrolments for this student ordered chronologically
+  const { data: enrolments, error: enrolError } = await supabase
+    .from("enrolments")
+    .select(`
+      id,
+      academic_year_id,
+      class_stream_id,
+      is_repeater,
+      status,
+      created_at,
+      academic_year:academic_years (
+        id,
+        name,
+        start_date,
+        end_date
+      ),
+      class_stream:class_streams (
+        id,
+        name,
+        stream_tag,
+        class_master:user_profiles (
+          full_name
+        ),
+        class:classes (
+          id,
+          name,
+          level_order,
+          cycle
+        )
+      )
+    `)
+    .eq("school_id", context.school.id)
+    .eq("student_id", studentId);
+
+  if (enrolError || !enrolments || enrolments.length === 0) {
+    return { error: "No enrolment history found for this student." };
+  }
+
+  // Sort enrolments chronologically by academic year start_date
+  enrolments.sort((a, b) => {
+    const yearA = Array.isArray(a.academic_year) ? a.academic_year[0] : a.academic_year;
+    const yearB = Array.isArray(b.academic_year) ? b.academic_year[0] : b.academic_year;
+    return (yearA?.start_date || "").localeCompare(yearB?.start_date || "");
+  });
+
+  const academicYearIds = enrolments.map((e) => e.academic_year_id);
+  const classStreamIds = enrolments.map((e) => e.class_stream_id);
+
+  // 4. Fetch all terms for these academic years
+  const { data: terms } = await supabase
+    .from("terms")
+    .select("id, academic_year_id, term_number, name")
+    .in("academic_year_id", academicYearIds)
+    .order("term_number", { ascending: true });
+
+  // 5. Fetch all class_subjects for these class streams
+  const { data: classSubjects } = await supabase
+    .from("class_subjects")
+    .select(`
+      class_stream_id,
+      subject_id,
+      coefficient,
+      max_marks,
+      subject:subjects (
+        id,
+        name,
+        code
+      )
+    `)
+    .in("class_stream_id", classStreamIds);
+
+  // 6. Fetch all assessment marks for this student across these years
+  const { data: marks } = await supabase
+    .from("assessment_marks")
+    .select("academic_year_id, term_id, sequence_id, class_stream_id, subject_id, normalized_score_20, score, max_marks")
+    .eq("student_id", studentId)
+    .in("academic_year_id", academicYearIds);
+
+  // 7. Fetch all stream sizes and peer annual averages to compute historical rank
+  const { data: allPeerMarks } = await supabase
+    .from("assessment_marks")
+    .select("academic_year_id, class_stream_id, student_id, subject_id, normalized_score_20, score, max_marks")
+    .in("class_stream_id", classStreamIds);
+
+  const { data: peerEnrolments } = await supabase
+    .from("enrolments")
+    .select("academic_year_id, class_stream_id, student_id")
+    .in("class_stream_id", classStreamIds);
+
+  // Helper to calculate Cameroon grade appreciation
+  const getAppreciation = (avg: number | null): string => {
+    if (avg === null || isNaN(avg)) return "-";
+    if (avg >= 16.0) return "Excellent (Très Bien)";
+    if (avg >= 14.0) return "Very Good (Bien)";
+    if (avg >= 12.0) return "Good (Assez Bien)";
+    if (avg >= 10.0) return "Pass (Passable)";
+    if (avg >= 8.0) return "Weak (Médiocre)";
+    return "Poor (Faible)";
+  };
+
+  const yearsRecords: TranscriptYearRecord[] = [];
+  let cumulativeWeightedSum = 0;
+  let cumulativeCount = 0;
+
+  for (const enr of enrolments) {
+    const yearObj = Array.isArray(enr.academic_year) ? enr.academic_year[0] : enr.academic_year;
+    const streamObj = Array.isArray(enr.class_stream) ? enr.class_stream[0] : enr.class_stream;
+    const classObj = streamObj?.class ? (Array.isArray(streamObj.class) ? streamObj.class[0] : streamObj.class) : null;
+    const masterObj = streamObj?.class_master ? (Array.isArray(streamObj.class_master) ? streamObj.class_master[0] : streamObj.class_master) : null;
+
+    if (!yearObj || !streamObj) continue;
+
+    // Terms in this year
+    const yearTerms = (terms || []).filter((t) => t.academic_year_id === yearObj.id);
+    const t1 = yearTerms.find((t) => t.term_number === 1);
+    const t2 = yearTerms.find((t) => t.term_number === 2);
+    const t3 = yearTerms.find((t) => t.term_number === 3);
+
+    // Stream subjects
+    const streamSubs = (classSubjects || []).filter((cs) => cs.class_stream_id === streamObj.id);
+
+    // Student marks for this year
+    const yearMarks = (marks || []).filter((m) => m.academic_year_id === yearObj.id);
+
+    // Subject rows
+    const subjectRows: TranscriptSubjectRow[] = [];
+    let yearTotalCoeff = 0;
+    let yearTotalWeightedPoints = 0;
+
+    for (const cs of streamSubs) {
+      const sub = Array.isArray(cs.subject) ? cs.subject[0] : cs.subject;
+      if (!sub) continue;
+
+      const coef = Number(cs.coefficient) || 2.0;
+
+      const getTermAvg = (termId?: string): number | null => {
+        if (!termId) return null;
+        const termMarks = yearMarks.filter((m) => m.term_id === termId && m.subject_id === sub.id);
+        const validScores = termMarks
+          .map((m) => {
+            if (m.normalized_score_20 !== null && m.normalized_score_20 !== undefined) {
+              return Number(m.normalized_score_20);
+            }
+            if (m.score !== null && m.max_marks > 0) {
+              return (Number(m.score) / Number(m.max_marks)) * 20;
+            }
+            return null;
+          })
+          .filter((s): s is number => s !== null && !isNaN(s));
+
+        if (validScores.length === 0) return null;
+        return Math.round((validScores.reduce((a, b) => a + b, 0) / validScores.length) * 100) / 100;
+      };
+
+      const m1 = getTermAvg(t1?.id);
+      const m2 = getTermAvg(t2?.id);
+      const m3 = getTermAvg(t3?.id);
+
+      const availableTerms = [m1, m2, m3].filter((m): m is number => m !== null);
+      let subAnnual: number | null = null;
+      if (availableTerms.length > 0) {
+        subAnnual = Math.round((availableTerms.reduce((a, b) => a + b, 0) / availableTerms.length) * 100) / 100;
+      }
+
+      const weightedPoints = subAnnual !== null ? Math.round(subAnnual * coef * 100) / 100 : null;
+
+      if (subAnnual !== null) {
+        yearTotalCoeff += coef;
+        yearTotalWeightedPoints += subAnnual * coef;
+      }
+
+      subjectRows.push({
+        subjectId: sub.id,
+        subjectName: sub.name,
+        subjectCode: sub.code,
+        coefficient: coef,
+        term1Average: m1,
+        term2Average: m2,
+        term3Average: m3,
+        annualAverage: subAnnual,
+        weightedPoints,
+        appreciation: getAppreciation(subAnnual),
+      });
+    }
+
+    const annualAverage = yearTotalCoeff > 0 ? Math.round((yearTotalWeightedPoints / yearTotalCoeff) * 100) / 100 : null;
+
+    if (annualAverage !== null) {
+      cumulativeWeightedSum += annualAverage;
+      cumulativeCount++;
+    }
+
+    // Compute rank among peers in this class stream
+    const streamPeerEnrolments = (peerEnrolments || []).filter((pe) => pe.class_stream_id === streamObj.id);
+    const totalClassEnrolment = Math.max(streamPeerEnrolments.length, 1);
+
+    // Compute peer annual averages
+    const peerMap = new Map<string, number[]>();
+    for (const pm of allPeerMarks || []) {
+      if (pm.class_stream_id === streamObj.id) {
+        let score = pm.normalized_score_20;
+        if (score === null && pm.score !== null && pm.max_marks > 0) {
+          score = (Number(pm.score) / Number(pm.max_marks)) * 20;
+        }
+        if (score !== null && !isNaN(score)) {
+          if (!peerMap.has(pm.student_id)) peerMap.set(pm.student_id, []);
+          peerMap.get(pm.student_id)!.push(Number(score));
+        }
+      }
+    }
+
+    const peerAverages: Array<{ studentId: string; avg: number }> = [];
+    for (const [sId, scores] of peerMap.entries()) {
+      if (scores.length > 0) {
+        const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+        peerAverages.push({ studentId: sId, avg });
+      }
+    }
+    peerAverages.sort((a, b) => b.avg - a.avg);
+    const studentRankIdx = peerAverages.findIndex((p) => p.studentId === studentId);
+    const classRank = studentRankIdx >= 0 ? studentRankIdx + 1 : 1;
+
+    // Council decision
+    let councilDecision = "Promoted (Admis)";
+    if (enr.is_repeater || enr.status === "repeated") {
+      councilDecision = "Repeated (Redouble)";
+    } else if (annualAverage !== null) {
+      if (annualAverage >= 10.0) {
+        councilDecision = classObj?.level_order === 7 ? "Graduated (Diplômé)" : "Promoted (Admis)";
+      } else if (annualAverage >= 8.5) {
+        councilDecision = "Promoted on Trial (Admis sur titre d'essai)";
+      } else {
+        councilDecision = "Repeated (Redouble)";
+      }
+    }
+
+    yearsRecords.push({
+      academicYearId: yearObj.id,
+      academicYearName: yearObj.name,
+      startDate: yearObj.start_date,
+      endDate: yearObj.end_date,
+      classStreamId: streamObj.id,
+      classStreamName: streamObj.name,
+      className: classObj?.name || streamObj.name,
+      levelOrder: classObj?.level_order || 1,
+      cycle: classObj?.cycle || "cycle_1",
+      classMasterName: masterObj?.full_name || null,
+      isRepeater: Boolean(enr.is_repeater),
+      status: enr.status,
+      subjects: subjectRows,
+      totalCoefficients: yearTotalCoeff,
+      totalWeightedPoints: Math.round(yearTotalWeightedPoints * 100) / 100,
+      annualAverage,
+      classRank,
+      totalClassEnrolment,
+      councilDecision,
+    });
+  }
+
+  const cumulativeGPA = cumulativeCount > 0 ? Math.round((cumulativeWeightedSum / cumulativeCount) * 100) / 100 : null;
+
+  return {
+    success: true,
+    data: {
+      school: {
+        id: school?.id || context.school.id,
+        name: school?.name || "Cameroon Secondary School",
+        code: school?.code || "SCH",
+        subsystem: school?.subsystem || "bilingual",
+        motto: school?.motto || "Labor - Disciplina - Scientia",
+        address: school?.address || "Republic of Cameroon",
+        phone: school?.phone || null,
+        email: school?.email || null,
+        logoUrl: school?.logo_url || null,
+      },
+      student: {
+        id: student.id,
+        matricule: student.matricule || "N/A",
+        fullName: `${student.last_name || ""} ${student.first_name || ""}`.trim(),
+        firstName: student.first_name || "",
+        lastName: student.last_name || "",
+        gender: student.gender || "M",
+        dateOfBirth: student.date_of_birth || null,
+        placeOfBirth: student.place_of_birth || null,
+        guardianName: student.guardian_name || null,
+        guardianPhone: student.guardian_phone || null,
+        status: student.status || "active",
+        createdAt: student.created_at,
+      },
+      years: yearsRecords,
+      cumulativeGPA,
+      totalYearsCompleted: yearsRecords.length,
+      overallAppreciation: getAppreciation(cumulativeGPA),
+      issuedAt: new Date().toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }),
+    },
+  };
+}
+
 
 

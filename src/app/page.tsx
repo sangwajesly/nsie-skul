@@ -14,7 +14,9 @@ import {
   ArrowRight, 
   Layers, 
   FileSpreadsheet,
-  Award
+  Award,
+  RefreshCw,
+  GraduationCap
 } from "lucide-react";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
@@ -329,6 +331,39 @@ export default async function LandingPage() {
                     <span>Explore Bursary Management</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Supplementary Institutional Capabilities Row */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              {/* Feature: 1-Click Annual Rollover */}
+              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all">
+                <div className="w-10 h-10 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+                  <RefreshCw className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-[15px] text-[#142010]">
+                    1-Click Annual Academic Rollover &amp; Promotion
+                  </h4>
+                  <p className="text-[12.5px] text-[#525E4B] leading-[1.6] mt-1">
+                    Set school promotion and trial thresholds, automatically promote passing students, flag repeaters, and roll over to the new academic year without re-admitting existing students.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature: Multi-Year Academic Transcripts */}
+              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all">
+                <div className="w-10 h-10 rounded-[8px] bg-[#FAF8F2] text-[#2A7C13] border border-[#E8DFC9] flex items-center justify-center shrink-0">
+                  <GraduationCap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-[15px] text-[#142010]">
+                    Official Multi-Year Academic Transcripts (Relevé de Notes)
+                  </h4>
+                  <p className="text-[12.5px] text-[#525E4B] leading-[1.6] mt-1">
+                    Generate ministerial-compliant cumulative academic transcripts showing multi-year progression, subject coefficients, sequence marks, annual class ranks, and principal verification seals.
+                  </p>
                 </div>
               </div>
             </div>

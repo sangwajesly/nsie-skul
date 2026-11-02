@@ -4,6 +4,7 @@ import {
   getSchoolSubjects,
   getSchoolClasses,
   getActiveAcademicYear,
+  getSchoolAcademicYears,
   getSchoolHodAssignments,
   getSchoolTeacherAssignments,
   getSchoolClassSubjects,
@@ -31,8 +32,9 @@ export default async function AcademicsPage({ searchParams }: AcademicsPageProps
   const isHodUser = !isAdmin && (context?.role?.code === "hod" || Boolean(context?.isHod));
 
   // Concurrent data fetching to eliminate sequential waterfalls
-  const [activeYear, departments, subjects, classSubjects, staff, sequences] = await Promise.all([
+  const [activeYear, academicYears, departments, subjects, classSubjects, staff, sequences] = await Promise.all([
     getActiveAcademicYear(schoolId),
+    getSchoolAcademicYears(schoolId),
     getSchoolDepartments(schoolId),
     getSchoolSubjects(schoolId),
     getSchoolClassSubjects(schoolId),
@@ -88,6 +90,7 @@ export default async function AcademicsPage({ searchParams }: AcademicsPageProps
     <AcademicsViewClient
       academicYearId={activeYear?.id || ""}
       academicYearName={activeYear?.name || "Not set"}
+      academicYears={academicYears}
       departments={visibleDepartments}
       subjects={visibleSubjects}
       classSubjects={visibleClassSubjects}

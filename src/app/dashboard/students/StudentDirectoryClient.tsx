@@ -10,6 +10,7 @@ import {
 } from "@/app/academics/actions";
 import { ClassListModal } from "./ClassListModal";
 import { StudentIdCardModal } from "@/components/academic/id-cards/StudentIdCardModal";
+import { StudentTranscriptModal } from "@/components/academic/transcripts/StudentTranscriptModal";
 import type { StudentIdCardData } from "@/components/academic/id-cards/types";
 import {
   Users,
@@ -30,6 +31,7 @@ import {
   Upload,
   Printer,
   CreditCard,
+  FileText,
 } from "lucide-react";
 
 interface StreamOption {
@@ -72,6 +74,7 @@ export function StudentDirectoryClient({
   const [isClassListModalOpen, setIsClassListModalOpen] = useState(false);
   const [isIdCardModalOpen, setIsIdCardModalOpen] = useState(false);
   const [selectedIdCardStudentIndex, setSelectedIdCardStudentIndex] = useState(0);
+  const [selectedTranscriptStudentId, setSelectedTranscriptStudentId] = useState<string | null>(null);
 
   const idCardStudentsData = useMemo<StudentIdCardData[]>(() => {
     return enrolledStudents.map((enrol) => ({
@@ -589,6 +592,15 @@ export function StudentDirectoryClient({
                           </button>
                           <button
                             type="button"
+                            onClick={() => setSelectedTranscriptStudentId(enrol.student_id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] text-[11px] font-semibold border border-[#D5CBB2] bg-[#EAF7E4]/70 hover:bg-[#EAF7E4] text-[#1F5C0E] transition-colors shadow-2xs"
+                            title="Generate Official Cumulative Academic Transcript"
+                          >
+                            <FileText className="w-3 h-3 text-[#2A7C13]" />
+                            <span>Transcript</span>
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleOpenEditModal(enrol)}
                             className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] text-[11px] font-semibold border border-[#D5D5CF] bg-white hover:bg-[#FAFAF8] text-[#191919] transition-colors shadow-2xs"
                             title="Edit student information"
@@ -625,7 +637,7 @@ export function StudentDirectoryClient({
 
       {/* --- EDIT STUDENT MODAL --- */}
       {editingEnrolment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-lg max-h-[90vh] flex flex-col rounded-[10px] bg-white shadow-2xl border border-[#E5E5DF] overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#EEEEEC] bg-[#FAFAF8]">
@@ -1030,7 +1042,7 @@ export function StudentDirectoryClient({
 
       {/* --- DELETE STUDENT CONFIRMATION MODAL --- */}
       {deletingEnrolment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-md rounded-[10px] bg-white shadow-2xl border border-red-200 overflow-hidden">
             <div className="p-6 space-y-4">
               <div className="flex items-start gap-3">
@@ -1236,6 +1248,14 @@ export function StudentDirectoryClient({
           router.push(`/dashboard/students?${params.toString()}`);
         }}
       />
+      {/* Official Multi-Year Student Academic Transcript Modal */}
+      {selectedTranscriptStudentId && (
+        <StudentTranscriptModal
+          studentId={selectedTranscriptStudentId}
+          isOpen={Boolean(selectedTranscriptStudentId)}
+          onClose={() => setSelectedTranscriptStudentId(null)}
+        />
+      )}
     </div>
   );
 }
