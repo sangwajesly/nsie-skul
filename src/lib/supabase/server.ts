@@ -1,10 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { resilientSupabaseFetch } from "./fetch-handler";
 
 export async function createClient() {
   const cookieStore = await cookies();
 
-  // On Vercel: use plain names (SUPABASE_URL / SUPABASE_ANON_KEY) — Vercel blocks
+  // On Vercel: use plain names (SUPABASE_URL / SUPABASE_ANON_KEY) - Vercel blocks
   // NEXT_PUBLIC_ for secret-looking values. Plain names stay server-only (safe).
   // Locally: .env.local can use either name; NEXT_PUBLIC_ is kept as a fallback.
   const supabaseUrl =
@@ -22,6 +23,9 @@ export async function createClient() {
     supabaseUrl,
     supabaseKey,
     {
+      global: {
+        fetch: resilientSupabaseFetch,
+      },
       cookies: {
         getAll() {
           return cookieStore.getAll();

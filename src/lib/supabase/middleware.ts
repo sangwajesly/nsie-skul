@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { resilientSupabaseFetch } from "./fetch-handler";
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -16,6 +17,9 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseKey, {
+    global: {
+      fetch: resilientSupabaseFetch,
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll();

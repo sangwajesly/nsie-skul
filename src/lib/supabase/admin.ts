@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { resilientSupabaseFetch } from "./fetch-handler";
 
 /**
  * Privileged Supabase Admin Client.
@@ -16,6 +17,9 @@ export function createAdminClient() {
   }
 
   return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    global: {
+      fetch: resilientSupabaseFetch,
+    },
     auth: {
       autoRefreshToken: false,
       persistSession: false,
