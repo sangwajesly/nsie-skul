@@ -10,7 +10,7 @@ import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
 import { SchoolSwitcher } from "@/components/schools/SchoolSwitcher";
-import { LogOut, Globe } from "lucide-react";
+import { LogOut, Globe, Clock, ShieldCheck } from "lucide-react";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -123,6 +123,18 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* Subtle trial badge in top header for continuous awareness */}
+            {tenantContext.subscription?.isTrial && !tenantContext.subscription.isExpired && (
+              <Link
+                href="/dashboard/settings#billing"
+                title="View trial details and license options"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[4px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#7A5B00] text-[10px] font-bold hover:bg-[#FEF08A] transition-colors"
+              >
+                <Clock className="w-3 h-3 text-[#B45309]" />
+                <span>Pilot: {tenantContext.subscription.daysRemaining}d left</span>
+              </Link>
+            )}
+
             <Link
               href="/"
               title="Explore Public Site & Features"
@@ -143,41 +155,91 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           </div>
         </div>
 
-        {/* Main content area with consistent gutters and breathing room */}
-        {/* Subscription Expired / Action Required Banner */}
+        {/* Main content area with progressive trial awareness banners */}
+        
+        {/* 1. Trial Expired: Read-Only Grace & 90-Day Safe Preservation Banner */}
         {tenantContext.subscription?.isExpired && (
-          <div className="bg-[#FEF2F2] border-b border-[#FCA5A5] px-4 py-2.5 text-xs text-[#991B1B] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#DC2626] animate-pulse shrink-0" />
-              <span>
-                <strong>School License Expired:</strong> Report card printing and bulk PDF exports are paused. To activate your school license, send payment via MTN MoMo <strong>682 833 601</strong> (Nsei Sukul Technologies).
-              </span>
+          <div className="bg-[#FFFDF5] border-b-2 border-red-300 px-4 py-3 text-xs text-[#142010] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs print:hidden">
+            <div className="flex items-start sm:items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0 mt-0.5 sm:mt-0" />
+              <div className="space-y-0.5">
+                <div className="font-bold text-red-800 flex items-center gap-2 flex-wrap">
+                  <span>30-Day Pilot Concluded : Safe Grace Period Active</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                    Data Preserved (90 Days)
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#555555] leading-relaxed">
+                  Your school data (students, marks, faculty) is safely preserved. New marks and PDF exports are paused. Activate your school license via MTN MoMo <strong>682 833 601</strong> (Nsei Sukul Technologies) to continue immediately without starting over.
+                </p>
+              </div>
             </div>
             <a
-              href="/dashboard/settings#license"
-              className="px-3 py-1 rounded-[5px] bg-[#DC2626] text-white font-bold hover:bg-[#B91C1C] transition-colors shrink-0 text-center"
+              href="/dashboard/settings#billing"
+              className="px-3.5 py-1.5 rounded-[5px] bg-[#142010] hover:bg-[#20361a] text-white font-bold text-xs transition-colors shrink-0 text-center shadow-xs cursor-pointer"
             >
-              Activate School License
+              Activate Full License
             </a>
           </div>
         )}
 
-        {/* Trial Days Reminder (< 8 days) */}
+        {/* 2. Trial Final Countdown (< 4 days) */}
         {tenantContext.subscription?.isTrial &&
+          !tenantContext.subscription.isExpired &&
+          tenantContext.subscription.daysRemaining <= 3 && (
+            <div className="bg-[#FEF2F2] border-b border-[#FECACA] px-4 py-2.5 text-xs text-[#991B1B] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse shrink-0" />
+                <span>
+                  <strong>Final {tenantContext.subscription.daysRemaining} Days of Pilot:</strong> Your school evaluation period ends soon. Activate your annual license to ensure uninterrupted teacher grading and report card generation.
+                </span>
+              </div>
+              <a
+                href="/dashboard/settings#billing"
+                className="px-3 py-1 rounded-[4px] bg-[#DC2626] text-white font-bold hover:bg-[#B91C1C] transition-colors shrink-0 text-center text-xs"
+              >
+                Activate License
+              </a>
+            </div>
+          )}
+
+        {/* 3. Trial 7-Day Warning (4 to 7 days remaining) */}
+        {tenantContext.subscription?.isTrial &&
+          !tenantContext.subscription.isExpired &&
           tenantContext.subscription.daysRemaining <= 7 &&
-          !tenantContext.subscription.isExpired && (
+          tenantContext.subscription.daysRemaining > 3 && (
             <div className="bg-[#FFF8CF] border-b border-[#FBE6C2] px-4 py-2 text-xs text-[#7A5B00] flex flex-col sm:flex-row sm:items-center justify-between gap-2 print:hidden">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-[#B45309] shrink-0" />
                 <span>
-                  <strong>Pilot Trial:</strong> {tenantContext.subscription.daysRemaining} days remaining on your school evaluation.
+                  <strong>Pilot Evaluation:</strong> {tenantContext.subscription.daysRemaining} days remaining on your 30-day evaluation. Your school records and marks are actively building.
                 </span>
               </div>
               <a
-                href="/dashboard/settings#license"
+                href="/dashboard/settings#billing"
                 className="px-2.5 py-1 rounded-[4px] bg-[#7A5B00] text-white font-bold hover:bg-[#5E4600] transition-colors shrink-0 text-[11px] text-center"
               >
                 Renew License
+              </a>
+            </div>
+          )}
+
+        {/* 4. Trial Midway Checkpoint (Day 15) */}
+        {tenantContext.subscription?.isTrial &&
+          !tenantContext.subscription.isExpired &&
+          tenantContext.subscription.daysRemaining === 15 && (
+            <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-4 py-2 text-xs text-[#1E40AF] flex flex-col sm:flex-row sm:items-center justify-between gap-2 print:hidden">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#3B82F6] shrink-0" />
+                <span>
+                  <strong>Midway Checkpoint:</strong> 15 days remaining on your 30-day school pilot. You can review license options or activate anytime in Settings.
+                </span>
+              </div>
+              <a
+                href="/dashboard/settings#billing"
+                className="px-2.5 py-1 rounded-[4px] bg-[#1E40AF] text-white font-bold hover:bg-[#1E3A8A] transition-colors shrink-0 text-[11px] text-center"
+              >
+                View Billing
               </a>
             </div>
           )}

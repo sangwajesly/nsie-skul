@@ -88,7 +88,8 @@ export default async function BlogPostPage({ params }: Props) {
                 Articles
               </Link>
               <ChevronRight className="w-3 h-3 text-[#B5AC98]" />
-              <span className="text-[#142010] font-semibold">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] font-bold text-[10.5px] uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
                 {post.category}
               </span>
             </nav>

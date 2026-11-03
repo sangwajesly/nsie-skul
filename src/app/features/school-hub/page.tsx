@@ -80,10 +80,11 @@ export default function SchoolHubFeaturePage() {
         <section className="py-16 border-b border-[#E8DFC9] bg-white">
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="text-center max-w-2xl mx-auto mb-12">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Built for Cameroon
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Built for Cameroon</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-1">
                 Why generic foreign school software fails in Cameroon
               </h2>
               <p className="text-[14px] text-[#525E4B] mt-2">
@@ -92,7 +93,7 @@ export default function SchoolHubFeaturePage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 rounded-[10px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FFEBEB] text-[#D32F2F] flex items-center justify-center">
                   <WifiOff className="w-5 h-5" />
                 </div>
@@ -102,7 +103,7 @@ export default function SchoolHubFeaturePage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-[10px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FFF8CF] text-[#856404] flex items-center justify-center">
                   <ZapOff className="w-5 h-5" />
                 </div>
@@ -112,13 +113,13 @@ export default function SchoolHubFeaturePage() {
                 </p>
               </div>
 
-              <div className="p-6 rounded-[10px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center">
                   <Smartphone className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-[16px] text-[#142010]">Teacher Data Bundle Costs</h3>
                 <p className="text-[13px] text-[#525E4B] leading-relaxed">
-                  Teachers shouldn't have to spend their own credit or data bundles to enter student marks. With the Sukul Hub, teachers enter marks freely over the local school Wi-Fi at zero data cost.
+                  Teachers shouldn&apos;t have to spend their own credit or data bundles to enter student marks. With the Sukul Hub, teachers enter marks freely over the local school Wi-Fi at zero data cost.
                 </p>
               </div>
             </div>
@@ -129,10 +130,11 @@ export default function SchoolHubFeaturePage() {
         <section id="how-it-works" className="py-16 sm:py-20 border-b border-[#E8DFC9] bg-[#FFFDF5]">
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Simple 3-Step Process
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Simple 3-Step Process</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-1">
                 How the Offline Sukul Hub Works
               </h2>
               <p className="text-[14px] text-[#525E4B] mt-2">
@@ -143,7 +145,7 @@ export default function SchoolHubFeaturePage() {
             {/* Workflow steps cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
               {/* Step 1 */}
-              <div className="bg-white p-7 rounded-[12px] border border-[#E8DFC9] shadow-xs relative space-y-4">
+              <div className="bg-white p-7 rounded-[12px] border border-[#E8DFC9] shadow-xs relative space-y-4 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
                 <div className="w-10 h-10 rounded-full bg-[#2A7C13] text-white font-extrabold text-sm flex items-center justify-center">
                   1
                 </div>
@@ -156,13 +158,13 @@ export default function SchoolHubFeaturePage() {
                     Teachers input marks on their laptop or phone browser at home or in the staff room. Marks are saved safely right on the teacher&apos;s phone.
                   </p>
                 </div>
-                <div className="p-3 bg-[#FFFDF5] rounded-[6px] border border-[#E8DFC9] text-[11px] text-[#788470]">
+                <div className="p-3 bg-[#FFFDF5] rounded-[8px] border border-[#E8DFC9] text-[11px] text-[#788470]">
                   <strong>Works 100% offline:</strong> No active internet connection or data bundles required on the phone.
                 </div>
               </div>
 
               {/* Step 2 */}
-              <div className="bg-white p-7 rounded-[12px] border-2 border-[#2A7C13] shadow-md relative space-y-4">
+              <div className="bg-white p-7 rounded-[12px] border-2 border-[#2A7C13] shadow-md relative space-y-4 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200">
                 <div className="w-10 h-10 rounded-full bg-[#2A7C13] text-white font-extrabold text-sm flex items-center justify-center">
                   2
                 </div>
@@ -175,13 +177,13 @@ export default function SchoolHubFeaturePage() {
                     The teacher arrives on campus and connects to the school Wi-Fi. Even if the modem has <strong>NO internet connection</strong>, their phone talks directly to the school box.
                   </p>
                 </div>
-                <div className="p-3 bg-[#EAF7E4] rounded-[6px] border border-[#76C457]/40 text-[11px] text-[#2A7C13] font-medium">
+                <div className="p-3 bg-[#EAF7E4] rounded-[8px] border border-[#76C457]/40 text-[11px] text-[#2A7C13] font-medium">
                   <strong>Zero data cost:</strong> Pushes marks to the office box over school Wi-Fi in under 2 seconds.
                 </div>
               </div>
 
               {/* Step 3 */}
-              <div className="bg-white p-7 rounded-[12px] border border-[#E8DFC9] shadow-xs relative space-y-4">
+              <div className="bg-white p-7 rounded-[12px] border border-[#E8DFC9] shadow-xs relative space-y-4 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-sm transition-all duration-200">
                 <div className="w-10 h-10 rounded-full bg-[#2A7C13] text-white font-extrabold text-sm flex items-center justify-center">
                   3
                 </div>
@@ -194,7 +196,7 @@ export default function SchoolHubFeaturePage() {
                     Whenever internet becomes available (even if the principal turns on a mobile hotspot for just 5 minutes), the Hub silently backs up school records to the cloud.
                   </p>
                 </div>
-                <div className="p-3 bg-[#FFFDF5] rounded-[6px] border border-[#E8DFC9] text-[11px] text-[#788470]">
+                <div className="p-3 bg-[#FFFDF5] rounded-[8px] border border-[#E8DFC9] text-[11px] text-[#788470]">
                   <strong>Double protection:</strong> One copy stays safely in your school box, and a secure backup is stored in the cloud.
                 </div>
               </div>
@@ -206,9 +208,10 @@ export default function SchoolHubFeaturePage() {
         <section id="installation" className="py-16 sm:py-24 border-b border-[#E8DFC9] bg-[#FFFDF5]">
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Simple Campus Setup
-              </span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Simple Campus Setup</span>
+              </div>
               <h2 className="text-2xl sm:text-4xl font-extrabold text-[#142010]">
                 Two Simple Ways to Set Up in Your School
               </h2>
@@ -220,7 +223,7 @@ export default function SchoolHubFeaturePage() {
             {/* Two Pathways: Existing PC vs Buying Equipment */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-14">
               {/* Path 1: Existing PC */}
-              <div className="bg-white rounded-[14px] border-2 border-[#2A7C13] p-7 sm:p-8 shadow-sm flex flex-col justify-between relative">
+              <div className="bg-white rounded-[14px] border-2 border-[#2A7C13] p-7 sm:p-8 shadow-sm flex flex-col justify-between relative hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
                 <div className="absolute -top-3.5 left-6 bg-[#2A7C13] text-white text-[11px] font-extrabold uppercase tracking-wide px-3 py-0.5 rounded-full">
                   Fastest &amp; Most Affordable (0 FCFA)
                 </div>
@@ -263,7 +266,7 @@ export default function SchoolHubFeaturePage() {
               </div>
 
               {/* Path 2: Buying Equipment Yourself */}
-              <div className="bg-white rounded-[14px] border border-[#E8DFC9] p-7 sm:p-8 shadow-sm flex flex-col justify-between relative">
+              <div className="bg-white rounded-[14px] border border-[#E8DFC9] p-7 sm:p-8 shadow-sm flex flex-col justify-between relative hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-md transition-all duration-200">
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-[8px] bg-[#FFF8CF] text-[#4A3D00] flex items-center justify-center font-bold text-lg">
@@ -282,11 +285,11 @@ export default function SchoolHubFeaturePage() {
                   <div className="space-y-2.5 pt-2 text-[12.5px]">
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0 mt-0.5" />
-                      <span><strong>A Mini-PC or Refurbished Laptop:</strong> Ask for an Intel N100 Mini-PC or Core i3/i5 laptop (~110,000 – 150,000 FCFA).</span>
+                      <span><strong>A Mini-PC or Refurbished Laptop:</strong> Ask for an Intel N100 Mini-PC or Core i3/i5 laptop (~110,000 to 150,000 FCFA).</span>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0 mt-0.5" />
-                      <span><strong>A Regular Wi-Fi Router:</strong> Standard TP-Link or Tenda router (~18,000 – 25,000 FCFA). <em>No internet subscription needed!</em></span>
+                      <span><strong>A Regular Wi-Fi Router:</strong> Standard TP-Link or Tenda router (~18,000 to 25,000 FCFA). <em>No internet subscription needed!</em></span>
                     </div>
                     <div className="flex items-start gap-2.5">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0 mt-0.5" />
@@ -403,9 +406,10 @@ export default function SchoolHubFeaturePage() {
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div className="space-y-5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                  Campus Hardware
-                </span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                  <span>Campus Hardware</span>
+                </div>
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] leading-tight">
                   A small, silent box that keeps your whole school running
                 </h2>

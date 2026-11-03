@@ -66,6 +66,7 @@ export interface SchoolMembership {
   user_id: string;
   role_id: string;
   title: string | null;
+  access_code?: string | null;
   status: MembershipStatus;
   created_at: string;
   updated_at: string;

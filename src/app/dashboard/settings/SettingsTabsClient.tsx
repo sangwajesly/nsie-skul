@@ -349,6 +349,8 @@ export function SettingsTabsClient({
               roles={roles}
               canManageStaff={canManageStaff}
               currentUserId={currentUserId}
+              schoolName={school.name}
+              schoolCode={school.code || school.slug}
             />
           </div>
         )}

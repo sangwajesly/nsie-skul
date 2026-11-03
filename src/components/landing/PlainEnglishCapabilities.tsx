@@ -138,9 +138,10 @@ export function PlainEnglishCapabilities() {
       <div className="max-w-6xl mx-auto px-5 sm:px-8">
         {/* Section Header */}
         <div className="max-w-3xl mb-12 sm:mb-16">
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] mb-2">
-            Platform Capabilities
-          </p>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-3">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+            <span>Platform Capabilities</span>
+          </div>
           <h2 className="text-2xl sm:text-4xl font-extrabold text-[#142010] tracking-tight leading-tight">
             What Your School Achieves With Nsei Sukul
           </h2>
@@ -149,44 +150,47 @@ export function PlainEnglishCapabilities() {
           </p>
         </div>
 
-        {/* Capabilities 2-Column Structured List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8 sm:gap-y-10 border-t border-[#E8DFC9] pt-8 sm:pt-10">
+        {/* Capabilities Tactile Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 border-t border-[#E8DFC9] pt-8 sm:pt-10">
           {CAPABILITIES.map((item) => {
             const Icon = item.icon;
             return (
-              <div key={item.id} className="flex items-start gap-4 group">
-                {/* Number / Icon Marker */}
-                <div className="w-10 h-10 rounded-[6px] bg-[#FFFDF5] border border-[#E8DFC9] text-[#2A7C13] flex items-center justify-center shrink-0 group-hover:border-[#2A7C13] transition-colors">
-                  <Icon className="w-5 h-5" />
-                </div>
-
-                {/* Content */}
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-[11px] font-bold text-[#788470]">
-                      {item.number}.
+              <div
+                key={item.id}
+                className="flex flex-col justify-between p-5 rounded-[12px] bg-[#FFFDF5] border border-[#E8DFC9] hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200 group"
+              >
+                <div>
+                  {/* Top: Icon + Number */}
+                  <div className="flex items-center justify-between mb-3.5">
+                    <div className="w-9 h-9 rounded-[8px] bg-white border border-[#E8DFC9] text-[#2A7C13] flex items-center justify-center group-hover:border-[#2A7C13] group-hover:bg-[#EAF7E4] transition-colors">
+                      <Icon className="w-4.5 h-4.5" />
+                    </div>
+                    <span className="font-mono text-[11px] font-bold text-[#788470] bg-[#FAF8F2] px-2 py-0.5 rounded-[4px] border border-[#E8DFC9]/60">
+                      #{item.number}
                     </span>
-                    <h3 className="font-bold text-[15px] sm:text-[16px] text-[#142010] leading-snug">
-                      {item.title}
-                    </h3>
                   </div>
 
-                  <p className="text-[13px] sm:text-[13.5px] text-[#525E4B] leading-relaxed">
+                  {/* Title & Description */}
+                  <h3 className="font-bold text-[15px] text-[#142010] leading-snug group-hover:text-[#2A7C13] transition-colors">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-[13px] text-[#525E4B] leading-relaxed mt-2">
                     {item.description}
                   </p>
-
-                  {item.linkText && item.linkUrl && (
-                    <div className="pt-1">
-                      <Link
-                        href={item.linkUrl}
-                        className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2A7C13] hover:text-[#20600E] hover:underline"
-                      >
-                        <span>{item.linkText}</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </Link>
-                    </div>
-                  )}
                 </div>
+
+                {item.linkText && item.linkUrl && (
+                  <div className="pt-3 mt-3 border-t border-[#E8DFC9]/60">
+                    <Link
+                      href={item.linkUrl}
+                      className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#2A7C13] hover:text-[#20600E] group-hover:translate-x-0.5 transition-all"
+                    >
+                      <span>{item.linkText}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                )}
               </div>
             );
           })}

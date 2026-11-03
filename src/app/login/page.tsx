@@ -4,7 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
-import { loginAction } from "@/app/auth/actions";
+import { loginAction, loginWithTeacherCodeAction } from "@/app/auth/actions";
 import {
   GraduationCap,
   ArrowRight,
@@ -14,9 +14,10 @@ import {
   CheckCircle2,
   KeyRound,
   WifiOff,
-  ShieldCheck,
   AlertCircle,
-  Wifi,
+  Phone,
+  Building2,
+  Sparkles,
 } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import {
@@ -30,11 +31,17 @@ import {
 
 function LoginForm() {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(loginAction, null);
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get("returnUrl") || "/dashboard";
   const urlError = searchParams.get("error");
   const [isNavigating, setIsNavigating] = useState(false);
+
+  // Authentication mode: "code" (Default for teachers) vs "email" (Admins/Deans)
+  const [authTab, setAuthTab] = useState<"code" | "email">("code");
+
+  // Server actions for both login modes
+  const [emailState, emailFormAction, isEmailPending] = useActionState(loginAction, null);
+  const [codeState, codeFormAction, isCodePending] = useActionState(loginWithTeacherCodeAction, null);
 
   // Offline detection & PIN vault state
   const [isOffline, setIsOffline] = useState(false);
@@ -54,11 +61,18 @@ function LoginForm() {
 
   // When cloud login succeeds, transition to dashboard
   useEffect(() => {
-    if (state && "redirectTo" in state) {
+    if (emailState && "redirectTo" in emailState) {
       setIsNavigating(true);
-      router.replace(state.redirectTo);
+      router.replace(emailState.redirectTo);
     }
-  }, [state, router]);
+  }, [emailState, router]);
+
+  useEffect(() => {
+    if (codeState && "redirectTo" in codeState) {
+      setIsNavigating(true);
+      router.replace(codeState.redirectTo);
+    }
+  }, [codeState, router]);
 
   // Monitor network status & offline vault presence on this device
   useEffect(() => {
@@ -120,14 +134,18 @@ function LoginForm() {
     }
   };
 
-  const errorMsg = (state && "error" in state ? state.error : null) || urlError;
-  const isBusy = isPending || isNavigating;
+  const activeError =
+    authTab === "code"
+      ? (codeState && "error" in codeState ? codeState.error : null) || urlError
+      : (emailState && "error" in emailState ? emailState.error : null) || urlError;
+
+  const isBusy = isEmailPending || isCodePending || isNavigating;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
       <div className="w-full max-w-sm">
         {/* Logo & Brand */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-3 shadow-xs">
             <GraduationCap className="w-6 h-6" />
           </div>
@@ -140,7 +158,7 @@ function LoginForm() {
         </div>
 
         {/* ── CARD CONTENT ── */}
-        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-7 space-y-4">
+        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-6 space-y-4">
           {/* Offline Banner when network is unavailable */}
           {isOffline && (
             <div className="p-3 rounded-[6px] bg-[#2B1B04] text-[#FDE68A] border border-[#78350F] text-xs flex items-center gap-2">
@@ -178,7 +196,7 @@ function LoginForm() {
                       setPinError(null);
                       setPin("");
                     }}
-                    className="text-[11px] text-[#2A7C13] hover:underline font-semibold"
+                    className="text-[11px] text-[#2A7C13] hover:underline font-semibold cursor-pointer"
                   >
                     Cloud Login
                   </button>
@@ -220,7 +238,7 @@ function LoginForm() {
                     <button
                       type="button"
                       onClick={() => setIsPinMode(false)}
-                      className="w-full py-1.5 rounded-[4px] bg-[#92400E] text-white font-bold text-xs"
+                      className="w-full py-1.5 rounded-[4px] bg-[#92400E] text-white font-bold text-xs cursor-pointer"
                     >
                       Sign In with Password
                     </button>
@@ -278,124 +296,249 @@ function LoginForm() {
                         setPinError(null);
                         setPin("");
                       }}
-                      className="w-full text-center text-xs text-[#525E4B] hover:text-[#142010] py-1 transition-colors"
+                      className="w-full text-center text-xs text-[#525E4B] hover:text-[#142010] py-1 transition-colors cursor-pointer"
                     >
-                      Use Email &amp; Password instead
+                      Use Teacher Code or Email instead
                     </button>
                   )}
                 </form>
               )}
             </div>
           ) : (
-            /* ── MODE 2: STANDARD CLOUD LOGIN ── */
+            /* ── MODE 2: CLOUD AUTHENTICATION ── */
             <>
-              {errorMsg && (
+              {/* Segmented Top Tabs */}
+              <div className="grid grid-cols-2 p-1 rounded-[6px] bg-[#F7F3E8] border border-[#E8DFC9] text-xs">
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("code")}
+                  className={`py-1.5 rounded-[4px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authTab === "code"
+                      ? "bg-[#142010] text-white shadow-xs"
+                      : "text-[#555555] hover:text-[#142010]"
+                  }`}
+                >
+                  <KeyRound className="w-3.5 h-3.5 text-[#86EFAC]" />
+                  <span>Teacher Code / Phone</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAuthTab("email")}
+                  className={`py-1.5 rounded-[4px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    authTab === "email"
+                      ? "bg-[#142010] text-white shadow-xs"
+                      : "text-[#555555] hover:text-[#142010]"
+                  }`}
+                >
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Admin / Email</span>
+                </button>
+              </div>
+
+              {activeError && (
                 <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
-                  {errorMsg}
+                  {activeError}
                 </div>
               )}
 
               {isNavigating && (
                 <div className="p-3 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#166534]" />
-                  <span>Signed in! Preparing your school dashboard…</span>
+                  <span>Signed in! Opening your classes…</span>
                 </div>
               )}
 
-              {/* 1-Click Google Sign In */}
-              <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
+              {/* ── TAB A: TEACHER ACCESS CODE / PHONE LOGIN (Default) ── */}
+              {authTab === "code" ? (
+                <form action={codeFormAction} className="space-y-3.5">
+                  <input type="hidden" name="returnUrl" value={returnUrl} />
 
-              {/* Clean Divider */}
-              <div className="relative flex items-center justify-center my-3">
-                <div className="border-t border-[#E8DFC9] w-full" />
-                <span className="bg-white px-2.5 text-[10.5px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
-                  or with password
-                </span>
-                <div className="border-t border-[#E8DFC9] w-full" />
-              </div>
-
-              <form action={formAction} className="space-y-4">
-                <input type="hidden" name="returnUrl" value={returnUrl} />
-
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-xs font-semibold text-[#444444] mb-1.5"
-                  >
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                      <Mail className="w-4 h-4" />
-                    </div>
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      disabled={isBusy}
-                      autoComplete="email"
-                      placeholder="teacher@school.cm"
-                      className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div>
                     <label
-                      htmlFor="password"
-                      className="text-xs font-semibold text-[#444444]"
+                      htmlFor="identifier"
+                      className="block text-xs font-semibold text-[#444444] mb-1"
                     >
-                      Password
+                      Phone Number or Teacher Code
                     </label>
-                    <Link
-                      href="/forgot-password"
-                      className="text-xs font-medium text-[#2A7C13] hover:underline"
-                    >
-                      Forgot password?
-                    </Link>
-                  </div>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                      <Lock className="w-4 h-4" />
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="identifier"
+                        name="identifier"
+                        type="text"
+                        required
+                        disabled={isBusy}
+                        autoFocus
+                        placeholder="e.g. 677 12 34 56 or T-101"
+                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60 font-mono"
+                      />
                     </div>
-                    <input
-                      id="password"
-                      name="password"
-                      type="password"
-                      required
-                      disabled={isBusy}
-                      autoComplete="current-password"
-                      placeholder="••••••••"
-                      className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
-                    />
+                    <p className="mt-1 text-[11px] text-[#788470]">
+                      Enter your Cameroon WhatsApp phone number or staff code from your slip.
+                    </p>
                   </div>
-                </div>
 
-                <button
-                  type="submit"
-                  disabled={isBusy}
-                  className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  {isNavigating ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Loading Dashboard…</span>
-                    </>
-                  ) : isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Signing in…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Sign in to Dashboard</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
+                  <div>
+                    <label
+                      htmlFor="schoolCode"
+                      className="block text-xs font-semibold text-[#444444] mb-1"
+                    >
+                      School Code (optional)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="schoolCode"
+                        name="schoolCode"
+                        type="text"
+                        disabled={isBusy}
+                        placeholder="e.g. BHS (leave blank if unsure)"
+                        className="w-full pl-9 pr-4 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] uppercase font-mono disabled:opacity-60"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="pin"
+                      className="block text-xs font-semibold text-[#444444] mb-1"
+                    >
+                      4 to 6 Digit PIN
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                        <Lock className="w-4 h-4" />
+                      </div>
+                      <input
+                        id="pin"
+                        name="pin"
+                        type="password"
+                        inputMode="numeric"
+                        required
+                        disabled={isBusy}
+                        placeholder="••••••"
+                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60 font-mono tracking-widest"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isBusy}
+                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Verifying Access…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Open My Classes</span>
+                        <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
+                      </>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                /* ── TAB B: ADMIN / EMAIL LOGIN ── */
+                <>
+                  {/* 1-Click Google Sign In */}
+                  <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
+
+                  {/* Clean Divider */}
+                  <div className="relative flex items-center justify-center my-3">
+                    <div className="border-t border-[#E8DFC9] w-full" />
+                    <span className="bg-white px-2.5 text-[10.5px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
+                      or with password
+                    </span>
+                    <div className="border-t border-[#E8DFC9] w-full" />
+                  </div>
+
+                  <form action={emailFormAction} className="space-y-4">
+                    <input type="hidden" name="returnUrl" value={returnUrl} />
+
+                    <div>
+                      <label
+                        htmlFor="email"
+                        className="block text-xs font-semibold text-[#444444] mb-1.5"
+                      >
+                        Admin Email Address
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                          <Mail className="w-4 h-4" />
+                        </div>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          required
+                          disabled={isBusy}
+                          autoComplete="email"
+                          placeholder="principal@school.cm"
+                          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label
+                          htmlFor="password"
+                          className="text-xs font-semibold text-[#444444]"
+                        >
+                          Password
+                        </label>
+                        <Link
+                          href="/forgot-password"
+                          className="text-xs font-medium text-[#2A7C13] hover:underline"
+                        >
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <input
+                          id="password"
+                          name="password"
+                          type="password"
+                          required
+                          disabled={isBusy}
+                          autoComplete="current-password"
+                          placeholder="••••••••"
+                          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isBusy}
+                      className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      {isBusy ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Signing in…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Sign in to Dashboard</span>
+                          <ArrowRight className="w-4 h-4" />
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </>
+              )}
 
               {/* Offline PIN toggle button if device has offline vault */}
               {hasVault && hasPin && (
@@ -415,12 +558,12 @@ function LoginForm() {
         </div>
 
         <p className="text-center text-xs text-[#777777] mt-5">
-          Need access?{" "}
+          Need school admin access?{" "}
           <Link
             href="/register"
             className="font-semibold text-[#2A7C13] hover:underline"
           >
-            Create an account
+            Create an institution
           </Link>
         </p>
 
