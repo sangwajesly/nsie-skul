@@ -82,10 +82,11 @@ export default function FinanceFeaturePage() {
         <section className="py-16 sm:py-20 border-b border-[#E8DFC9] bg-white">
           <div className="max-w-6xl mx-auto px-5 sm:px-8">
             <div className="text-center max-w-2xl mx-auto mb-14">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Built for School Bursars & Principals
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Built for School Bursars &amp; Principals</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-1">
                 Complete financial clarity from Day 1 of registration
               </h2>
               <p className="text-[14px] text-[#525E4B] mt-2">
@@ -95,7 +96,7 @@ export default function FinanceFeaturePage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
               {/* Card 1 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center">
                   <Receipt className="w-5 h-5" />
                 </div>
@@ -106,7 +107,7 @@ export default function FinanceFeaturePage() {
               </div>
 
               {/* Card 2 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FFF8CF] text-[#4A3D00] flex items-center justify-center">
                   <Banknote className="w-5 h-5" />
                 </div>
@@ -117,7 +118,7 @@ export default function FinanceFeaturePage() {
               </div>
 
               {/* Card 3 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FFEBEB] text-[#D32F2F] flex items-center justify-center">
                   <AlertCircle className="w-5 h-5" />
                 </div>
@@ -128,7 +129,7 @@ export default function FinanceFeaturePage() {
               </div>
 
               {/* Card 4 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FBE6C2] text-[#422C0A] flex items-center justify-center">
                   <TrendingUp className="w-5 h-5" />
                 </div>
@@ -139,7 +140,7 @@ export default function FinanceFeaturePage() {
               </div>
 
               {/* Card 5 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center">
                   <ShieldCheck className="w-5 h-5" />
                 </div>
@@ -150,7 +151,7 @@ export default function FinanceFeaturePage() {
               </div>
 
               {/* Card 6 */}
-              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3">
+              <div className="p-6 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] space-y-3 hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FFF8CF] text-[#4A3D00] flex items-center justify-center">
                   <Users className="w-5 h-5" />
                 </div>
@@ -167,9 +168,10 @@ export default function FinanceFeaturePage() {
         <section className="py-16 border-b border-[#E8DFC9] bg-[#FFFDF5]">
           <div className="max-w-4xl mx-auto px-5 sm:px-8">
             <div className="text-center space-y-3 mb-10">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Receipt Format
-              </span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Receipt Format</span>
+              </div>
               <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010]">
                 Clean, verifiable payment slips
               </h2>

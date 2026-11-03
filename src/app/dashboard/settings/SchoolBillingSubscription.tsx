@@ -258,6 +258,50 @@ export function SchoolBillingSubscription({
           </a>
         </div>
       </div>
+
+      {/* 3. Safe Data Retention & 90-Day Preservation Guarantee */}
+      <div className="p-5 rounded-[10px] bg-[#FFFDF5] border border-[#E8DFC9] shadow-2xs space-y-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-[6px] bg-[#EBF5E9] text-[#1F5C0E] border border-[#C3E4BC]">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-[#142010]">
+              Zero Data Loss &amp; 90-Day Data Preservation Policy
+            </h3>
+            <p className="text-xs text-[#666666]">
+              Your institution&apos;s records are protected even when a pilot or evaluation period expires.
+            </p>
+          </div>
+        </div>
+
+        <p className="text-xs text-[#444444] leading-relaxed">
+          If your school&apos;s 30-day evaluation concludes before you renew your license, <strong>your records are never automatically deleted</strong>. The platform automatically enters a safe <strong>90-Day Read-Only Grace Period</strong>:
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+          <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+            <div className="font-bold text-xs text-[#142010]">1. 90-Day Retention Guarantee</div>
+            <p className="text-[11px] text-[#666666] mt-1 leading-relaxed">
+              All registered students, class streams, subjects, and historical marks remain safely preserved in the database for 90 days.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+            <div className="font-bold text-xs text-[#142010]">2. Never Start from Scratch</div>
+            <p className="text-[11px] text-[#666666] mt-1 leading-relaxed">
+              When you activate your annual license, your school picks up immediately right where you left off.
+            </p>
+          </div>
+
+          <div className="p-3 rounded-[6px] bg-white border border-[#E8DFC9]">
+            <div className="font-bold text-xs text-[#142010]">3. Complete Data Sovereignty</div>
+            <p className="text-[11px] text-[#666666] mt-1 leading-relaxed">
+              School administrators can export full offline backups of all students and marks at any time under Settings &gt; Data Sovereignty.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
 } from "@/app/academics/actions";
 import { getGradeAppreciation } from "@/lib/academic/grading";
 import { MarksImportModal } from "./MarksImportModal";
+import { MarksheetScannerModal } from "@/components/ai/MarksheetScannerModal";
+import { CbaRemarkSuggester } from "@/components/ai/CbaRemarkSuggester";
 import { ParsedMarkRow, generateMarksCsvTemplate } from "@/lib/academic/marks-import";
 import {
   buildSheetKey,
@@ -49,6 +51,8 @@ import {
   Server,
   X,
   Wifi,
+  Camera,
+  Sparkles,
 } from "lucide-react";
 
 interface StudentRow {
@@ -127,6 +131,7 @@ export function MarksGridClient({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -771,6 +776,30 @@ export function MarksGridClient({
     });
   };
 
+  const handleApplyScannedMarks = (scannedMarks: { studentId: string; score: number | null }[]) => {
+    const scoreMap = new Map(scannedMarks.map((m) => [m.studentId, m.score]));
+    let appliedCount = 0;
+    const updated = students.map((s) => {
+      if (scoreMap.has(s.studentId)) {
+        const newScore = scoreMap.get(s.studentId) ?? null;
+        if (newScore !== null) appliedCount++;
+        return {
+          ...s,
+          score: newScore,
+          status: newScore !== null ? "present" : s.status,
+        };
+      }
+      return s;
+    });
+
+    setStudents(updated);
+    scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
+    setMessage({
+      type: "success",
+      text: `Successfully populated ${appliedCount} marks from paper mark sheet! Saved safely on your device.`,
+    });
+  };
+
   const handleQuickDownloadTemplate = () => {
     const csvContent = generateMarksCsvTemplate(
       students,
@@ -1240,7 +1269,7 @@ export function MarksGridClient({
               className="w-16 px-2 py-1 rounded-[5px] border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
             />
             <span className="text-[11px] text-[#788470]">
-              (Default /20 for general subjects, /40–/100 for technical subjects)
+              (Default /20 for general subjects, /40 to /100 for technical subjects)
             </span>
           </div>
         </div>
@@ -1280,6 +1309,16 @@ export function MarksGridClient({
                 >
                   <FileSpreadsheet className="w-3.5 h-3.5" />
                   <span>Import Excel / CSV</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsScanModalOpen(true)}
+                  title="Scan paper mark sheet with phone camera or uploaded photo"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#EAF7E4] hover:bg-[#D5EED0] text-[#2A7C13] border border-[#76C457]/40 font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Camera className="w-3.5 h-3.5 text-[#2A7C13]" />
+                  <span>Scan Paper Sheet (AI)</span>
                 </button>
               </>
             ) : (
@@ -1679,7 +1718,7 @@ export function MarksGridClient({
         </div>
       </div>
 
-      {/* Review & Approval Gate Panel — accessible to HODs and School Administrators */}
+      {/* Review & Approval Gate Panel: accessible to HODs and School Administrators */}
       {canApprove && (
         <div className="p-5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DFC9]">
@@ -1993,9 +2032,23 @@ export function MarksGridClient({
         sequenceName={sequenceName}
       />
 
+      {/* AI Vision Paper Marksheet Scanner Modal */}
+      <MarksheetScannerModal
+        isOpen={isScanModalOpen}
+        onClose={() => setIsScanModalOpen(false)}
+        roster={students.map((s) => ({
+          studentId: s.studentId,
+          matricule: s.matricule,
+          fullName: s.fullName,
+        }))}
+        subjectName={subjectName}
+        maxMarks={maxMarks}
+        onApplyMarks={handleApplyScannedMarks}
+      />
+
       {/* School Hub LAN Direct Transfer & Settings Modal */}
       {showHubModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-[12px] border border-[#E8DFC9] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-3.5 bg-[#FAF8F5] border-b border-[#E8DFC9]">
@@ -2271,18 +2324,30 @@ const StudentMarkRow = memo(function StudentMarkRow({
         )}
       </td>
       <td className="py-2 px-3">
-        <input
-          type="text"
-          disabled={!canEdit}
-          onFocus={onFocusInput}
-          onBlur={onBlurInput}
-          aria-label={`Teacher remark for ${student.fullName}`}
-          placeholder="Remark (optional)..."
-          value={student.remarks}
-          onChange={(e) => onRemarksChange(idx, e.target.value)}
-          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
-          style={{ fontSize: "16px" }}
-        />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            disabled={!canEdit}
+            onFocus={onFocusInput}
+            onBlur={onBlurInput}
+            aria-label={`Teacher remark for ${student.fullName}`}
+            placeholder="Remark (optional)..."
+            value={student.remarks}
+            onChange={(e) => onRemarksChange(idx, e.target.value)}
+            className="w-full min-w-[120px] px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+            style={{ fontSize: "16px" }}
+          />
+          {canEdit && student.score !== null && (
+            <CbaRemarkSuggester
+              studentContext={{
+                studentName: student.fullName,
+                score: normalized20 ?? student.score,
+                maxScore: 20,
+              }}
+              onSelectRemark={(remark) => onRemarksChange(idx, remark)}
+            />
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -2443,7 +2508,7 @@ const StudentMarkCard = memo(function StudentMarkCard({
                   {gradeInfo.letter} · {gradeInfo.cba}
                 </span>
               ) : (
-                <span className="text-[10px] text-[#888888] font-mono">—</span>
+                <span className="text-[10px] text-[#888888] font-mono">-</span>
               )}
             </div>
           </div>
@@ -2457,31 +2522,58 @@ const StudentMarkCard = memo(function StudentMarkCard({
       {/* Teacher Note Field */}
       <div>
         {!showRemarks && !student.remarks ? (
-          <button
-            type="button"
-            onClick={() => setShowRemarks(true)}
-            className="text-[11px] text-[#2A7C13] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
-          >
-            <MessageSquare className="w-3 h-3" />
-            <span>+ Add report card note</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowRemarks(true)}
+              className="text-[11px] text-[#2A7C13] font-semibold hover:underline inline-flex items-center gap-1 cursor-pointer"
+            >
+              <MessageSquare className="w-3 h-3" />
+              <span>+ Add report card note</span>
+            </button>
+            {canEdit && student.score !== null && (
+              <CbaRemarkSuggester
+                studentContext={{
+                  studentName: student.fullName,
+                  score: normalized20 ?? student.score,
+                  maxScore: 20,
+                }}
+                onSelectRemark={(remark) => {
+                  setShowRemarks(true);
+                  onRemarksChange(idx, remark);
+                }}
+              />
+            )}
+          </div>
         ) : (
-          <div className="space-y-1 pt-1">
+          <div className="space-y-1.5 pt-1">
             <div className="flex items-center justify-between text-[11px]">
               <label className="text-[#525E4B] font-medium flex items-center gap-1">
                 <MessageSquare className="w-3 h-3 text-[#2A7C13]" />
                 <span>Teacher&apos;s Note (Report Card)</span>
               </label>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowRemarks(false);
-                  if (!student.remarks) onRemarksChange(idx, "");
-                }}
-                className="text-[#888888] hover:text-[#555555] text-[10px] underline cursor-pointer"
-              >
-                Hide
-              </button>
+              <div className="flex items-center gap-2">
+                {canEdit && student.score !== null && (
+                  <CbaRemarkSuggester
+                    studentContext={{
+                      studentName: student.fullName,
+                      score: normalized20 ?? student.score,
+                      maxScore: 20,
+                    }}
+                    onSelectRemark={(remark) => onRemarksChange(idx, remark)}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRemarks(false);
+                    if (!student.remarks) onRemarksChange(idx, "");
+                  }}
+                  className="text-[#888888] hover:text-[#555555] text-[10px] underline cursor-pointer"
+                >
+                  Hide
+                </button>
+              </div>
             </div>
             <input
               type="text"

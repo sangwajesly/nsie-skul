@@ -201,7 +201,7 @@ export default async function LandingPage() {
               </div>
 
               {/* Visual Diagram */}
-              <div className="rounded-[14px] bg-white/5 border border-white/15 p-6 sm:p-8 backdrop-blur-sm space-y-6">
+              <div className="rounded-[14px] bg-white/5 border border-white/15 p-6 sm:p-8 space-y-6">
                 <div className="text-center pb-2 border-b border-white/10">
                   <span className="text-[11px] font-bold tracking-wider uppercase text-[#76C457]">
                     Zero-Internet Process
@@ -261,10 +261,11 @@ export default async function LandingPage() {
           <div className={CONTAINER}>
             {/* Section heading */}
             <div className="max-w-2xl mb-12 sm:mb-16">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Comprehensive Management
-              </span>
-              <h2 className="text-[1.85rem] sm:text-[2.4rem] font-extrabold tracking-tight text-[#142010] leading-tight mt-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-3">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Comprehensive Management</span>
+              </div>
+              <h2 className="text-[1.85rem] sm:text-[2.4rem] font-extrabold tracking-tight text-[#142010] leading-tight">
                 Everything your school needs to operate with excellence.
               </h2>
               <p className="text-[14px] sm:text-[15px] text-[#525E4B] leading-[1.65] mt-2">
@@ -275,7 +276,7 @@ export default async function LandingPage() {
             {/* 3 Pillar Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Pillar 1: Sukul Hub */}
-              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all group">
+              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] hover:-translate-y-1 hover:shadow-md transition-all duration-200 group">
                 <div className="w-11 h-11 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center mb-5 group-hover:bg-[#2A7C13] group-hover:text-white transition-colors">
                   <WifiOff className="w-5 h-5" />
                 </div>
@@ -295,7 +296,7 @@ export default async function LandingPage() {
               </div>
 
               {/* Pillar 2: Report Cards */}
-              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all group">
+              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] hover:-translate-y-1 hover:shadow-md transition-all duration-200 group">
                 <div className="w-11 h-11 rounded-[8px] bg-[#FFF8CF] text-[#4A3D00] flex items-center justify-center mb-5 group-hover:bg-[#2A7C13] group-hover:text-white transition-colors">
                   <FileSpreadsheet className="w-5 h-5" />
                 </div>
@@ -315,7 +316,7 @@ export default async function LandingPage() {
               </div>
 
               {/* Pillar 3: Bursary */}
-              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all group">
+              <div className="flex flex-col p-7 rounded-[14px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] hover:-translate-y-1 hover:shadow-md transition-all duration-200 group">
                 <div className="w-11 h-11 rounded-[8px] bg-[#FBE6C2] text-[#422C0A] flex items-center justify-center mb-5 group-hover:bg-[#2A7C13] group-hover:text-white transition-colors">
                   <Wallet className="w-5 h-5" />
                 </div>
@@ -338,7 +339,7 @@ export default async function LandingPage() {
             {/* Supplementary Institutional Capabilities Row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
               {/* Feature: 1-Click Annual Rollover */}
-              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all">
+              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-2xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
                   <RefreshCw className="w-5 h-5" />
                 </div>
@@ -353,7 +354,7 @@ export default async function LandingPage() {
               </div>
 
               {/* Feature: Multi-Year Academic Transcripts */}
-              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] transition-all">
+              <div className="flex items-start gap-4 p-5 rounded-[12px] border border-[#E8DFC9] bg-[#FFFDF5] hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-2xs transition-all duration-200">
                 <div className="w-10 h-10 rounded-[8px] bg-[#FAF8F2] text-[#2A7C13] border border-[#E8DFC9] flex items-center justify-center shrink-0">
                   <GraduationCap className="w-5 h-5" />
                 </div>
@@ -376,9 +377,10 @@ export default async function LandingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
               {/* Left: heading */}
               <div className="space-y-5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                  Roles & Permissions
-                </span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                  <span>Roles & Permissions</span>
+                </div>
                 <h2 className="text-[1.85rem] sm:text-[2.2rem] font-extrabold tracking-tight text-[#142010] leading-tight">
                   Designed around how secondary schools actually work.
                 </h2>
@@ -430,7 +432,7 @@ export default async function LandingPage() {
                 ].map(({ role, badge, badgeColor, desc }) => (
                   <div
                     key={role}
-                    className="flex items-start gap-4 p-4 rounded-[12px] bg-white border border-[#E8DFC9] shadow-2xs"
+                    className="flex items-start gap-4 p-4 rounded-[12px] bg-white border border-[#E8DFC9] shadow-2xs hover:-translate-y-0.5 hover:border-[#2A7C13]/50 transition-all duration-200"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -453,9 +455,10 @@ export default async function LandingPage() {
           <div className={CONTAINER}>
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-10">
               <div className="space-y-2 max-w-xl">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                  Cameroon Pedagogic Hub
-                </span>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                  <span>Cameroon Pedagogic Hub</span>
+                </div>
                 <h2 className="text-[1.75rem] sm:text-[2.1rem] font-extrabold text-[#142010]">
                   Free MINESEC Guides &amp; Teacher Toolkits
                 </h2>
@@ -475,12 +478,12 @@ export default async function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Card 1 */}
-              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-md hover:border-[#2A7C13] hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between space-y-4 group">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2 py-0.5 rounded">
                     CBA Pedagogy
                   </span>
-                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug">
+                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug group-hover:text-[#2A7C13] transition-colors">
                     <Link href="/blog/minesec-cba-competency-appreciations" className="hover:text-[#2A7C13] transition-colors">
                       The MINESEC CBA Report Card Handbook: 40 Ready Appreciations
                     </Link>
@@ -491,7 +494,7 @@ export default async function LandingPage() {
                 </div>
                 <Link
                   href="/blog/minesec-cba-competency-appreciations"
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA] group-hover:translate-x-0.5 transition-all"
                 >
                   <span>Read Guide</span>
                   <ArrowRight className="w-3 h-3" />
@@ -499,12 +502,12 @@ export default async function LandingPage() {
               </div>
 
               {/* Card 2 */}
-              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-md hover:border-[#2A7C13] hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between space-y-4 group">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#B45309] bg-[#FFF8CF] px-2 py-0.5 rounded">
                     Marks &amp; Excel
                   </span>
-                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug">
+                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug group-hover:text-[#2A7C13] transition-colors">
                     <Link href="/blog/fix-excel-class-council-errors" className="hover:text-[#2A7C13] transition-colors">
                       Why Excel Breaks During Class Councils (And How to Fix It)
                     </Link>
@@ -515,7 +518,7 @@ export default async function LandingPage() {
                 </div>
                 <Link
                   href="/blog/fix-excel-class-council-errors"
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA] group-hover:translate-x-0.5 transition-all"
                 >
                   <span>Read Guide</span>
                   <ArrowRight className="w-3 h-3" />
@@ -523,12 +526,12 @@ export default async function LandingPage() {
               </div>
 
               {/* Card 3 */}
-              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-md hover:border-[#2A7C13] hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between space-y-4 group">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#1E40AF] bg-[#EFF6FF] px-2 py-0.5 rounded">
                     Teacher Tools
                   </span>
-                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug">
+                  <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug group-hover:text-[#2A7C13] transition-colors">
                     <Link href="/blog/minesec-inspection-cahier-de-texte-checklist" className="hover:text-[#2A7C13] transition-colors">
                       The Pedagogic Inspector&apos;s Checklist: Logbooks &amp; Schemes of Work
                     </Link>
@@ -539,7 +542,7 @@ export default async function LandingPage() {
                 </div>
                 <Link
                   href="/blog/minesec-inspection-cahier-de-texte-checklist"
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA] group-hover:translate-x-0.5 transition-all"
                 >
                   <span>Read Guide</span>
                   <ArrowRight className="w-3 h-3" />
@@ -553,9 +556,10 @@ export default async function LandingPage() {
         <section id="faq" className="py-16 sm:py-24 border-b border-[#E8DFC9] bg-white">
           <div className={CONTAINER}>
             <div className="text-center max-w-2xl mx-auto mb-12 sm:mb-16 space-y-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2.5 py-1 rounded-[4px]">
-                Questions & Answers
-              </span>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+                <span>Questions & Answers</span>
+              </div>
               <h2 className="text-[1.85rem] sm:text-[2.2rem] font-extrabold text-[#142010]">
                 Frequently Asked Questions
               </h2>

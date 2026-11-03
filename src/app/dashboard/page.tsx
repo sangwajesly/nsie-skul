@@ -116,49 +116,50 @@ export default async function DashboardPage() {
     return (
       <div className="space-y-6 max-w-5xl mx-auto">
         {/* Welcome header */}
-        <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-4 sm:p-5 shadow-sm">
+        <div className="bg-[#FFFDF5] border border-[#E8DFC9] rounded-[14px] p-5 sm:p-6 shadow-2xs">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
             <div>
-              <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[11px] font-bold uppercase tracking-wider">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/30 text-[11px] font-bold uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
                   <GraduationCap className="w-3.5 h-3.5" />
-                  {displayRoleName}
+                  <span>{displayRoleName}</span>
                 </span>
                 {tenantContext?.isClassMaster && (tenantContext.masteredStreamNames?.length ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-[11px] font-bold uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-[11px] font-bold uppercase tracking-wider">
                     <Star className="w-3.5 h-3.5 text-[#B45309]" />
-                    Class Master · {tenantContext.masteredStreamNames?.join(", ")}
+                    <span>Class Master: {tenantContext.masteredStreamNames?.join(", ")}</span>
                   </span>
                 )}
                 {tenantContext?.isHod && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold uppercase tracking-wider">
                     <Building2 className="w-3.5 h-3.5 text-[#1E40AF]" />
-                    Head of Department{hodScope?.departmentNames?.[0] ? ` · ${hodScope.departmentNames[0]}` : ""}
+                    <span>Head of Department{hodScope?.departmentNames?.[0] ? `: ${hodScope.departmentNames[0]}` : ""}</span>
                   </span>
                 )}
-                <span className="text-xs text-[#888888]">·</span>
-                <span className="text-xs text-[#555555] font-medium">
+                <span className="text-xs text-[#B5AC98]">·</span>
+                <span className="text-xs text-[#525E4B] font-semibold">
                   {schoolName}
                 </span>
               </div>
-              <h1 className="text-2xl font-extrabold text-[#191919] tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-[#142010] tracking-tight">
                 Welcome back, {userGreeting}!
               </h1>
-              <p className="text-[13px] text-[#777777] mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-[13px] text-[#525E4B] mt-1.5 flex flex-wrap items-center gap-2">
                 <span>{activeYear?.name || "Academic year not set"}</span>
                 {activeSequence ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FFF8CF] text-[#4A3D00] text-[11px] font-semibold rounded-[4px] border border-[#FBE6C2]">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#FFF8CF] text-[#4A3D00] text-[11px] font-semibold rounded-full border border-[#FBE6C2]">
                     <Sparkles className="w-3 h-3 text-[#B45309]" />
-                    Active Assessment: {activeSequence.name}
+                    <span>Active Assessment: {activeSequence.name}</span>
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#F5F5F0] text-[#666666] text-[11px] font-medium rounded-[4px] border border-[#E0E0DB]">
-                    Assessment Windows Closed
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-[#FAF8F2] text-[#666666] text-[11px] font-medium rounded-full border border-[#E8DFC9]">
+                    <span>Assessment Windows Closed</span>
                   </span>
                 )}
               </p>
             </div>
-            <div className="text-[11px] text-[#999999] text-left sm:text-right">
+            <div className="text-[11px] text-[#788470] text-left sm:text-right">
               <div className="font-mono font-bold text-[#142010]">
                 {school?.code ||
                   (school?.name
@@ -178,13 +179,13 @@ export default async function DashboardPage() {
 
         {/* Class Master Supervision Banner */}
         {tenantContext?.isClassMaster && tenantContext.masteredStreamNames && tenantContext.masteredStreamNames.length > 0 && (
-          <div className="p-4 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-4.5 rounded-[12px] bg-[#FFFDF5] border border-[#E8DFC9] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#2A7C13]/60 transition-colors">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#FFF8CF] text-[#B45309] flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#FFF8CF] text-[#B45309] border border-[#FBE6C2] flex items-center justify-center shrink-0">
                 <Award className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-bold text-xs text-[#142010]">
+                <h3 className="font-bold text-xs sm:text-[13px] text-[#142010]">
                   Class Master Supervision: {tenantContext.masteredStreamNames.join(", ")}
                 </h3>
                 <p className="text-[11px] text-[#525E4B]">
@@ -195,13 +196,13 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-2 shrink-0">
               <Link
                 href="/dashboard/attendance"
-                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#191919] border border-[#D5D5CF] transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold rounded-[6px] bg-white hover:bg-[#FAF8F2] text-[#142010] border border-[#E8DFC9] transition-all hover:-translate-y-0.5 shadow-2xs"
               >
                 Roll Call
               </Link>
               <Link
                 href="/dashboard/academics/report-cards"
-                className="px-3 py-1.5 text-xs font-semibold rounded-[5px] bg-[#2A7C13] text-white hover:bg-[#20600E] transition-colors shadow-xs"
+                className="px-3 py-1.5 text-xs font-semibold rounded-[6px] bg-[#2A7C13] text-white hover:bg-[#20600E] transition-all hover:-translate-y-0.5 shadow-xs"
               >
                 Review Report Cards
               </Link>
@@ -210,48 +211,56 @@ export default async function DashboardPage() {
         )}
 
         {/* Teacher Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
             <div className="flex items-center gap-2 mb-2">
-              <BookOpen className="w-4 h-4 text-[#2A7C13]" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Classes Taught</span>
+              <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+                <BookOpen className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Classes Taught</span>
             </div>
-            <div className="text-3xl font-extrabold font-mono text-[#191919]">{teacherAssignments.length}</div>
-            <div className="text-[11px] text-[#AAAAAA] mt-0.5">Assigned subject groups</div>
+            <div className="text-3xl font-extrabold font-mono text-[#142010]">{teacherAssignments.length}</div>
+            <div className="text-[11px] text-[#788470] mt-0.5">Assigned subject groups</div>
           </div>
 
-          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+          <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
             <div className="flex items-center gap-2 mb-2">
-              <Users className="w-4 h-4 text-[#2A7C13]" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">My Students</span>
+              <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+                <Users className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">My Students</span>
             </div>
-            <div className="text-3xl font-extrabold font-mono text-[#191919]">
+            <div className="text-3xl font-extrabold font-mono text-[#142010]">
               {teacherAssignments.length > 0 ? assignedStudentsCount : 0}
             </div>
-            <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+            <div className="text-[11px] text-[#788470] mt-0.5">
               {teacherAssignments.length > 0 ? "In your assigned classes" : "No classes assigned yet"}
             </div>
           </div>
 
-          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+          <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
             <div className="flex items-center gap-2 mb-2">
-              <ClipboardCheck className="w-4 h-4 text-[#2A7C13]" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Current Test</span>
+              <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+                <ClipboardCheck className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Current Test</span>
             </div>
-            <div className={`text-lg font-extrabold truncate leading-tight mt-1 ${activeSequence ? "text-[#191919]" : "text-[#777777]"}`}>
+            <div className={`text-lg font-extrabold truncate leading-tight mt-1 ${activeSequence ? "text-[#142010]" : "text-[#788470]"}`}>
               {activeSequence ? `Seq ${activeSequence.sequence_number}` : "None"}
             </div>
-            <div className={`text-[11px] font-semibold mt-0.5 ${activeSequence ? "text-[#2A7C13]" : "text-[#888888]"}`}>
+            <div className={`text-[11px] font-semibold mt-0.5 ${activeSequence ? "text-[#2A7C13]" : "text-[#788470]"}`}>
               {activeSequence ? "Marks Entry Open" : "Marks Window Closed"}
             </div>
           </div>
 
-          <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+          <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
             <div className="flex items-center gap-2 mb-2">
-              <FileText className="w-4 h-4 text-[#2A7C13]" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Subsystem</span>
+              <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+                <FileText className="w-3.5 h-3.5" />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Subsystem</span>
             </div>
-            <div className="text-lg font-extrabold text-[#191919] mt-1">
+            <div className="text-lg font-extrabold text-[#142010] mt-1">
               {school?.subsystem === "anglophone"
                 ? "English Curriculum"
                 : school?.subsystem === "francophone"
@@ -260,7 +269,7 @@ export default async function DashboardPage() {
                 ? "Bilingual Curriculum"
                 : "National Curriculum"}
             </div>
-            <div className="text-[11px] text-[#AAAAAA] mt-0.5">CBA 20-pt grading</div>
+            <div className="text-[11px] text-[#788470] mt-0.5">CBA 20-pt grading</div>
           </div>
         </div>
 
@@ -351,26 +360,27 @@ export default async function DashboardPage() {
     <div className="space-y-6 max-w-5xl mx-auto">
 
       {/* Welcome header */}
-      <div className="bg-white border border-[#E5E5DF] rounded-[10px] p-4 sm:p-6 shadow-sm">
+      <div className="bg-[#FFFDF5] border border-[#E8DFC9] rounded-[14px] p-5 sm:p-6 shadow-2xs">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <p className="text-[12px] font-bold text-[#2A7C13] mb-1">
-              Welcome back, {userGreeting}
-            </p>
-            <h1 className="text-2xl font-extrabold text-[#191919] tracking-tight">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
+              <span>{roleName} Portal</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#142010] tracking-tight">
               {schoolName}
             </h1>
-            <p className="text-[13px] text-[#777777] mt-1">
-              {activeYear?.name || "Academic year not set"}
+            <p className="text-[13px] text-[#525E4B] mt-1.5 flex items-center gap-2">
+              <span>{activeYear?.name || "Academic year not set"}</span>
               {activeYear?.is_current && (
-                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-[#ECFDF5] text-[#047857] text-[11px] font-semibold rounded-[4px] border border-[#A7F3D0]">
-                  Current year
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-[#EAF7E4] text-[#2A7C13] text-[11px] font-semibold rounded-full border border-[#76C457]/40">
+                  Current Session
                 </span>
               )}
             </p>
           </div>
-          <div className="text-[11px] text-[#999999] text-left sm:text-right">
-            <div className="font-mono">Nsei Sukul Platform</div>
+          <div className="text-[11px] text-[#788470] text-left sm:text-right">
+            <div className="font-mono font-bold text-[#142010]">Nsei Sukul Platform</div>
             <div>School Management System</div>
           </div>
         </div>
@@ -378,7 +388,7 @@ export default async function DashboardPage() {
 
       {/* Getting-started guide for new schools */}
       {needsInitialSetup && (
-        <div className="bg-[#FFF8CF] border border-[#FBE6C2] rounded-[10px] p-5 flex gap-3">
+        <div className="bg-[#FFF8CF] border border-[#FBE6C2] rounded-[12px] p-5 flex gap-3 shadow-2xs">
           <Info className="w-5 h-5 text-[#B45309] flex-shrink-0 mt-0.5" />
           <div>
             <p className="font-bold text-[13px] text-[#7A4A00]">Set Up Your School</p>
@@ -399,25 +409,29 @@ export default async function DashboardPage() {
       )}
 
       {/* Real stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-        <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5">
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-[#2A7C13]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Students</span>
+            <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+              <Users className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Students</span>
           </div>
-          <div className="text-3xl font-extrabold font-mono text-[#191919]">{studentCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+          <div className="text-3xl font-extrabold font-mono text-[#142010]">{studentCount}</div>
+          <div className="text-[11px] text-[#788470] mt-0.5">
             {studentCount === 0 ? "None enrolled yet" : "Currently enrolled"}
           </div>
         </div>
 
-        <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <UserCog className="w-4 h-4 text-[#2A7C13]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Staff</span>
+            <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+              <UserCog className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Staff</span>
           </div>
-          <div className="text-3xl font-extrabold font-mono text-[#191919]">{staffCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+          <div className="text-3xl font-extrabold font-mono text-[#142010]">{staffCount}</div>
+          <div className="text-[11px] text-[#788470] mt-0.5">
             {staffCount === 0
               ? "No active staff members yet"
               : staffCount === 1
@@ -426,33 +440,39 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <BookOpen className="w-4 h-4 text-[#2A7C13]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Subjects</span>
+            <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+              <BookOpen className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Subjects</span>
           </div>
-          <div className="text-3xl font-extrabold font-mono text-[#191919]">{subjectCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+          <div className="text-3xl font-extrabold font-mono text-[#142010]">{subjectCount}</div>
+          <div className="text-[11px] text-[#788470] mt-0.5">
             {isHodUser ? "In your department" : subjectCount === 0 ? "None configured yet" : "In curriculum"}
           </div>
         </div>
 
-        <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <Layers className="w-4 h-4 text-[#2A7C13]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Class Streams</span>
+            <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+              <Layers className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Class Streams</span>
           </div>
-          <div className="text-3xl font-extrabold font-mono text-[#191919]">{classStreamCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">Classes students can join</div>
+          <div className="text-3xl font-extrabold font-mono text-[#142010]">{classStreamCount}</div>
+          <div className="text-[11px] text-[#788470] mt-0.5">Classes students can join</div>
         </div>
 
-        <div className="bg-white border border-[#E5E5DF] rounded-[8px] p-4 shadow-sm">
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] p-4.5 shadow-2xs hover:border-[#2A7C13] hover:-translate-y-0.5 hover:shadow-xs transition-all duration-200">
           <div className="flex items-center gap-2 mb-2">
-            <Building2 className="w-4 h-4 text-[#2A7C13]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#888888]">Departments</span>
+            <div className="w-7 h-7 rounded-[6px] bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center shrink-0">
+              <Building2 className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-[#788470]">Departments</span>
           </div>
-          <div className="text-3xl font-extrabold font-mono text-[#191919]">{departmentCount}</div>
-          <div className="text-[11px] text-[#AAAAAA] mt-0.5">
+          <div className="text-3xl font-extrabold font-mono text-[#142010]">{departmentCount}</div>
+          <div className="text-[11px] text-[#788470] mt-0.5">
             {isHodUser && hodScope?.departmentNames?.[0] ? hodScope.departmentNames[0] : "Subject groups"}
           </div>
         </div>
@@ -554,25 +574,25 @@ function QuickAction({
   color: "green" | "blue" | "amber";
 }) {
   const iconColors = {
-    green: "text-[#2A7C13] bg-[#F0FDF4]",
-    blue: "text-[#1D4ED8] bg-[#EFF6FF]",
-    amber: "text-[#B45309] bg-[#FFFBEB]",
+    green: "text-[#2A7C13] bg-[#EAF7E4] border border-[#76C457]/30",
+    blue: "text-[#1D4ED8] bg-[#EFF6FF] border border-[#BFDBFE]",
+    amber: "text-[#B45309] bg-[#FFF8CF] border border-[#FBE6C2]",
   };
 
   return (
     <Link
       href={href}
-      className="group bg-white border border-[#E5E5DF] hover:border-[#2A7C13] rounded-[10px] p-5 flex items-start gap-3 transition-all hover:shadow-md"
+      className="group bg-white border border-[#E8DFC9] hover:border-[#2A7C13] rounded-[12px] p-4.5 flex items-start gap-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xs"
     >
       <div className={`w-9 h-9 rounded-[8px] flex items-center justify-center flex-shrink-0 ${iconColors[color]}`}>
         <Icon className="w-5 h-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-bold text-[14px] text-[#191919] group-hover:text-[#2A7C13] transition-colors flex items-center justify-between">
-          {title}
-          <ArrowRight className="w-4 h-4 text-[#CCCCCC] group-hover:text-[#2A7C13] flex-shrink-0" />
+        <div className="font-bold text-[14px] text-[#142010] group-hover:text-[#2A7C13] transition-colors flex items-center justify-between">
+          <span>{title}</span>
+          <ArrowRight className="w-4 h-4 text-[#788470] group-hover:text-[#2A7C13] group-hover:translate-x-0.5 transition-all flex-shrink-0 ml-1" />
         </div>
-        <div className="text-[12px] text-[#777777] mt-0.5 leading-snug">{description}</div>
+        <div className="text-[12px] text-[#525E4B] mt-0.5 leading-snug">{description}</div>
       </div>
     </Link>
   );

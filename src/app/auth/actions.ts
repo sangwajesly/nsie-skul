@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { ACTIVE_SCHOOL_COOKIE } from "@/lib/tenancy/context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -92,6 +93,159 @@ export async function loginAction(
   return { redirectTo: safePath };
 }
 
+export async function loginWithTeacherCodeAction(
+  prevState: unknown,
+  formData: FormData
+): Promise<ActionResult> {
+  const identifier = String(formData.get("identifier") || "").trim();
+  const schoolCodeInput = String(formData.get("schoolCode") || "").trim().toUpperCase();
+  const pin = String(formData.get("pin") || "").trim();
+  const returnUrl = (formData.get("returnUrl") as string) || "/dashboard";
+
+  if (!identifier) {
+    return { error: "Please enter your Phone Number or Teacher Access Code." };
+  }
+  if (!pin) {
+    return { error: "Please enter your 4 to 6 digit PIN." };
+  }
+
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Server configuration error.";
+    return { error: msg };
+  }
+
+  const admin = createAdminClient();
+  let userEmail: string | null = null;
+  let preselectedSchoolId: string | null = null;
+
+  // Clean identifier
+  const cleanDigits = identifier.replace(/\D/g, "");
+  const isLikelyPhone =
+    (cleanDigits.length === 9 && cleanDigits.startsWith("6")) ||
+    (cleanDigits.length === 9 && cleanDigits.startsWith("2")) ||
+    (cleanDigits.startsWith("237") && cleanDigits.length === 12);
+
+  if (isLikelyPhone) {
+    const phone9 = cleanDigits.startsWith("237") ? cleanDigits.slice(3) : cleanDigits;
+    // Look up user profile by phone or synthetic email
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("id, email, phone")
+      .or(`phone.eq.${phone9},phone.eq.+237${phone9},email.eq.teacher_${phone9}@staff.nseisukul.internal`)
+      .maybeSingle();
+
+    if (profile) {
+      userEmail = profile.email;
+    }
+  }
+
+  // If not matched by phone, or user entered code like "BHS-T101" or specified schoolCode
+  if (!userEmail) {
+    let targetSchoolCode = schoolCodeInput;
+    let targetStaffCode = identifier;
+
+    if (!targetSchoolCode && identifier.includes("-")) {
+      const parts = identifier.split("-");
+      targetSchoolCode = parts[0].toUpperCase();
+      targetStaffCode = parts.slice(1).join("-");
+    }
+
+    if (targetSchoolCode) {
+      const { data: school } = await admin
+        .from("schools")
+        .select("id, code, slug")
+        .or(`code.ilike.${targetSchoolCode},slug.ilike.${targetSchoolCode}`)
+        .maybeSingle();
+
+      if (school) {
+        // Look up membership by access_code
+        const { data: membership } = await admin
+          .from("school_memberships")
+          .select("id, school_id, user_id, access_code, status, user:user_profiles(id, email)")
+          .eq("school_id", school.id)
+          .eq("status", "active")
+          .or(`access_code.ilike.${targetStaffCode},access_code.ilike.${identifier}`)
+          .maybeSingle();
+
+        if (membership && membership.user) {
+          const userObj = membership.user as unknown as { id: string; email: string };
+          userEmail = userObj.email;
+          preselectedSchoolId = school.id;
+        }
+      }
+    }
+  }
+
+  if (!userEmail) {
+    return {
+      error:
+        "No teacher account found matching those details. Check your phone number, school code, or ask your school administrator for your access slip.",
+    };
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: userEmail,
+    password: pin,
+  });
+
+  if (error) {
+    return {
+      error: "Incorrect PIN. Please re-enter your teacher PIN or contact your school administrator.",
+    };
+  }
+
+  // Get active school memberships
+  const { data: memberships, error: membershipsError } = await supabase
+    .from("school_memberships")
+    .select("id, school_id")
+    .eq("user_id", data.user.id)
+    .eq("status", "active");
+
+  if (membershipsError || !memberships || memberships.length === 0) {
+    return { redirectTo: "/onboarding" };
+  }
+
+  const safePath =
+    returnUrl === "/dashboard" ||
+    returnUrl.startsWith("/dashboard/") ||
+    returnUrl === "/onboarding"
+      ? returnUrl
+      : "/dashboard";
+
+  const cookieStore = await cookies();
+
+  // If teacher logged in with a specific school code, take them straight to that school
+  if (preselectedSchoolId) {
+    cookieStore.set(ACTIVE_SCHOOL_COOKIE, preselectedSchoolId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return { redirectTo: safePath };
+  }
+
+  if (memberships.length === 1) {
+    cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+    });
+    return { redirectTo: safePath };
+  }
+
+  // Teacher has multiple schools and logged in via universal phone number
+  return {
+    redirectTo: `/select-school?returnTo=${encodeURIComponent(safePath)}`,
+  };
+}
+
 export async function registerAction(
   prevState: unknown,
   formData: FormData
@@ -139,7 +293,7 @@ export async function registerAction(
 }
 
 export async function signOutAction() {
-  // Called from a plain <form action={}> — redirect() is safe here (not inside useActionState)
+  // Called from a plain <form action={}> : redirect() is safe here (not inside useActionState)
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");

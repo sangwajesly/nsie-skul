@@ -18,6 +18,189 @@ const UpdateStaffRoleSchema = z.object({
   title: z.string().max(100, "Job title must be 100 characters or fewer."),
 });
 
+export interface RegisteredTeacherResult {
+  success: boolean;
+  teacherName: string;
+  phone: string;
+  accessCode: string;
+  pin: string;
+  isExistingUser: boolean;
+  schoolName: string;
+  schoolCode: string;
+}
+
+export async function registerTeacherWithCodeAction(formData: FormData): Promise<RegisteredTeacherResult> {
+  const context = await requirePermission("staff.manage");
+  const fullName = String(formData.get("fullName") || "").trim();
+  const phoneInput = String(formData.get("phone") || "").trim();
+  const roleId = String(formData.get("roleId") || "");
+  const title = String(formData.get("title") || "").trim();
+  let accessCode = String(formData.get("accessCode") || "").trim().toUpperCase();
+  let pin = String(formData.get("pin") || "").trim();
+
+  if (!fullName || fullName.length < 2) {
+    throw new Error("Please enter the teacher's full name.");
+  }
+
+  // Normalize Cameroon phone number
+  let cleanDigits = phoneInput.replace(/\D/g, "");
+  if (cleanDigits.startsWith("237") && cleanDigits.length > 9) {
+    cleanDigits = cleanDigits.slice(3);
+  }
+
+  if (cleanDigits.length !== 9) {
+    throw new Error("Please enter a valid 9-digit Cameroon phone number (e.g. 677 12 34 56).");
+  }
+
+  const supabase = await createClient();
+  const { data: role, error: roleError } = await supabase
+    .from("roles")
+    .select("id, code, name")
+    .eq("id", roleId)
+    .maybeSingle();
+
+  if (roleError || !role || role.code === "superadmin") {
+    throw new Error("Choose a valid school staff role.");
+  }
+
+  const admin = createAdminClient();
+  const schoolCode = context.school.code || context.school.slug.toUpperCase().slice(0, 4) || "SCH";
+
+  // Auto-generate access code if left empty (e.g. T-101)
+  if (!accessCode) {
+    const { count } = await supabase
+      .from("school_memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", context.school.id);
+    const seq = (count || 0) + 1;
+    accessCode = `T-${seq.toString().padStart(3, "0")}`;
+  }
+
+  // Ensure initial PIN meets minimum 6 characters for Supabase Auth
+  if (!pin) {
+    pin = "123456";
+  } else if (pin.length < 4) {
+    throw new Error("PIN must be at least 4 digits.");
+  } else if (pin.length < 6) {
+    pin = pin.padEnd(6, "0");
+  }
+
+  // 1. Check if user already exists with this phone number
+  const { data: existingProfile } = await admin
+    .from("user_profiles")
+    .select("id, full_name, email, phone")
+    .or(`phone.eq.${cleanDigits},phone.eq.+237${cleanDigits},email.eq.teacher_${cleanDigits}@staff.nseisukul.internal`)
+    .maybeSingle();
+
+  let userId: string;
+  let isExistingUser = false;
+
+  if (existingProfile) {
+    userId = existingProfile.id;
+    isExistingUser = true;
+
+    // Check if already in this school
+    const { data: existingMembership } = await supabase
+      .from("school_memberships")
+      .select("id, status, access_code")
+      .eq("school_id", context.school.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingMembership) {
+      throw new Error(
+        `This teacher is already registered in this school with access code ${existingMembership.access_code || "assigned"}.`
+      );
+    }
+  } else {
+    // Create new Supabase Auth user
+    const syntheticEmail = `teacher_${cleanDigits}@staff.nseisukul.internal`;
+    const { data: newAuth, error: authError } = await admin.auth.admin.createUser({
+      email: syntheticEmail,
+      password: pin,
+      email_confirm: true,
+      user_metadata: {
+        full_name: fullName,
+        phone: cleanDigits,
+        created_by_school: context.school.id,
+      },
+    });
+
+    if (authError || !newAuth.user) {
+      throw new Error(authError?.message || "Could not create teacher credentials.");
+    }
+
+    userId = newAuth.user.id;
+
+    // Create user_profile row
+    const { error: profileError } = await admin
+      .from("user_profiles")
+      .insert({
+        id: userId,
+        full_name: fullName,
+        email: syntheticEmail,
+        phone: cleanDigits,
+      });
+
+    if (profileError) {
+      throw new Error("Could not initialize teacher profile.");
+    }
+  }
+
+  // Insert school membership with access code
+  const { data: membership, error: membershipError } = await supabase
+    .from("school_memberships")
+    .insert({
+      school_id: context.school.id,
+      user_id: userId,
+      role_id: role.id,
+      title: title || role.name || "Teacher",
+      access_code: accessCode,
+      status: "active",
+    })
+    .select("id")
+    .single();
+
+  if (membershipError) {
+    if (membershipError.message?.includes("idx_school_memberships_access_code")) {
+      throw new Error(`Access code ${accessCode} is already used by another teacher in this school.`);
+    }
+    throw new Error(membershipError.message || "Failed to link teacher to school.");
+  }
+
+  const resolvedName = existingProfile?.full_name || fullName;
+
+  await supabase.from("audit_logs").insert({
+    school_id: context.school.id,
+    user_id: context.user.id,
+    action: "REGISTER_STAFF_WITH_CODE",
+    resource_type: "school_membership",
+    resource_id: membership.id,
+    details: {
+      fullName: resolvedName,
+      phone: cleanDigits,
+      access_code: accessCode,
+      role_id: role.id,
+      title: title || null,
+      isExistingUser,
+    },
+  });
+
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard");
+
+  return {
+    success: true,
+    teacherName: resolvedName,
+    phone: cleanDigits,
+    accessCode,
+    pin: isExistingUser ? "(Teacher's existing PIN)" : pin,
+    isExistingUser,
+    schoolName: context.school.name,
+    schoolCode,
+  };
+}
+
 export async function addStaffMemberAction(formData: FormData) {
   const context = await requirePermission("staff.manage");
   const email = String(formData.get("email") || "").trim().toLowerCase();

@@ -175,7 +175,7 @@ export function TeacherAssignmentsList({
             return (
               <div
                 key={assignment.id}
-                className="bg-white border border-[#E8DFC9] hover:border-[#2A7C13] rounded-[8px] p-3 transition-all shadow-2xs hover:shadow-xs flex items-center justify-between gap-2.5"
+                className="bg-white border border-[#E8DFC9] hover:border-[#2A7C13] rounded-[12px] p-3.5 transition-all duration-200 shadow-2xs hover:-translate-y-0.5 hover:shadow-xs flex items-center justify-between gap-3"
               >
                 {/* Left: Class & Subject Information */}
                 <div className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ export function TeacherAssignmentsList({
 
                     {isMaster && (
                       <span
-                        className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-[9px] font-bold"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-[9.5px] font-bold"
                         title="You are the designated Class Master for this stream"
                       >
                         <Star className="w-2.5 h-2.5 text-[#B45309]" />
@@ -195,11 +195,11 @@ export function TeacherAssignmentsList({
                     )}
                   </div>
 
-                  <div className="text-[11px] text-[#525E4B] flex items-center gap-1 mt-0.5 truncate">
+                  <div className="text-[11px] text-[#525E4B] flex items-center gap-1 mt-1 truncate">
                     <span className="font-semibold text-[#2A7C13] truncate">
                       {assignment.subject?.name || "Subject"}
                     </span>
-                    <span className="text-[#888888] font-mono text-[10px] shrink-0">
+                    <span className="text-[#788470] font-mono text-[10px] shrink-0">
                       ({assignment.subject?.code}) · Coef {assignment.subject?.default_coefficient ?? 2}
                     </span>
                   </div>
@@ -209,7 +209,7 @@ export function TeacherAssignmentsList({
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Link
                     href={`/dashboard/academics/marks?classStreamId=${assignment.class_stream_id}&subjectId=${assignment.subject_id}`}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] active:scale-95 text-white text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] active:scale-95 text-white text-xs font-semibold shadow-2xs transition-all whitespace-nowrap"
                     title={`Enter marks for ${assignment.class_stream?.name}`}
                   >
                     <ClipboardCheck className="w-3.5 h-3.5" />
@@ -218,7 +218,7 @@ export function TeacherAssignmentsList({
 
                   <Link
                     href={`/dashboard/attendance?classStreamId=${assignment.class_stream_id}`}
-                    className="inline-flex items-center justify-center w-7 h-7 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] active:scale-95 text-[#555555] hover:text-[#191919] transition-all"
+                    className="inline-flex items-center justify-center w-7.5 h-7.5 rounded-[6px] bg-[#FAF8F2] hover:bg-[#F3EEDD] border border-[#E8DFC9] active:scale-95 text-[#525E4B] hover:text-[#142010] transition-all"
                     title={`Roll Call for ${assignment.class_stream?.name}`}
                   >
                     <CalendarCheck className="w-3.5 h-3.5" />
