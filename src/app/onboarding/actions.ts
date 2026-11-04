@@ -108,26 +108,34 @@ export async function createSchoolAction(
     };
   }
 
-  // 3. Find 'school_admin' role
+  // 3. Find appropriate role (superadmin if platform operator, else school_admin)
+  const isSuperAdminCreator = [
+    "sangwajesly82@gmail.com",
+    "nseiskul@gmail.com",
+    ...(process.env.SUPER_ADMIN_EMAILS ? process.env.SUPER_ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase()) : []),
+  ].includes(user.email?.toLowerCase() || "");
+
+  const targetRoleCode = isSuperAdminCreator ? "superadmin" : "school_admin";
+
   const { data: adminRole, error: roleErr } = await adminClient
     .from("roles")
     .select("id")
-    .eq("code", "school_admin")
+    .eq("code", targetRoleCode)
     .single();
 
   if (roleErr || !adminRole) {
     return {
       success: false,
-      error: "School Administrator role definition not found. Please contact support.",
+      error: "Administrator role definition not found. Please contact support.",
     };
   }
 
-  // 4. Create membership linking the user as school_admin
+  // 4. Create membership linking the user
   const { error: memberErr } = await adminClient.from("school_memberships").insert({
     school_id: newSchool.id,
     user_id: user.id,
     role_id: adminRole.id,
-    title: "School Principal / Administrator",
+    title: isSuperAdminCreator ? "Platform Superadmin" : "School Principal / Administrator",
     status: "active",
   });
 

@@ -21,6 +21,7 @@ export interface ActiveTenantContext {
   masteredStreamNames?: string[];
   isHod?: boolean;
   subscription?: SchoolSubscriptionInfo;
+  isSuperAdmin?: boolean;
 }
 
 export interface UserSchoolOption {

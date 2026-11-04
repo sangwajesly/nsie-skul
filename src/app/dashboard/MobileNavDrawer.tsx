@@ -25,6 +25,7 @@ interface Props {
   roleCode?: string;
   isClassMaster?: boolean;
   isHod?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export function MobileNavDrawer({
@@ -38,6 +39,7 @@ export function MobileNavDrawer({
   roleCode,
   isClassMaster,
   isHod,
+  isSuperAdmin,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -77,7 +79,7 @@ export function MobileNavDrawer({
           {/* Backdrop overlay */}
           <div
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/50 transition-opacity"
             aria-hidden="true"
           />
 
@@ -136,6 +138,7 @@ export function MobileNavDrawer({
                 roleCode={roleCode}
                 isClassMaster={isClassMaster}
                 isHod={isHod}
+                isSuperAdmin={isSuperAdmin}
                 onNavClick={() => setIsOpen(false)}
               />
             </div>

@@ -261,13 +261,25 @@ export function SchoolSwitcher({
             })}
           </div>
 
-          <div className="p-2 border-t border-[#E8DFC9] bg-[#FAF8F5]">
+          <div className="p-2 border-t border-[#E8DFC9] bg-[#FAF8F5] space-y-1">
             <Link
-              href="/select-school"
+              href="/dashboard/schools"
+              onClick={() => setIsOpen(false)}
+              className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#166534] bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#BBF7D0] flex items-center justify-between transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5" />
+                <span>Platform Schools Network</span>
+              </span>
+              <ArrowRight className="w-3 h-3 text-[#166534]" />
+            </Link>
+
+            <Link
+              href="/onboarding?mode=new"
               onClick={() => setIsOpen(false)}
               className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#525E4B] hover:text-[#142010] hover:bg-white border border-transparent hover:border-[#D5CBB2] flex items-center justify-between transition-colors"
             >
-              <span>View All Registered Schools</span>
+              <span>+ Register New School Tenancy</span>
               <ArrowRight className="w-3 h-3 text-[#777777]" />
             </Link>
           </div>

@@ -62,6 +62,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           roleCode={tenantContext.role.code}
           isClassMaster={tenantContext.isClassMaster}
           isHod={tenantContext.isHod}
+          isSuperAdmin={tenantContext.isSuperAdmin}
         />
 
         {/* PWA Install Button (Sidebar) */}
@@ -116,7 +117,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               roleCode={tenantContext.role.code}
               isClassMaster={tenantContext.isClassMaster}
               isHod={tenantContext.isHod}
-            />
+          isSuperAdmin={tenantContext.isSuperAdmin}
+        />
             <div className="overflow-hidden">
               <span className="font-bold text-xs text-[#191919] truncate block">{schoolName}</span>
               <span className="text-[10px] text-[#888888] truncate block">{academicYearLabel}</span>

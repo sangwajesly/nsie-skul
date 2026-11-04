@@ -6,6 +6,23 @@ import { School, UserProfile, Role, Permission } from "@/types/database";
 
 export const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
 
+export const SUPER_ADMIN_EMAILS = [
+  "sangwajesly82@gmail.com",
+  "nseiskul@gmail.com",
+  ...(process.env.SUPER_ADMIN_EMAILS
+    ? process.env.SUPER_ADMIN_EMAILS.split(",").map((e) => e.trim().toLowerCase())
+    : []),
+];
+
+export const SUPER_ADMIN_ROLE_DEF: Role = {
+  id: "ef5bdbad-dd6d-4bfb-bc08-739355fe1a2c",
+  code: "superadmin",
+  name: "Platform Superadmin",
+  description: "SaaS platform operator with cross-tenant management",
+  is_system: true,
+  created_at: "2026-01-01T00:00:00.000Z",
+};
+
 /**
  * Retrieves the currently active tenant context for the authenticated user.
  * Wrapped in React cache() to deduplicate requests across layout and page components
@@ -33,7 +50,7 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   }
 
   // 2. Fetch all active memberships for this user
-  const { data: memberships } = await supabase
+  const { data: userMemberships } = await supabase
     .from("school_memberships")
     .select(
       `
@@ -47,7 +64,13 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     .eq("user_id", authUser.id)
     .eq("status", "active");
 
-  if (!memberships || memberships.length === 0) {
+  const memberships = userMemberships || [];
+
+  const isSuperAdminUser =
+    SUPER_ADMIN_EMAILS.includes(authUser.email?.toLowerCase() || "") ||
+    memberships.some((m) => (m.roles as unknown as Role)?.code === "superadmin");
+
+  if (memberships.length === 0 && !isSuperAdminUser) {
     return null;
   }
 
@@ -55,12 +78,62 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   const cookieStore = await cookies();
   const preferredSchoolId = cookieStore.get(ACTIVE_SCHOOL_COOKIE)?.value;
 
-  const activeMembership =
-    memberships.find((m) => m.school_id === preferredSchoolId) ||
-    memberships[0];
+  let activeMembership: any = memberships.find((m) => m.school_id === preferredSchoolId);
+
+  // If superadmin switched to a school where no explicit row exists yet, resolve it dynamically
+  if (!activeMembership && isSuperAdminUser) {
+    if (preferredSchoolId) {
+      const { data: targetSchool } = await supabase
+        .from("schools")
+        .select("*")
+        .eq("id", preferredSchoolId)
+        .maybeSingle();
+
+      if (targetSchool) {
+        activeMembership = {
+          id: `super-${targetSchool.id}`,
+          school_id: targetSchool.id,
+          status: "active",
+          schools: targetSchool,
+          roles: SUPER_ADMIN_ROLE_DEF,
+        };
+      }
+    }
+
+    // Fallback for superadmin: first available school in platform
+    if (!activeMembership && memberships.length === 0) {
+      const { data: anySchool } = await supabase
+        .from("schools")
+        .select("*")
+        .eq("is_active", true)
+        .order("name", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (anySchool) {
+        activeMembership = {
+          id: `super-${anySchool.id}`,
+          school_id: anySchool.id,
+          status: "active",
+          schools: anySchool,
+          roles: SUPER_ADMIN_ROLE_DEF,
+        };
+      }
+    }
+  }
+
+  if (!activeMembership) {
+    activeMembership = memberships[0];
+  }
+
+  if (!activeMembership) {
+    return null;
+  }
 
   const activeSchool = activeMembership.schools as unknown as School;
-  const activeRole = activeMembership.roles as unknown as Role;
+  const activeRole = isSuperAdminUser
+    ? SUPER_ADMIN_ROLE_DEF
+    : (activeMembership.roles as unknown as Role);
 
   if (!activeSchool || !activeRole) {
     return null;
@@ -76,7 +149,11 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     rolePerms?.map((rp) => rp.permissions as unknown as Permission) || [];
 
   const permissionSet = new Set(permissions.map((p) => p.code));
-  if (["school_admin", "principal"].includes(activeRole.code)) {
+
+  if (
+    ["school_admin", "principal", "superadmin"].includes(activeRole.code) ||
+    isSuperAdminUser
+  ) {
     for (const code of [
       "students.manage",
       "students.import_export",
@@ -95,6 +172,9 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
       "attendance.view_all",
       "attendance.take_assigned",
       "audit.view",
+      "finance.manage",
+      "payments.record",
+      "school.platform.manage",
     ]) {
       permissionSet.add(code);
     }
@@ -135,31 +215,35 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   }
 
   // 5. Dynamic Dual-Role Resolution & Subscription Status:
-  // Check if staff member is appointed as a Class Master or HOD, and fetch school license
-  const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }] = await Promise.all([
-    supabase
-      .from("class_streams")
-      .select("id, name")
-      .eq("school_id", activeSchool.id)
-      .eq("class_master_id", authUser.id),
-    supabase
-      .from("hod_assignments")
-      .select("id, department_id")
-      .eq("school_id", activeSchool.id)
-      .eq("hod_user_id", authUser.id)
-      .eq("status", "active"),
-    supabase
-      .from("school_subscriptions")
-      .select("*")
-      .eq("school_id", activeSchool.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }] =
+    await Promise.all([
+      supabase
+        .from("class_streams")
+        .select("id, name")
+        .eq("school_id", activeSchool.id)
+        .eq("class_master_id", authUser.id),
+      supabase
+        .from("hod_assignments")
+        .select("id, department_id")
+        .eq("school_id", activeSchool.id)
+        .eq("hod_user_id", authUser.id)
+        .eq("status", "active"),
+      supabase
+        .from("school_subscriptions")
+        .select("*")
+        .eq("school_id", activeSchool.id)
+        .maybeSingle(),
+    ]);
 
   // Compute subscription state
   const now = Date.now();
   const trialEndsAt = subData?.trial_ends_at || null;
   const currentPeriodEnd = subData?.current_period_end || null;
-  const subStatus = (subData?.status || "trial") as "trial" | "active" | "past_due" | "canceled";
+  const subStatus = (subData?.status || "trial") as
+    | "trial"
+    | "active"
+    | "past_due"
+    | "canceled";
 
   let isExpired = false;
   let daysRemaining = 0;
@@ -197,18 +281,16 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     daysRemaining,
   };
 
-  // A teacher only has active Class Master status if assigned to at least one class stream
   const isClassMaster = Boolean(masteredStreams && masteredStreams.length > 0);
-  const isHod = (hodDepartments && hodDepartments.length > 0) || activeRole.code === "hod";
+  const isHod =
+    (hodDepartments && hodDepartments.length > 0) || activeRole.code === "hod";
 
-  // Grant dual-role permissions if appointed as Class Master
   if (isClassMaster) {
     permissionSet.add("report_cards.view");
     permissionSet.add("attendance.take_assigned");
     permissionSet.add("attendance.view_all");
   }
 
-  // Grant dual-role permissions if appointed as HOD
   if (isHod) {
     permissionSet.add("marks.view_department");
     permissionSet.add("marks.review_hod");
@@ -224,11 +306,12 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     membershipId: activeMembership.id,
     role: activeRole,
     permissions,
-    hasPermission: (code: string) => permissionSet.has(code),
+    hasPermission: (code: string) => isSuperAdminUser || permissionSet.has(code),
     isClassMaster,
     masteredStreamNames: masteredStreams?.map((s) => s.name) || [],
     isHod,
     subscription,
+    isSuperAdmin: isSuperAdminUser,
   };
 });
 
@@ -236,6 +319,7 @@ export function hasAnyPermission(
   context: ActiveTenantContext | null,
   permissionCodes: readonly string[]
 ): boolean {
+  if (context?.isSuperAdmin) return true;
   return Boolean(context && permissionCodes.some((code) => context.hasPermission(code)));
 }
 
@@ -248,6 +332,10 @@ export async function requirePermission(permissionCode: string): Promise<ActiveT
 
   if (!context) {
     throw new Error("Unauthorized: No active school session found.");
+  }
+
+  if (context.isSuperAdmin) {
+    return context;
   }
 
   if (!context.hasPermission(permissionCode)) {
@@ -268,6 +356,10 @@ export async function requireAnyPermission(
     throw new Error("Unauthorized: No active school session found.");
   }
 
+  if (context.isSuperAdmin) {
+    return context;
+  }
+
   if (!hasAnyPermission(context, permissionCodes)) {
     throw new Error(`Forbidden: Missing one of the required permissions [${permissionCodes.join(", ")}].`);
   }
@@ -277,6 +369,7 @@ export async function requireAnyPermission(
 
 /**
  * Returns all schools available to the current user (for school switcher).
+ * If user is Platform Superadmin, returns every active school on the platform.
  */
 export async function getUserSchools(): Promise<UserSchoolOption[]> {
   const supabase = await createClient();
@@ -288,7 +381,7 @@ export async function getUserSchools(): Promise<UserSchoolOption[]> {
     return [];
   }
 
-  const { data } = await supabase
+  const { data: userMemberships } = await supabase
     .from("school_memberships")
     .select(
       `
@@ -301,9 +394,37 @@ export async function getUserSchools(): Promise<UserSchoolOption[]> {
     .eq("user_id", user.id)
     .eq("status", "active");
 
-  if (!data) return [];
+  const isSuperAdminUser =
+    SUPER_ADMIN_EMAILS.includes(user.email?.toLowerCase() || "") ||
+    (userMemberships || []).some(
+      (m) => (m.roles as unknown as Role)?.code === "superadmin"
+    );
 
-  return data.map((item) => ({
+  if (isSuperAdminUser) {
+    const { data: allSchools } = await supabase
+      .from("schools")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+
+    if (allSchools && allSchools.length > 0) {
+      return allSchools.map((sch) => {
+        const directMem = (userMemberships || []).find(
+          (m) => m.schools && (m.schools as any).id === sch.id
+        );
+        return {
+          membershipId: directMem ? directMem.id : `super-${sch.id}`,
+          school: sch as unknown as School,
+          role: SUPER_ADMIN_ROLE_DEF,
+          status: "active",
+        };
+      });
+    }
+  }
+
+  if (!userMemberships) return [];
+
+  return userMemberships.map((item) => ({
     membershipId: item.id,
     school: item.schools as unknown as School,
     role: item.roles as unknown as Role,

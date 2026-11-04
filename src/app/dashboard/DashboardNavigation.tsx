@@ -17,6 +17,7 @@ import {
   History,
   ShieldCheck,
   Globe,
+  Building2,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -140,23 +141,26 @@ export default function DashboardNavigation({
   roleCode,
   isClassMaster = false,
   isHod = false,
+  isSuperAdmin = false,
   onNavClick,
 }: {
   className: string;
   roleCode?: string;
   isClassMaster?: boolean;
   isHod?: boolean;
+  isSuperAdmin?: boolean;
   onNavClick?: () => void;
 }) {
   const isTeacher = roleCode === "teacher" || roleCode === "class_master";
   const isBursar = roleCode === "bursar";
   const canAccessHod = isHod || roleCode === "hod";
   const canAccessClassMaster = isClassMaster || roleCode === "class_master";
+  const isSuper = isSuperAdmin || roleCode === "superadmin";
   const isAdmin =
     !roleCode ||
     roleCode === "school_admin" ||
     roleCode === "principal" ||
-    roleCode === "superadmin";
+    isSuper;
 
   const [currentHash, setCurrentHash] = useState("");
 
@@ -269,6 +273,21 @@ export default function DashboardNavigation({
             icon={Wallet}
             label="Fees, Payments & Receipts"
             sublabel="Set fees and record payments"
+            currentHash={currentHash}
+            onNavClick={onNavClick}
+          />
+        </>
+      )}
+
+      {/* Platform Tenancy (Superadmin) */}
+      {isSuper && (
+        <>
+          <NavSection label="Platform Tenancy" />
+          <NavLink
+            href="/dashboard/schools"
+            icon={Building2}
+            label="All Schools Network"
+            sublabel="Multi-tenant hub, switch & create schools"
             currentHash={currentHash}
             onNavClick={onNavClick}
           />
