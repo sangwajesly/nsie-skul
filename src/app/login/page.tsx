@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -16,8 +16,11 @@ import {
   WifiOff,
   AlertCircle,
   Phone,
-  Building2,
+  Eye,
+  EyeOff,
   Sparkles,
+  Building2,
+  ShieldCheck,
 } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import {
@@ -36,8 +39,24 @@ function LoginForm() {
   const urlError = searchParams.get("error");
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // Authentication mode: "code" (Default for teachers) vs "email" (Admins/Deans)
-  const [authTab, setAuthTab] = useState<"code" | "email">("code");
+  // URL parameters from WhatsApp 1-click links: ?p=677123456&c=T-101&s=BHS
+  const paramPhone = searchParams.get("p") || "";
+  const paramCode = searchParams.get("c") || "";
+  const paramSchool = searchParams.get("s") || "";
+
+  // View modes: "phone" (primary), "code" (staff slip), "admin" (email/password)
+  const [mode, setMode] = useState<"phone" | "code" | "admin">(
+    paramCode && !paramPhone ? "code" : "phone"
+  );
+
+  // Form field states
+  const [phone, setPhone] = useState(paramPhone);
+  const [staffCode, setStaffCode] = useState(paramCode);
+  const [schoolCode, setSchoolCode] = useState(paramSchool);
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(false);
+
+  const pinInputRef = useRef<HTMLInputElement>(null);
 
   // Server actions for both login modes
   const [emailState, emailFormAction, isEmailPending] = useActionState(loginAction, null);
@@ -49,17 +68,24 @@ function LoginForm() {
   const [hasPin, setHasPin] = useState(false);
   const [offlineProfile, setOfflineProfile] = useState<OfflineUserProfile | null>(null);
   const [isPinMode, setIsPinMode] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [pinSuccess, setPinSuccess] = useState(false);
-  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [offlinePin, setOfflinePin] = useState("");
+  const [offlinePinError, setOfflinePinError] = useState<string | null>(null);
+  const [offlinePinSuccess, setOfflinePinSuccess] = useState(false);
+  const [isVerifyingOfflinePin, setIsVerifyingOfflinePin] = useState(false);
 
-  // Pre-warm target destination route assets
+  // Pre-warm destination route
   useEffect(() => {
     router.prefetch(returnUrl);
   }, [router, returnUrl]);
 
-  // When cloud login succeeds, transition to dashboard
+  // When WhatsApp link provides phone or code, auto-focus PIN input
+  useEffect(() => {
+    if (paramPhone || paramCode) {
+      pinInputRef.current?.focus();
+    }
+  }, [paramPhone, paramCode]);
+
+  // Handle successful cloud redirects
   useEffect(() => {
     if (emailState && "redirectTo" in emailState) {
       setIsNavigating(true);
@@ -74,7 +100,7 @@ function LoginForm() {
     }
   }, [codeState, router]);
 
-  // Monitor network status & offline vault presence on this device
+  // Monitor network status & offline vault
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -89,14 +115,12 @@ function LoginForm() {
       setHasPin(pinExists);
       setOfflineProfile(profile);
 
-      // Auto-switch to PIN mode if completely offline and vault is active
       if (!online && vaultExists) {
         setIsPinMode(true);
       }
     };
 
     syncNetworkAndVault();
-
     window.addEventListener("online", syncNetworkAndVault);
     window.addEventListener("offline", syncNetworkAndVault);
 
@@ -108,43 +132,43 @@ function LoginForm() {
 
   const handleVerifyOfflinePin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPinError(null);
+    setOfflinePinError(null);
 
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      setPinError("Please enter your exact 4-digit PIN.");
+    if (offlinePin.length !== 4 || !/^\d{4}$/.test(offlinePin)) {
+      setOfflinePinError("Please enter your exact 4-digit PIN.");
       return;
     }
 
-    setIsVerifyingPin(true);
+    setIsVerifyingOfflinePin(true);
     try {
-      const valid = await verifyOfflinePin(pin);
+      const valid = await verifyOfflinePin(offlinePin);
       if (valid) {
-        setPinSuccess(true);
+        setOfflinePinSuccess(true);
         setOfflineUnlocked(true);
         setTimeout(() => {
           window.location.href = returnUrl || "/dashboard";
         }, 600);
       } else {
-        setPinError("Incorrect 4-digit PIN. Please try again.");
+        setOfflinePinError("Incorrect 4-digit PIN. Please try again.");
       }
     } catch {
-      setPinError("Verification error. Please retry.");
+      setOfflinePinError("Verification error. Please retry.");
     } finally {
-      setIsVerifyingPin(false);
+      setIsVerifyingOfflinePin(false);
     }
   };
 
   const activeError =
-    authTab === "code"
-      ? (codeState && "error" in codeState ? codeState.error : null) || urlError
-      : (emailState && "error" in emailState ? emailState.error : null) || urlError;
+    mode === "admin"
+      ? (emailState && "error" in emailState ? emailState.error : null) || urlError
+      : (codeState && "error" in codeState ? codeState.error : null) || urlError;
 
   const isBusy = isEmailPending || isCodePending || isNavigating;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
       <div className="w-full max-w-sm">
-        {/* Logo & Brand */}
+        {/* Logo & Platform Name */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-3 shadow-xs">
             <GraduationCap className="w-6 h-6" />
@@ -157,15 +181,15 @@ function LoginForm() {
           </p>
         </div>
 
-        {/* ── CARD CONTENT ── */}
+        {/* ── CARD WRAPPER ── */}
         <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-6 space-y-4">
-          {/* Offline Banner when network is unavailable */}
+          {/* Offline Banner when campus network drops */}
           {isOffline && (
             <div className="p-3 rounded-[6px] bg-[#2B1B04] text-[#FDE68A] border border-[#78350F] text-xs flex items-center gap-2">
               <WifiOff className="w-4 h-4 text-[#F59E0B] shrink-0" />
               <div>
                 <span className="font-bold">Offline: </span>
-                <span>No internet connection detected on this device.</span>
+                <span>No campus internet connection detected.</span>
               </div>
             </div>
           )}
@@ -193,8 +217,8 @@ function LoginForm() {
                     type="button"
                     onClick={() => {
                       setIsPinMode(false);
-                      setPinError(null);
-                      setPin("");
+                      setOfflinePinError(null);
+                      setOfflinePin("");
                     }}
                     className="text-[11px] text-[#2A7C13] hover:underline font-semibold cursor-pointer"
                   >
@@ -214,14 +238,14 @@ function LoginForm() {
                 </div>
               )}
 
-              {pinError && (
+              {offlinePinError && (
                 <div className="p-2.5 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>{pinError}</span>
+                  <span>{offlinePinError}</span>
                 </div>
               )}
 
-              {pinSuccess && (
+              {offlinePinSuccess && (
                 <div className="p-2.5 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-[#166534] shrink-0" />
                   <span>PIN verified! Opening offline teaching workspace…</span>
@@ -232,7 +256,7 @@ function LoginForm() {
                 <div className="p-3 rounded-[6px] bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-xs space-y-2">
                   <p className="font-bold">No Offline PIN configured on this browser.</p>
                   <p className="text-[11px]">
-                    To unlock your workspace offline, please connect to the internet once and set your 4-digit PIN in Dashboard Settings.
+                    To unlock your workspace offline, connect to the internet once and set your 4-digit PIN in Dashboard Settings.
                   </p>
                   {!isOffline && (
                     <button
@@ -255,27 +279,27 @@ function LoginForm() {
                       inputMode="numeric"
                       maxLength={4}
                       pattern="[0-9]{4}"
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      value={offlinePin}
+                      onChange={(e) => setOfflinePin(e.target.value.replace(/\D/g, "").slice(0, 4))}
                       placeholder="••••"
                       autoFocus
                       required
-                      disabled={isVerifyingPin || pinSuccess}
+                      disabled={isVerifyingOfflinePin || offlinePinSuccess}
                       className="w-full py-3 text-center text-2xl font-mono tracking-[0.5em] rounded-[6px] border border-[#D5CBB2] bg-[#FFFDF5] text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13]"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isVerifyingPin || pin.length !== 4 || pinSuccess}
+                    disabled={isVerifyingOfflinePin || offlinePin.length !== 4 || offlinePinSuccess}
                     className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-sm rounded-[6px] shadow-xs transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    {isVerifyingPin ? (
+                    {isVerifyingOfflinePin ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-white" />
                         <span>Verifying PIN…</span>
                       </>
-                    ) : pinSuccess ? (
+                    ) : offlinePinSuccess ? (
                       <>
                         <CheckCircle2 className="w-4 h-4 text-white" />
                         <span>Unlocked!</span>
@@ -287,149 +311,113 @@ function LoginForm() {
                       </>
                     )}
                   </button>
-
-                  {!isOffline && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsPinMode(false);
-                        setPinError(null);
-                        setPin("");
-                      }}
-                      className="w-full text-center text-xs text-[#525E4B] hover:text-[#142010] py-1 transition-colors cursor-pointer"
-                    >
-                      Use Teacher Code or Email instead
-                    </button>
-                  )}
                 </form>
               )}
             </div>
           ) : (
             /* ── MODE 2: CLOUD AUTHENTICATION ── */
             <>
-              {/* Segmented Top Tabs */}
-              <div className="grid grid-cols-2 p-1 rounded-[6px] bg-[#F7F3E8] border border-[#E8DFC9] text-xs">
-                <button
-                  type="button"
-                  onClick={() => setAuthTab("code")}
-                  className={`py-1.5 rounded-[4px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    authTab === "code"
-                      ? "bg-[#142010] text-white shadow-xs"
-                      : "text-[#555555] hover:text-[#142010]"
-                  }`}
-                >
-                  <KeyRound className="w-3.5 h-3.5 text-[#86EFAC]" />
-                  <span>Teacher Code / Phone</span>
-                </button>
+              {/* WhatsApp 1-Click Verification Banner */}
+              {paramPhone && (
+                <div className="p-3 rounded-[6px] bg-[#EBF5E9] border border-[#C3E4BC] text-xs text-[#1F5C0E] flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                  <div className="leading-tight">
+                    <span className="font-bold">Verified WhatsApp Link: </span>
+                    <span>Ready to log in for +237 {paramPhone}. Enter your PIN below.</span>
+                  </div>
+                </div>
+              )}
 
-                <button
-                  type="button"
-                  onClick={() => setAuthTab("email")}
-                  className={`py-1.5 rounded-[4px] font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    authTab === "email"
-                      ? "bg-[#142010] text-white shadow-xs"
-                      : "text-[#555555] hover:text-[#142010]"
-                  }`}
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Admin / Email</span>
-                </button>
-              </div>
-
+              {/* Status / Error Alerts */}
               {activeError && (
-                <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium">
-                  {activeError}
+                <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                  <span>{activeError}</span>
                 </div>
               )}
 
               {isNavigating && (
                 <div className="p-3 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#166534]" />
-                  <span>Signed in! Opening your classes…</span>
+                  <span>Verified! Opening your classes…</span>
                 </div>
               )}
 
-              {/* ── TAB A: TEACHER ACCESS CODE / PHONE LOGIN (Default) ── */}
-              {authTab === "code" ? (
-                <form action={codeFormAction} className="space-y-3.5">
+              {/* ── FLOW A: PHONE NUMBER & PIN (Default for 95% of Teachers) ── */}
+              {mode === "phone" && (
+                <form action={codeFormAction} className="space-y-4">
                   <input type="hidden" name="returnUrl" value={returnUrl} />
+                  <input type="hidden" name="identifier" value={phone} />
 
                   <div>
                     <label
-                      htmlFor="identifier"
-                      className="block text-xs font-semibold text-[#444444] mb-1"
+                      htmlFor="phone-input"
+                      className="block text-xs font-semibold text-[#444444] mb-1.5"
                     >
-                      Phone Number or Teacher Code
+                      Cameroon Mobile Phone (WhatsApp)
                     </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                        <Phone className="w-4 h-4" />
+                    <div className="relative flex rounded-[6px] border border-[#D5CBB2] bg-white focus-within:border-[#2A7C13] focus-within:ring-1 focus-within:ring-[#2A7C13] transition-all">
+                      <div className="flex items-center gap-1 pl-3 pr-2 border-r border-[#E8DFC9] bg-[#F7F3E8] text-[#444444] text-xs font-bold rounded-l-[5px] select-none">
+                        <span>🇨🇲</span>
+                        <span className="font-mono text-[11px] text-[#555555]">+237</span>
                       </div>
                       <input
-                        id="identifier"
-                        name="identifier"
-                        type="text"
+                        id="phone-input"
+                        type="tel"
+                        inputMode="tel"
                         required
                         disabled={isBusy}
-                        autoFocus
-                        placeholder="e.g. 677 12 34 56 or T-101"
-                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60 font-mono"
+                        autoComplete="tel-national"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                        placeholder="677 12 34 56"
+                        className="w-full px-3 py-2.5 text-sm font-mono text-[#142010] placeholder-[#BBBBBB] bg-transparent focus:outline-none"
                       />
                     </div>
                     <p className="mt-1 text-[11px] text-[#788470]">
-                      Enter your Cameroon WhatsApp phone number or staff code from your slip.
+                      Your 9-digit MTN or Orange number registered by your school.
                     </p>
                   </div>
 
                   <div>
                     <label
-                      htmlFor="schoolCode"
-                      className="block text-xs font-semibold text-[#444444] mb-1"
-                    >
-                      School Code (optional)
-                    </label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <input
-                        id="schoolCode"
-                        name="schoolCode"
-                        type="text"
-                        disabled={isBusy}
-                        placeholder="e.g. BHS (leave blank if unsure)"
-                        className="w-full pl-9 pr-4 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] uppercase font-mono disabled:opacity-60"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="pin"
-                      className="block text-xs font-semibold text-[#444444] mb-1"
+                      htmlFor="pin-phone-input"
+                      className="block text-xs font-semibold text-[#444444] mb-1.5"
                     >
                       4 to 6 Digit PIN
                     </label>
                     <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                        <Lock className="w-4 h-4" />
-                      </div>
                       <input
-                        id="pin"
+                        id="pin-phone-input"
+                        ref={pinInputRef}
                         name="pin"
-                        type="password"
+                        type={showPin ? "text" : "password"}
                         inputMode="numeric"
+                        maxLength={6}
                         required
                         disabled={isBusy}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         placeholder="••••••"
-                        className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60 font-mono tracking-widest"
+                        className="w-full pl-3 pr-10 py-2.5 text-base font-mono tracking-[0.3em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#888888] hover:text-[#142010] cursor-pointer"
+                        title={showPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-[#788470]">
+                      <span>Initial PIN is usually <strong>123456</strong></span>
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    disabled={isBusy}
+                    disabled={isBusy || phone.length < 9 || pin.length < 4}
                     className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
                     {isBusy ? (
@@ -444,62 +432,196 @@ function LoginForm() {
                       </>
                     )}
                   </button>
+
+                  {/* Alternative link for Staff Slip Code */}
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setMode("code")}
+                      className="text-xs text-[#525E4B] hover:text-[#142010] font-medium hover:underline cursor-pointer"
+                    >
+                      Have a Paper Staff Slip? Use Staff Code instead →
+                    </button>
+                  </div>
                 </form>
-              ) : (
-                /* ── TAB B: ADMIN / EMAIL LOGIN ── */
-                <>
+              )}
+
+              {/* ── FLOW B: STAFF CODE & SCHOOL CODE (For Paper Slip Holders) ── */}
+              {mode === "code" && (
+                <form action={codeFormAction} className="space-y-4">
+                  <input type="hidden" name="returnUrl" value={returnUrl} />
+                  <input type="hidden" name="identifier" value={staffCode} />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label
+                        htmlFor="school-code-input"
+                        className="block text-xs font-semibold text-[#444444] mb-1"
+                      >
+                        School Code
+                      </label>
+                      <input
+                        id="school-code-input"
+                        name="schoolCode"
+                        type="text"
+                        required
+                        disabled={isBusy}
+                        value={schoolCode}
+                        onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. BHS"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="staff-code-input"
+                        className="block text-xs font-semibold text-[#444444] mb-1"
+                      >
+                        Teacher Code
+                      </label>
+                      <input
+                        id="staff-code-input"
+                        type="text"
+                        required
+                        disabled={isBusy}
+                        value={staffCode}
+                        onChange={(e) => setStaffCode(e.target.value.toUpperCase())}
+                        placeholder="e.g. T-101"
+                        className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="pin-code-input"
+                      className="block text-xs font-semibold text-[#444444] mb-1"
+                    >
+                      4 to 6 Digit PIN
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="pin-code-input"
+                        name="pin"
+                        type={showPin ? "text" : "password"}
+                        inputMode="numeric"
+                        maxLength={6}
+                        required
+                        disabled={isBusy}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                        placeholder="••••••"
+                        className="w-full pl-3 pr-10 py-2.5 text-base font-mono tracking-[0.3em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPin(!showPin)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#888888] hover:text-[#142010] cursor-pointer"
+                        title={showPin ? "Hide PIN" : "Show PIN"}
+                      >
+                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isBusy || !staffCode || pin.length < 4}
+                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isBusy ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Verifying Access…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Sign In with Code</span>
+                        <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setMode("phone")}
+                      className="text-xs text-[#525E4B] hover:text-[#142010] font-medium hover:underline cursor-pointer"
+                    >
+                      ← Back to Phone Number Login
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* ── FLOW C: SCHOOL ADMINISTRATOR / EMAIL LOGIN ── */}
+              {mode === "admin" && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#E8DFC9]">
+                    <span className="text-xs font-bold text-[#142010] flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#2A7C13]" />
+                      <span>Administrator Access</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setMode("phone")}
+                      className="text-[11px] text-[#2A7C13] hover:underline font-semibold cursor-pointer"
+                    >
+                      ← Teacher Login
+                    </button>
+                  </div>
+
                   {/* 1-Click Google Sign In */}
                   <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
 
-                  {/* Clean Divider */}
-                  <div className="relative flex items-center justify-center my-3">
+                  <div className="relative flex items-center justify-center my-2">
                     <div className="border-t border-[#E8DFC9] w-full" />
-                    <span className="bg-white px-2.5 text-[10.5px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
-                      or with password
+                    <span className="bg-white px-2.5 text-[10px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
+                      or admin password
                     </span>
                     <div className="border-t border-[#E8DFC9] w-full" />
                   </div>
 
-                  <form action={emailFormAction} className="space-y-4">
+                  <form action={emailFormAction} className="space-y-3.5">
                     <input type="hidden" name="returnUrl" value={returnUrl} />
 
                     <div>
                       <label
-                        htmlFor="email"
-                        className="block text-xs font-semibold text-[#444444] mb-1.5"
+                        htmlFor="admin-email"
+                        className="block text-xs font-semibold text-[#444444] mb-1"
                       >
-                        Admin Email Address
+                        Email Address
                       </label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
                           <Mail className="w-4 h-4" />
                         </div>
                         <input
-                          id="email"
+                          id="admin-email"
                           name="email"
                           type="email"
                           required
                           disabled={isBusy}
                           autoComplete="email"
                           placeholder="principal@school.cm"
-                          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1">
                         <label
-                          htmlFor="password"
+                          htmlFor="admin-password"
                           className="text-xs font-semibold text-[#444444]"
                         >
                           Password
                         </label>
                         <Link
                           href="/forgot-password"
-                          className="text-xs font-medium text-[#2A7C13] hover:underline"
+                          className="text-[11px] font-medium text-[#2A7C13] hover:underline"
                         >
-                          Forgot password?
+                          Forgot?
                         </Link>
                       </div>
                       <div className="relative">
@@ -507,14 +629,14 @@ function LoginForm() {
                           <Lock className="w-4 h-4" />
                         </div>
                         <input
-                          id="password"
+                          id="admin-password"
                           name="password"
                           type="password"
                           required
                           disabled={isBusy}
                           autoComplete="current-password"
                           placeholder="••••••••"
-                          className="w-full pl-9 pr-4 py-2.5 text-sm rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                          className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
                         />
                       </div>
                     </div>
@@ -522,7 +644,7 @@ function LoginForm() {
                     <button
                       type="submit"
                       disabled={isBusy}
-                      className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#1e3318] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-xs rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                     >
                       {isBusy ? (
                         <>
@@ -532,12 +654,12 @@ function LoginForm() {
                       ) : (
                         <>
                           <span>Sign in to Dashboard</span>
-                          <ArrowRight className="w-4 h-4" />
+                          <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
                         </>
                       )}
                     </button>
                   </form>
-                </>
+                </div>
               )}
 
               {/* Offline PIN toggle button if device has offline vault */}
@@ -557,7 +679,20 @@ function LoginForm() {
           )}
         </div>
 
-        <p className="text-center text-xs text-[#777777] mt-5">
+        {/* Quiet Admin Footer Switcher */}
+        {mode !== "admin" && (
+          <div className="text-center mt-4">
+            <button
+              type="button"
+              onClick={() => setMode("admin")}
+              className="text-xs text-[#777777] hover:text-[#142010] hover:underline font-medium cursor-pointer"
+            >
+              School Administrator or Bursar? Sign in with Email →
+            </button>
+          </div>
+        )}
+
+        <p className="text-center text-xs text-[#777777] mt-3">
           Need school admin access?{" "}
           <Link
             href="/register"
@@ -567,14 +702,14 @@ function LoginForm() {
           </Link>
         </p>
 
-        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-4">
+        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-3">
           <Link href="/terms" className="hover:text-[#2A7C13] hover:underline">Terms of Service</Link>
           <span>•</span>
           <Link href="/privacy" className="hover:text-[#2A7C13] hover:underline">Privacy Policy</Link>
         </div>
 
         <p className="text-center text-[10px] text-[#AAAAAA] mt-2">
-          © {new Date().getFullYear()} Nsei Sukul · Management Systems · Built for Cameroon Secondary Education
+          © {new Date().getFullYear()} Nsei Sukul · Management Systems · nsei-sukul.klarifypath.com
         </p>
       </div>
     </div>

@@ -185,7 +185,7 @@ export default function StaffRolesClient({
   }
 
   const generateWhatsAppMessage = (name: string, code: string, pin: string, phone: string) => {
-    const text = `Good day ${name}, your Nsei Sukul teacher login for ${schoolName} is ready:\n\n• Website: https://nseisukul.com/login\n• Phone: ${phone}\n• School Code: ${schoolCode}\n• Teacher Code: ${code}\n• PIN: ${pin}\n\nYou can log in directly on your phone to submit marks.`;
+    const text = `Good day ${name}, your Nsei Sukul teacher login for ${schoolName} is ready:\n\n1-Click Direct Login:\nhttps://nsei-sukul.klarifypath.com/login?p=${phone}&c=${code}&s=${schoolCode}\n\nYour Login Details:\n• Phone: +237 ${phone}\n• School Code: ${schoolCode}\n• Teacher Code: ${code}\n• Initial PIN: ${pin}\n\nTap the 1-click link above directly on your phone to open your classes and submit marks.`;
     return `https://api.whatsapp.com/send?phone=237${phone}&text=${encodeURIComponent(text)}`;
   };
 
@@ -667,7 +667,7 @@ export default function StaffRolesClient({
                 </div>
                 <div className="flex justify-between pt-1 border-t border-[#E8DFC9] text-[11px]">
                   <span className="text-[#777777]">Login Website:</span>
-                  <span className="font-semibold text-[#2A7C13]">nseisukul.com/login</span>
+                  <span className="font-semibold text-[#2A7C13]">nsei-sukul.klarifypath.com/login</span>
                 </div>
               </div>
             </div>
@@ -693,7 +693,7 @@ export default function StaffRolesClient({
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `Nsei Sukul Teacher Login for ${registeredResult.schoolName}\nWebsite: https://nseisukul.com/login\nPhone: +237 ${registeredResult.phone}\nSchool Code: ${registeredResult.schoolCode}\nTeacher Code: ${registeredResult.accessCode}\nPIN: ${registeredResult.pin}`;
+                    const text = `Nsei Sukul Teacher Login for ${registeredResult.schoolName}\nWebsite: https://nsei-sukul.klarifypath.com/login\nPhone: +237 ${registeredResult.phone}\nSchool Code: ${registeredResult.schoolCode}\nTeacher Code: ${registeredResult.accessCode}\nPIN: ${registeredResult.pin}`;
                     handleCopyText(text);
                   }}
                   className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[5px] border border-[#D5CBB2] bg-white hover:bg-[#F7F3E8] text-xs font-semibold text-[#444444] transition-colors cursor-pointer"

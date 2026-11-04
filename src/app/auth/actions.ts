@@ -6,6 +6,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ACTIVE_SCHOOL_COOKIE } from "@/lib/tenancy/context";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import {
+  checkLoginRateLimit,
+  recordFailedLoginAttempt,
+  resetLoginRateLimit,
+} from "@/lib/auth/rate-limiter";
 
 const LoginSchema = z.object({
   email: z.string().email("Please provide a valid email address."),
@@ -33,6 +38,14 @@ export async function loginAction(
     return { error: validation.error.issues[0].message };
   }
 
+  // Rate limiting by email
+  const rateCheck = checkLoginRateLimit(email);
+  if (!rateCheck.allowed) {
+    return {
+      error: `Too many failed login attempts. Please wait ${rateCheck.retryAfterSeconds || 60} seconds before trying again.`,
+    };
+  }
+
   let supabase;
   try {
     supabase = await createClient();
@@ -47,8 +60,16 @@ export async function loginAction(
   });
 
   if (error) {
-    return { error: error.message };
+    const attempt = recordFailedLoginAttempt(email);
+    if (attempt.blocked) {
+      return {
+        error: `Account temporarily locked for ${attempt.retryAfterSeconds || 60} seconds due to multiple failed attempts.`,
+      };
+    }
+    return { error: "Invalid email or password. Please try again." };
   }
+
+  resetLoginRateLimit(email);
 
   const { data: memberships, error: membershipsError } = await supabase
     .from("school_memberships")
@@ -61,11 +82,9 @@ export async function loginAction(
   }
 
   if (!memberships || memberships.length === 0) {
-    // Authenticated but not linked to any school yet
     return { redirectTo: "/onboarding" };
   }
 
-  // Honour only known internal destinations after authentication.
   const safePath =
     returnUrl === "/dashboard" ||
     returnUrl.startsWith("/dashboard/") ||
@@ -79,7 +98,6 @@ export async function loginAction(
     };
   }
 
-  // Preserve active school cookie for session
   const cookieStore = await cookies();
   cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
     httpOnly: true,
@@ -88,7 +106,6 @@ export async function loginAction(
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
   });
-
 
   return { redirectTo: safePath };
 }
@@ -103,10 +120,18 @@ export async function loginWithTeacherCodeAction(
   const returnUrl = (formData.get("returnUrl") as string) || "/dashboard";
 
   if (!identifier) {
-    return { error: "Please enter your Phone Number or Teacher Access Code." };
+    return { error: "Please enter your Cameroon phone number or staff code." };
   }
   if (!pin) {
     return { error: "Please enter your 4 to 6 digit PIN." };
+  }
+
+  // Rate limiting check
+  const rateCheck = checkLoginRateLimit(identifier);
+  if (!rateCheck.allowed) {
+    return {
+      error: `Too many failed attempts. For security, please wait ${rateCheck.retryAfterSeconds || 60} seconds before trying again.`,
+    };
   }
 
   let supabase;
@@ -121,16 +146,15 @@ export async function loginWithTeacherCodeAction(
   let userEmail: string | null = null;
   let preselectedSchoolId: string | null = null;
 
-  // Clean identifier
+  // Clean identifier (strip all non-digit characters)
   const cleanDigits = identifier.replace(/\D/g, "");
   const isLikelyPhone =
-    (cleanDigits.length === 9 && cleanDigits.startsWith("6")) ||
-    (cleanDigits.length === 9 && cleanDigits.startsWith("2")) ||
+    (cleanDigits.length === 9 && (cleanDigits.startsWith("6") || cleanDigits.startsWith("2"))) ||
     (cleanDigits.startsWith("237") && cleanDigits.length === 12);
 
   if (isLikelyPhone) {
     const phone9 = cleanDigits.startsWith("237") ? cleanDigits.slice(3) : cleanDigits;
-    // Look up user profile by phone or synthetic email
+    // Look up user profile by phone or synthetic internal email
     const { data: profile } = await admin
       .from("user_profiles")
       .select("id, email, phone")
@@ -180,9 +204,15 @@ export async function loginWithTeacherCodeAction(
   }
 
   if (!userEmail) {
+    const attempt = recordFailedLoginAttempt(identifier);
+    if (attempt.blocked) {
+      return {
+        error: `Too many failed attempts. Access temporarily locked for ${attempt.retryAfterSeconds || 60} seconds for security.`,
+      };
+    }
     return {
       error:
-        "No teacher account found matching those details. Check your phone number, school code, or ask your school administrator for your access slip.",
+        "No teacher account found matching those details. Please check your phone number or ask your school administrator for your access slip.",
     };
   }
 
@@ -192,10 +222,19 @@ export async function loginWithTeacherCodeAction(
   });
 
   if (error) {
+    const attempt = recordFailedLoginAttempt(identifier);
+    if (attempt.blocked) {
+      return {
+        error: `Too many incorrect PIN attempts. Access locked for ${attempt.retryAfterSeconds || 60} seconds for security.`,
+      };
+    }
     return {
-      error: "Incorrect PIN. Please re-enter your teacher PIN or contact your school administrator.",
+      error: `Incorrect PIN. Please re-enter your teacher PIN (${attempt.remainingAttempts} attempts remaining).`,
     };
   }
+
+  // Reset rate limiting on successful authentication
+  resetLoginRateLimit(identifier);
 
   // Get active school memberships
   const { data: memberships, error: membershipsError } = await supabase
@@ -280,7 +319,6 @@ export async function registerAction(
   }
 
   if (data.user) {
-    // Create a user_profile row so the rest of the app can resolve identity
     await supabase.from("user_profiles").upsert({
       id: data.user.id,
       full_name: fullName,
@@ -288,7 +326,6 @@ export async function registerAction(
     });
   }
 
-  // New users always go to onboarding first (no school membership yet)
   return { redirectTo: "/onboarding" };
 }
 
