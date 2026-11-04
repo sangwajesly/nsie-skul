@@ -103,13 +103,13 @@ export function hasOfflinePin(): boolean {
 }
 
 /**
- * Set or update the 4-digit offline PIN
+ * Set or update the offline PIN (supports 4 to 12 characters/digits)
  */
 export async function setOfflinePin(pin: string): Promise<{ success: boolean; error?: string }> {
   if (typeof window === "undefined") return { success: false, error: "Window unavailable" };
   const cleanPin = pin.trim();
-  if (!/^\d{4}$/.test(cleanPin)) {
-    return { success: false, error: "PIN must be exactly 4 numeric digits." };
+  if (cleanPin.length < 4 || cleanPin.length > 12) {
+    return { success: false, error: "PIN must be between 4 and 12 characters." };
   }
 
   const salt = crypto.randomUUID();
@@ -118,6 +118,27 @@ export async function setOfflinePin(pin: string): Promise<{ success: boolean; er
   localStorage.setItem(VAULT_KEY_PIN_SALT, salt);
   localStorage.setItem(VAULT_KEY_PIN_HASH, hash);
   return { success: true };
+}
+
+/**
+ * Automatically cache teacher credentials upon successful cloud login
+ * so the exact same PIN/code works offline without separate configuration.
+ */
+export async function saveOfflineTeacherCredentials(identifier: string, pin: string): Promise<void> {
+  if (typeof window === "undefined") return;
+  const cleanPin = pin.trim();
+  if (cleanPin.length >= 4) {
+    await setOfflinePin(cleanPin);
+    localStorage.setItem("nsei_offline_identifier", identifier.trim());
+  }
+}
+
+/**
+ * Retrieve cached offline identifier (phone or staff code)
+ */
+export function getOfflineIdentifier(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("nsei_offline_identifier");
 }
 
 /**

@@ -144,8 +144,8 @@ export function OfflineVaultSynchronizer({
     e.preventDefault();
     setPinError(null);
 
-    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-      setPinError("PIN must be exactly 4 numeric digits.");
+    if (pin.length < 4 || pin.length > 12) {
+      setPinError("PIN must be between 4 and 12 characters.");
       return;
     }
 
@@ -227,7 +227,7 @@ export function OfflineVaultSynchronizer({
 
       {/* 4-Digit Offline PIN Setup Modal */}
       {showPinModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-in fade-in duration-150">
           <div className="bg-white rounded-[12px] border border-[#E8DFC9] shadow-2xl max-w-sm w-full p-6 space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
@@ -316,7 +316,7 @@ export function OfflineVaultSynchronizer({
                 </button>
                 <button
                   type="submit"
-                  disabled={isSettingPin || pin.length !== 4 || confirmPin.length !== 4}
+                  disabled={isSettingPin || pin.length < 4 || confirmPin.length < 4}
                   className="px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-xs"
                 >
                   {isSettingPin ? "Saving PIN..." : "Save Offline PIN"}

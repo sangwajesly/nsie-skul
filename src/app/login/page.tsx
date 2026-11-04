@@ -12,24 +12,22 @@ import {
   Mail,
   Loader2,
   CheckCircle2,
-  KeyRound,
-  WifiOff,
   AlertCircle,
   Phone,
   Eye,
   EyeOff,
   Sparkles,
   Building2,
-  ShieldCheck,
+  WifiOff,
 } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import {
   hasOfflineVault,
-  hasOfflinePin,
-  getOfflineSession,
   verifyOfflinePin,
   setOfflineUnlocked,
+  saveOfflineTeacherCredentials,
   type OfflineUserProfile,
+  getOfflineSession,
 } from "@/lib/offline/offline-auth";
 
 function LoginForm() {
@@ -39,53 +37,46 @@ function LoginForm() {
   const urlError = searchParams.get("error");
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // URL parameters from WhatsApp 1-click links: ?p=677123456&c=T-101&s=BHS
+  // URL parameters from 1-click WhatsApp links: ?p=677123456&c=T-101&s=BHS
   const paramPhone = searchParams.get("p") || "";
   const paramCode = searchParams.get("c") || "";
   const paramSchool = searchParams.get("s") || "";
 
-  // View modes: "phone" (primary), "code" (staff slip), "admin" (email/password)
-  const [mode, setMode] = useState<"phone" | "code" | "admin">(
-    paramCode && !paramPhone ? "code" : "phone"
-  );
+  // Audience Tabs: "teacher" (Default for 95% of users) vs "admin" (School management)
+  const [roleTab, setRoleTab] = useState<"teacher" | "admin">("teacher");
 
-  // Form field states
-  const [phone, setPhone] = useState(paramPhone);
-  const [staffCode, setStaffCode] = useState(paramCode);
-  const [schoolCode, setSchoolCode] = useState(paramSchool);
+  // Input states
+  const [identifier, setIdentifier] = useState(paramPhone || paramCode || "");
+  const [schoolCode, setSchoolCode] = useState(paramSchool || "");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
 
   const pinInputRef = useRef<HTMLInputElement>(null);
 
-  // Server actions for both login modes
+  // Server actions
   const [emailState, emailFormAction, isEmailPending] = useActionState(loginAction, null);
   const [codeState, codeFormAction, isCodePending] = useActionState(loginWithTeacherCodeAction, null);
 
-  // Offline detection & PIN vault state
+  // Offline status
   const [isOffline, setIsOffline] = useState(false);
-  const [hasVault, setHasVault] = useState(false);
-  const [hasPin, setHasPin] = useState(false);
   const [offlineProfile, setOfflineProfile] = useState<OfflineUserProfile | null>(null);
-  const [isPinMode, setIsPinMode] = useState(false);
-  const [offlinePin, setOfflinePin] = useState("");
-  const [offlinePinError, setOfflinePinError] = useState<string | null>(null);
-  const [offlinePinSuccess, setOfflinePinSuccess] = useState(false);
-  const [isVerifyingOfflinePin, setIsVerifyingOfflinePin] = useState(false);
+  const [offlineError, setOfflineError] = useState<string | null>(null);
+  const [offlineSuccess, setOfflineSuccess] = useState(false);
+  const [isVerifyingOffline, setIsVerifyingOffline] = useState(false);
 
   // Pre-warm destination route
   useEffect(() => {
     router.prefetch(returnUrl);
   }, [router, returnUrl]);
 
-  // When WhatsApp link provides phone or code, auto-focus PIN input
+  // When WhatsApp parameters are present, auto-focus PIN
   useEffect(() => {
     if (paramPhone || paramCode) {
       pinInputRef.current?.focus();
     }
   }, [paramPhone, paramCode]);
 
-  // Handle successful cloud redirects
+  // Handle successful cloud login & cache PIN automatically for offline use
   useEffect(() => {
     if (emailState && "redirectTo" in emailState) {
       setIsNavigating(true);
@@ -96,616 +87,389 @@ function LoginForm() {
   useEffect(() => {
     if (codeState && "redirectTo" in codeState) {
       setIsNavigating(true);
+      // Seamlessly cache credentials so the exact same PIN works offline!
+      if (pin && identifier) {
+        saveOfflineTeacherCredentials(identifier, pin);
+      }
       router.replace(codeState.redirectTo);
     }
-  }, [codeState, router]);
+  }, [codeState, router, pin, identifier]);
 
-  // Monitor network status & offline vault
+  // Monitor connectivity & offline profile
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const syncNetworkAndVault = () => {
+    const syncStatus = () => {
       const online = navigator.onLine;
-      const vaultExists = hasOfflineVault();
-      const pinExists = hasOfflinePin();
-      const profile = getOfflineSession();
-
       setIsOffline(!online);
-      setHasVault(vaultExists);
-      setHasPin(pinExists);
-      setOfflineProfile(profile);
-
-      if (!online && vaultExists) {
-        setIsPinMode(true);
-      }
+      setOfflineProfile(getOfflineSession());
     };
 
-    syncNetworkAndVault();
-    window.addEventListener("online", syncNetworkAndVault);
-    window.addEventListener("offline", syncNetworkAndVault);
+    syncStatus();
+    window.addEventListener("online", syncStatus);
+    window.addEventListener("offline", syncStatus);
 
     return () => {
-      window.removeEventListener("online", syncNetworkAndVault);
-      window.removeEventListener("offline", syncNetworkAndVault);
+      window.removeEventListener("online", syncStatus);
+      window.removeEventListener("offline", syncStatus);
     };
   }, []);
 
-  const handleVerifyOfflinePin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setOfflinePinError(null);
+  // Seamless offline login handler: uses the EXACT SAME form inputs
+  const handleTeacherSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      e.preventDefault();
+      setOfflineError(null);
 
-    if (offlinePin.length !== 4 || !/^\d{4}$/.test(offlinePin)) {
-      setOfflinePinError("Please enter your exact 4-digit PIN.");
-      return;
-    }
-
-    setIsVerifyingOfflinePin(true);
-    try {
-      const valid = await verifyOfflinePin(offlinePin);
-      if (valid) {
-        setOfflinePinSuccess(true);
-        setOfflineUnlocked(true);
-        setTimeout(() => {
-          window.location.href = returnUrl || "/dashboard";
-        }, 600);
-      } else {
-        setOfflinePinError("Incorrect 4-digit PIN. Please try again.");
+      if (!pin || pin.trim().length < 4) {
+        setOfflineError("Please enter your 4 to 6 digit PIN.");
+        return;
       }
-    } catch {
-      setOfflinePinError("Verification error. Please retry.");
-    } finally {
-      setIsVerifyingOfflinePin(false);
+
+      setIsVerifyingOffline(true);
+      try {
+        const valid = await verifyOfflinePin(pin);
+        if (valid) {
+          setOfflineSuccess(true);
+          setOfflineUnlocked(true);
+          setTimeout(() => {
+            window.location.href = returnUrl || "/dashboard";
+          }, 500);
+        } else {
+          setOfflineError("Incorrect PIN for offline access. Please check your PIN.");
+          setIsVerifyingOffline(false);
+        }
+      } catch {
+        setOfflineError("Offline verification failed. Please check your PIN.");
+        setIsVerifyingOffline(false);
+      }
     }
   };
 
+  const isNumericOnly = /^\d+$/.test(identifier.replace(/[\s+-]/g, ""));
   const activeError =
-    mode === "admin"
+    roleTab === "admin"
       ? (emailState && "error" in emailState ? emailState.error : null) || urlError
-      : (codeState && "error" in codeState ? codeState.error : null) || urlError;
+      : offlineError || (codeState && "error" in codeState ? codeState.error : null) || urlError;
 
-  const isBusy = isEmailPending || isCodePending || isNavigating;
+  const isBusy = isEmailPending || isCodePending || isNavigating || isVerifyingOffline;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#FFFDF5] p-4 text-[#142010]">
       <div className="w-full max-w-sm">
-        {/* Logo & Platform Name */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-3 shadow-xs">
-            <GraduationCap className="w-6 h-6" />
+        {/* Brand Header */}
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-2.5 shadow-xs">
+            <GraduationCap className="w-6 h-6 text-[#86EFAC]" />
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-[#142010]">
+          <h1 className="text-2xl font-black tracking-tight text-[#142010]">
             Nsei Sukul
           </h1>
-          <p className="text-[11px] font-bold uppercase tracking-wider text-[#788470] mt-0.5">
-            Management Systems
+          <p className="text-[11px] font-bold uppercase tracking-wider text-[#687660] mt-0.5">
+            Secondary School Management
           </p>
         </div>
 
-        {/* ── CARD WRAPPER ── */}
-        <div className="bg-white border border-[#E8DFC9] rounded-[10px] shadow-sm p-6 space-y-4">
-          {/* Offline Banner when campus network drops */}
+        {/* ── CARD ── */}
+        <div className="bg-white border border-[#E8DFC9] rounded-[12px] shadow-sm p-6 space-y-4">
+          {/* Two Clear Audience Tabs */}
+          <div className="grid grid-cols-2 p-1 rounded-[8px] bg-[#F7F3E8] border border-[#E8DFC9] text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                setRoleTab("teacher");
+                setOfflineError(null);
+              }}
+              className={`py-2 rounded-[6px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                roleTab === "teacher"
+                  ? "bg-[#142010] text-white shadow-xs"
+                  : "text-[#555555] hover:text-[#142010]"
+              }`}
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-[#86EFAC]" />
+              <span>Teacher &amp; Staff</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setRoleTab("admin");
+                setOfflineError(null);
+              }}
+              className={`py-2 rounded-[6px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                roleTab === "admin"
+                  ? "bg-[#142010] text-white shadow-xs"
+                  : "text-[#555555] hover:text-[#142010]"
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#86EFAC]" />
+              <span>School Admin</span>
+            </button>
+          </div>
+
+          {/* Offline Status Badge */}
           {isOffline && (
-            <div className="p-3 rounded-[6px] bg-[#2B1B04] text-[#FDE68A] border border-[#78350F] text-xs flex items-center gap-2">
-              <WifiOff className="w-4 h-4 text-[#F59E0B] shrink-0" />
-              <div>
-                <span className="font-bold">Offline: </span>
-                <span>No campus internet connection detected.</span>
+            <div className="p-2.5 rounded-[6px] bg-[#FFF8CF] border border-[#FBE6C2] text-xs text-[#7A5B00] flex items-center gap-2">
+              <WifiOff className="w-4 h-4 text-[#B45309] shrink-0" />
+              <div className="leading-tight">
+                <span className="font-bold">Offline Mode: </span>
+                <span>Enter your Teacher PIN to open your cached workspace.</span>
               </div>
             </div>
           )}
 
-          {/* ── MODE 1: OFFLINE 4-DIGIT PIN KEYPAD ── */}
-          {isPinMode ? (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-[#E8DFC9]">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-full bg-[#142010] text-[#86EFAC]">
-                    <KeyRound className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-extrabold text-[#142010]">
-                      Offline Workspace Unlock
-                    </h2>
-                    <p className="text-[11px] text-[#525E4B]">
-                      {offlineProfile?.schoolName || "Local Cached Session"}
-                    </p>
-                  </div>
-                </div>
+          {/* WhatsApp 1-Click Verification Banner */}
+          {paramPhone && roleTab === "teacher" && (
+            <div className="p-2.5 rounded-[6px] bg-[#EBF5E9] border border-[#C3E4BC] text-xs text-[#1F5C0E] flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#2A7C13] shrink-0" />
+              <span className="font-semibold">
+                WhatsApp Link Verified: +237 {paramPhone}
+              </span>
+            </div>
+          )}
 
-                {!isOffline && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsPinMode(false);
-                      setOfflinePinError(null);
-                      setOfflinePin("");
-                    }}
-                    className="text-[11px] text-[#2A7C13] hover:underline font-semibold cursor-pointer"
-                  >
-                    Cloud Login
-                  </button>
-                )}
+          {/* Error Message */}
+          {activeError && (
+            <div className="p-2.5 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <span>{activeError}</span>
+            </div>
+          )}
+
+          {/* Success Transitions */}
+          {(isNavigating || offlineSuccess) && (
+            <div className="p-2.5 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
+              {offlineSuccess ? (
+                <CheckCircle2 className="w-4 h-4 text-[#166534] shrink-0" />
+              ) : (
+                <Loader2 className="w-4 h-4 animate-spin text-[#166534] shrink-0" />
+              )}
+              <span>Opening your classes and marksheets…</span>
+            </div>
+          )}
+
+          {/* ── AUDIENCE 1: TEACHER & STAFF LOGIN (Unified Online & Offline) ── */}
+          {roleTab === "teacher" ? (
+            <form action={codeFormAction} onSubmit={handleTeacherSubmit} className="space-y-3.5">
+              <input type="hidden" name="returnUrl" value={returnUrl} />
+              <input type="hidden" name="schoolCode" value={schoolCode} />
+
+              <div>
+                <label
+                  htmlFor="teacher-identifier"
+                  className="block text-xs font-semibold text-[#444444] mb-1"
+                >
+                  Cameroon Phone or Staff Code
+                </label>
+                <div className="relative flex rounded-[6px] border border-[#D5CBB2] bg-white focus-within:border-[#2A7C13] focus-within:ring-1 focus-within:ring-[#2A7C13] transition-all">
+                  {isNumericOnly && identifier.length > 2 && (
+                    <div className="flex items-center gap-1 pl-2.5 pr-2 border-r border-[#E8DFC9] bg-[#F7F3E8] text-[#444444] text-[11px] font-bold select-none">
+                      <span>🇨🇲</span>
+                      <span className="font-mono text-[#555555]">+237</span>
+                    </div>
+                  )}
+                  <input
+                    id="teacher-identifier"
+                    name="identifier"
+                    type="text"
+                    required
+                    disabled={isBusy}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="e.g. 677 12 34 56 or T-101"
+                    className="w-full px-3 py-2.5 text-xs font-mono font-medium text-[#142010] placeholder-[#BBBBBB] bg-transparent focus:outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-[10.5px] text-[#788470]">
+                  Enter your WhatsApp phone number or the staff code on your slip.
+                </p>
               </div>
 
-              {offlineProfile && (
-                <div className="p-2.5 rounded-[6px] bg-[#FFFDF5] border border-[#E8DFC9] text-xs">
-                  <div className="font-bold text-[#142010]">
-                    {offlineProfile.fullName}
-                  </div>
-                  <div className="text-[11px] text-[#788470] capitalize">
-                    {offlineProfile.roleName || offlineProfile.roleCode} · 30-Day Offline Lease
-                  </div>
-                </div>
-              )}
-
-              {offlinePinError && (
-                <div className="p-2.5 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
-                  <span>{offlinePinError}</span>
-                </div>
-              )}
-
-              {offlinePinSuccess && (
-                <div className="p-2.5 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-[#166534] shrink-0" />
-                  <span>PIN verified! Opening offline teaching workspace…</span>
-                </div>
-              )}
-
-              {!hasPin ? (
-                <div className="p-3 rounded-[6px] bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] text-xs space-y-2">
-                  <p className="font-bold">No Offline PIN configured on this browser.</p>
-                  <p className="text-[11px]">
-                    To unlock your workspace offline, connect to the internet once and set your 4-digit PIN in Dashboard Settings.
-                  </p>
-                  {!isOffline && (
-                    <button
-                      type="button"
-                      onClick={() => setIsPinMode(false)}
-                      className="w-full py-1.5 rounded-[4px] bg-[#92400E] text-white font-bold text-xs cursor-pointer"
-                    >
-                      Sign In with Password
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <form onSubmit={handleVerifyOfflinePin} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#444444] mb-1.5 text-center">
-                      Enter 4-Digit Offline PIN
-                    </label>
-                    <input
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={4}
-                      pattern="[0-9]{4}"
-                      value={offlinePin}
-                      onChange={(e) => setOfflinePin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                      placeholder="••••"
-                      autoFocus
-                      required
-                      disabled={isVerifyingOfflinePin || offlinePinSuccess}
-                      className="w-full py-3 text-center text-2xl font-mono tracking-[0.5em] rounded-[6px] border border-[#D5CBB2] bg-[#FFFDF5] text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13]"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isVerifyingOfflinePin || offlinePin.length !== 4 || offlinePinSuccess}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-sm rounded-[6px] shadow-xs transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    {isVerifyingOfflinePin ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        <span>Verifying PIN…</span>
-                      </>
-                    ) : offlinePinSuccess ? (
-                      <>
-                        <CheckCircle2 className="w-4 h-4 text-white" />
-                        <span>Unlocked!</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Unlock Workspace</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
-              )}
-            </div>
-          ) : (
-            /* ── MODE 2: CLOUD AUTHENTICATION ── */
-            <>
-              {/* WhatsApp 1-Click Verification Banner */}
-              {paramPhone && (
-                <div className="p-3 rounded-[6px] bg-[#EBF5E9] border border-[#C3E4BC] text-xs text-[#1F5C0E] flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                  <div className="leading-tight">
-                    <span className="font-bold">Verified WhatsApp Link: </span>
-                    <span>Ready to log in for +237 {paramPhone}. Enter your PIN below.</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Status / Error Alerts */}
-              {activeError && (
-                <div className="p-3 text-xs rounded-[6px] bg-red-50 text-red-700 border border-red-200 font-medium flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                  <span>{activeError}</span>
-                </div>
-              )}
-
-              {isNavigating && (
-                <div className="p-3 text-xs rounded-[6px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] font-medium flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin shrink-0 text-[#166534]" />
-                  <span>Verified! Opening your classes…</span>
-                </div>
-              )}
-
-              {/* ── FLOW A: PHONE NUMBER & PIN (Default for 95% of Teachers) ── */}
-              {mode === "phone" && (
-                <form action={codeFormAction} className="space-y-4">
-                  <input type="hidden" name="returnUrl" value={returnUrl} />
-                  <input type="hidden" name="identifier" value={phone} />
-
-                  <div>
-                    <label
-                      htmlFor="phone-input"
-                      className="block text-xs font-semibold text-[#444444] mb-1.5"
-                    >
-                      Cameroon Mobile Phone (WhatsApp)
-                    </label>
-                    <div className="relative flex rounded-[6px] border border-[#D5CBB2] bg-white focus-within:border-[#2A7C13] focus-within:ring-1 focus-within:ring-[#2A7C13] transition-all">
-                      <div className="flex items-center gap-1 pl-3 pr-2 border-r border-[#E8DFC9] bg-[#F7F3E8] text-[#444444] text-xs font-bold rounded-l-[5px] select-none">
-                        <span>🇨🇲</span>
-                        <span className="font-mono text-[11px] text-[#555555]">+237</span>
-                      </div>
-                      <input
-                        id="phone-input"
-                        type="tel"
-                        inputMode="tel"
-                        required
-                        disabled={isBusy}
-                        autoComplete="tel-national"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
-                        placeholder="677 12 34 56"
-                        className="w-full px-3 py-2.5 text-sm font-mono text-[#142010] placeholder-[#BBBBBB] bg-transparent focus:outline-none"
-                      />
-                    </div>
-                    <p className="mt-1 text-[11px] text-[#788470]">
-                      Your 9-digit MTN or Orange number registered by your school.
-                    </p>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="pin-phone-input"
-                      className="block text-xs font-semibold text-[#444444] mb-1.5"
-                    >
-                      4 to 6 Digit PIN
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="pin-phone-input"
-                        ref={pinInputRef}
-                        name="pin"
-                        type={showPin ? "text" : "password"}
-                        inputMode="numeric"
-                        maxLength={6}
-                        required
-                        disabled={isBusy}
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="••••••"
-                        className="w-full pl-3 pr-10 py-2.5 text-base font-mono tracking-[0.3em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#888888] hover:text-[#142010] cursor-pointer"
-                        title={showPin ? "Hide PIN" : "Show PIN"}
-                      >
-                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between mt-1 text-[11px] text-[#788470]">
-                      <span>Initial PIN is usually <strong>123456</strong></span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isBusy || phone.length < 9 || pin.length < 4}
-                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    {isBusy ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        <span>Verifying Access…</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Open My Classes</span>
-                        <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
-                      </>
-                    )}
-                  </button>
-
-                  {/* Alternative link for Staff Slip Code */}
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => setMode("code")}
-                      className="text-xs text-[#525E4B] hover:text-[#142010] font-medium hover:underline cursor-pointer"
-                    >
-                      Have a Paper Staff Slip? Use Staff Code instead →
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* ── FLOW B: STAFF CODE & SCHOOL CODE (For Paper Slip Holders) ── */}
-              {mode === "code" && (
-                <form action={codeFormAction} className="space-y-4">
-                  <input type="hidden" name="returnUrl" value={returnUrl} />
-                  <input type="hidden" name="identifier" value={staffCode} />
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label
-                        htmlFor="school-code-input"
-                        className="block text-xs font-semibold text-[#444444] mb-1"
-                      >
-                        School Code
-                      </label>
-                      <input
-                        id="school-code-input"
-                        name="schoolCode"
-                        type="text"
-                        required
-                        disabled={isBusy}
-                        value={schoolCode}
-                        onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                        placeholder="e.g. BHS"
-                        className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
-                      />
-                    </div>
-                    <div>
-                      <label
-                        htmlFor="staff-code-input"
-                        className="block text-xs font-semibold text-[#444444] mb-1"
-                      >
-                        Teacher Code
-                      </label>
-                      <input
-                        id="staff-code-input"
-                        type="text"
-                        required
-                        disabled={isBusy}
-                        value={staffCode}
-                        onChange={(e) => setStaffCode(e.target.value.toUpperCase())}
-                        placeholder="e.g. T-101"
-                        className="w-full px-3 py-2 text-xs font-mono font-bold uppercase rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label
-                      htmlFor="pin-code-input"
-                      className="block text-xs font-semibold text-[#444444] mb-1"
-                    >
-                      4 to 6 Digit PIN
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="pin-code-input"
-                        name="pin"
-                        type={showPin ? "text" : "password"}
-                        inputMode="numeric"
-                        maxLength={6}
-                        required
-                        disabled={isBusy}
-                        value={pin}
-                        onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                        placeholder="••••••"
-                        className="w-full pl-3 pr-10 py-2.5 text-base font-mono tracking-[0.3em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPin(!showPin)}
-                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#888888] hover:text-[#142010] cursor-pointer"
-                        title={showPin ? "Hide PIN" : "Show PIN"}
-                      >
-                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={isBusy || !staffCode || pin.length < 4}
-                    className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-sm rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    {isBusy ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        <span>Verifying Access…</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Sign In with Code</span>
-                        <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
-                      </>
-                    )}
-                  </button>
-
-                  <div className="pt-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => setMode("phone")}
-                      className="text-xs text-[#525E4B] hover:text-[#142010] font-medium hover:underline cursor-pointer"
-                    >
-                      ← Back to Phone Number Login
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* ── FLOW C: SCHOOL ADMINISTRATOR / EMAIL LOGIN ── */}
-              {mode === "admin" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#E8DFC9]">
-                    <span className="text-xs font-bold text-[#142010] flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-[#2A7C13]" />
-                      <span>Administrator Access</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setMode("phone")}
-                      className="text-[11px] text-[#2A7C13] hover:underline font-semibold cursor-pointer"
-                    >
-                      ← Teacher Login
-                    </button>
-                  </div>
-
-                  {/* 1-Click Google Sign In */}
-                  <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
-
-                  <div className="relative flex items-center justify-center my-2">
-                    <div className="border-t border-[#E8DFC9] w-full" />
-                    <span className="bg-white px-2.5 text-[10px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
-                      or admin password
-                    </span>
-                    <div className="border-t border-[#E8DFC9] w-full" />
-                  </div>
-
-                  <form action={emailFormAction} className="space-y-3.5">
-                    <input type="hidden" name="returnUrl" value={returnUrl} />
-
-                    <div>
-                      <label
-                        htmlFor="admin-email"
-                        className="block text-xs font-semibold text-[#444444] mb-1"
-                      >
-                        Email Address
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                          <Mail className="w-4 h-4" />
-                        </div>
-                        <input
-                          id="admin-email"
-                          name="email"
-                          type="email"
-                          required
-                          disabled={isBusy}
-                          autoComplete="email"
-                          placeholder="principal@school.cm"
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label
-                          htmlFor="admin-password"
-                          className="text-xs font-semibold text-[#444444]"
-                        >
-                          Password
-                        </label>
-                        <Link
-                          href="/forgot-password"
-                          className="text-[11px] font-medium text-[#2A7C13] hover:underline"
-                        >
-                          Forgot?
-                        </Link>
-                      </div>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
-                          <Lock className="w-4 h-4" />
-                        </div>
-                        <input
-                          id="admin-password"
-                          name="password"
-                          type="password"
-                          required
-                          disabled={isBusy}
-                          autoComplete="current-password"
-                          placeholder="••••••••"
-                          className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isBusy}
-                      className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-semibold text-xs rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                    >
-                      {isBusy ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin text-white" />
-                          <span>Signing in…</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Sign in to Dashboard</span>
-                          <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {/* Offline PIN toggle button if device has offline vault */}
-              {hasVault && hasPin && (
-                <div className="pt-2 border-t border-[#E8DFC9]">
+              <div>
+                <label
+                  htmlFor="teacher-pin"
+                  className="block text-xs font-semibold text-[#444444] mb-1"
+                >
+                  PIN Code
+                </label>
+                <div className="relative">
+                  <input
+                    id="teacher-pin"
+                    ref={pinInputRef}
+                    name="pin"
+                    type={showPin ? "text" : "password"}
+                    inputMode="numeric"
+                    maxLength={8}
+                    required
+                    disabled={isBusy}
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value)}
+                    placeholder="••••••"
+                    className="w-full pl-3 pr-10 py-2.5 text-sm font-mono tracking-[0.25em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                  />
                   <button
                     type="button"
-                    onClick={() => setIsPinMode(true)}
-                    className="w-full py-2 px-3 rounded-[6px] bg-[#FFFDF5] hover:bg-[#F5F5F0] border border-[#D5CBB2] text-xs font-semibold text-[#142010] flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#888888] hover:text-[#142010] cursor-pointer"
+                    title={showPin ? "Hide PIN" : "Show PIN"}
                   >
-                    <KeyRound className="w-3.5 h-3.5 text-[#2A7C13]" />
-                    <span>Campus Internet Down? Log in with 4-Digit PIN</span>
+                    {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-              )}
-            </>
+                <div className="flex items-center justify-between mt-1 text-[10.5px] text-[#788470]">
+                  <span>Initial PIN is usually <strong>123456</strong></span>
+                  {offlineProfile && isOffline && (
+                    <span className="text-[#2A7C13] font-bold">Cached: {offlineProfile.schoolName}</span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isBusy || identifier.length < 3 || pin.length < 4}
+                className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-bold text-xs rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isBusy ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                    <span>Verifying Access…</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{isOffline ? "Unlock Offline Workspace" : "Open My Classes"}</span>
+                    <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : (
+            /* ── AUDIENCE 2: SCHOOL ADMINISTRATOR & BURSAR LOGIN ── */
+            <div className="space-y-3.5">
+              {/* 1-Click Google Sign In */}
+              <GoogleSignInButton mode="signin" returnUrl={returnUrl} />
+
+              <div className="relative flex items-center justify-center my-2">
+                <div className="border-t border-[#E8DFC9] w-full" />
+                <span className="bg-white px-2.5 text-[10px] font-semibold text-[#888888] uppercase tracking-wider relative shrink-0">
+                  or admin password
+                </span>
+                <div className="border-t border-[#E8DFC9] w-full" />
+              </div>
+
+              <form action={emailFormAction} className="space-y-3">
+                <input type="hidden" name="returnUrl" value={returnUrl} />
+
+                <div>
+                  <label
+                    htmlFor="admin-email"
+                    className="block text-xs font-semibold text-[#444444] mb-1"
+                  >
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                      <Mail className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="admin-email"
+                      name="email"
+                      type="email"
+                      required
+                      disabled={isBusy}
+                      autoComplete="email"
+                      placeholder="principal@school.cm"
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label
+                      htmlFor="admin-password"
+                      className="text-xs font-semibold text-[#444444]"
+                    >
+                      Password
+                    </label>
+                    <Link
+                      href="/forgot-password"
+                      className="text-[11px] font-medium text-[#2A7C13] hover:underline"
+                    >
+                      Forgot?
+                    </Link>
+                  </div>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#AAAAAA]">
+                      <Lock className="w-4 h-4" />
+                    </div>
+                    <input
+                      id="admin-password"
+                      name="password"
+                      type="password"
+                      required
+                      disabled={isBusy}
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isBusy}
+                  className="w-full mt-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-bold text-xs rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {isBusy ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-white" />
+                      <span>Signing in…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign in to Dashboard</span>
+                      <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
           )}
         </div>
 
-        {/* Quiet Admin Footer Switcher */}
-        {mode !== "admin" && (
-          <div className="text-center mt-4">
-            <button
-              type="button"
-              onClick={() => setMode("admin")}
-              className="text-xs text-[#777777] hover:text-[#142010] hover:underline font-medium cursor-pointer"
-            >
-              School Administrator or Bursar? Sign in with Email →
-            </button>
+        {/* ── AUDIENCE 3: NEW INSTITUTION ONBOARDING BANNER ── */}
+        <div className="mt-4 p-3.5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs text-center space-y-1">
+          <div className="text-xs font-bold text-[#142010]">
+            Principal or School Proprietor?
           </div>
-        )}
+          <p className="text-[11px] text-[#666666]">
+            Set up your secondary school on Nsei Sukul in 2 minutes.
+          </p>
+          <div className="pt-1">
+            <Link
+              href="/register"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline cursor-pointer"
+            >
+              <span>Register Your School</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
 
-        <p className="text-center text-xs text-[#777777] mt-3">
-          Need school admin access?{" "}
-          <Link
-            href="/register"
-            className="font-semibold text-[#2A7C13] hover:underline"
-          >
-            Create an institution
-          </Link>
-        </p>
-
-        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-3">
-          <Link href="/terms" className="hover:text-[#2A7C13] hover:underline">Terms of Service</Link>
+        {/* Footer Links & Contact */}
+        <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-4">
+          <Link href="/terms" className="hover:text-[#2A7C13] hover:underline">Terms</Link>
           <span>•</span>
-          <Link href="/privacy" className="hover:text-[#2A7C13] hover:underline">Privacy Policy</Link>
+          <Link href="/privacy" className="hover:text-[#2A7C13] hover:underline">Privacy</Link>
+          <span>•</span>
+          <a
+            href="https://wa.me/237682833601"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-[#2A7C13] hover:underline font-medium text-[#2A7C13]"
+          >
+            WhatsApp Support
+          </a>
         </div>
 
         <p className="text-center text-[10px] text-[#AAAAAA] mt-2">
