@@ -224,25 +224,62 @@ export async function addStaffMemberAction(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data: profile, error: profileError } = await admin
+  const { data: profile } = await admin
     .from("user_profiles")
     .select("id")
     .eq("email", email)
     .maybeSingle();
 
-  if (profileError) {
-    throw new Error("Could not check that account. Please try again.");
-  }
+  let targetUserId: string;
 
-  if (!profile) {
-    throw new Error("No account uses that email yet. Ask the staff member to register first.");
+  if (profile) {
+    targetUserId = profile.id;
+  } else {
+    // Automatically provision user account in Supabase Auth if not yet registered
+    const tempPassword = `Sukul@${Math.floor(100000 + Math.random() * 900000)}`;
+    const { data: newAuth, error: authError } = await admin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: title || email.split("@")[0],
+        created_by_school: context.school.id,
+      },
+    });
+
+    if (newAuth?.user) {
+      targetUserId = newAuth.user.id;
+      await admin.from("user_profiles").upsert({
+        id: targetUserId,
+        full_name: title || email.split("@")[0],
+        email,
+      });
+    } else {
+      // User might already be registered in auth
+      const { data: userList } = await admin.auth.admin.listUsers();
+      const matched = userList?.users?.find(
+        (u) => u.email?.toLowerCase() === email.toLowerCase()
+      );
+      if (matched) {
+        targetUserId = matched.id;
+        await admin.from("user_profiles").upsert({
+          id: targetUserId,
+          full_name: title || email.split("@")[0],
+          email,
+        });
+      } else {
+        throw new Error(
+          authError?.message || "Could not register staff email. Please check the address."
+        );
+      }
+    }
   }
 
   const { data: existingMembership, error: membershipLookupError } = await supabase
     .from("school_memberships")
     .select("id, status")
     .eq("school_id", context.school.id)
-    .eq("user_id", profile.id)
+    .eq("user_id", targetUserId)
     .maybeSingle();
 
   if (membershipLookupError) {
@@ -261,7 +298,7 @@ export async function addStaffMemberAction(formData: FormData) {
     .from("school_memberships")
     .insert({
       school_id: context.school.id,
-      user_id: profile.id,
+      user_id: targetUserId,
       role_id: role.id,
       title: title || null,
       status: "active",

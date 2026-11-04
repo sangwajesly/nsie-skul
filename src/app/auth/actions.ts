@@ -324,6 +324,23 @@ export async function registerAction(
       full_name: fullName,
       email,
     });
+
+    // Check if the user already has an active school membership (e.g. invited by school admin)
+    const { data: memberships } = await supabase
+      .from("school_memberships")
+      .select("id, school_id")
+      .eq("user_id", data.user.id)
+      .eq("status", "active")
+      .limit(1);
+
+    if (memberships && memberships.length > 0) {
+      const cookieStore = await cookies();
+      cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+      return { redirectTo: "/dashboard" };
+    }
   }
 
   return { redirectTo: "/onboarding" };

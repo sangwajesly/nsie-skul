@@ -186,8 +186,8 @@ function LoginForm() {
                   : "text-[#555555] hover:text-[#142010]"
               }`}
             >
-              <GraduationCap className="w-3.5 h-3.5 text-[#86EFAC]" />
-              <span>Teacher &amp; Staff</span>
+              <Phone className="w-3.5 h-3.5 text-[#86EFAC]" />
+              <span>Phone / Staff Slip</span>
             </button>
 
             <button
@@ -202,8 +202,8 @@ function LoginForm() {
                   : "text-[#555555] hover:text-[#142010]"
               }`}
             >
-              <Building2 className="w-3.5 h-3.5 text-[#86EFAC]" />
-              <span>School Admin</span>
+              <Mail className="w-3.5 h-3.5 text-[#86EFAC]" />
+              <span>Google &amp; Email</span>
             </button>
           </div>
 
@@ -377,7 +377,7 @@ function LoginForm() {
                       required
                       disabled={isBusy}
                       autoComplete="email"
-                      placeholder="principal@school.cm"
+                      placeholder="name@gmail.com or school email"
                       className="w-full pl-9 pr-3 py-2 text-xs rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13]"
                     />
                   </div>

@@ -405,7 +405,7 @@ export default function StaffRolesClient({
             <form onSubmit={handleAddStaffEmail} className="grid grid-cols-1 gap-3 rounded-[6px] bg-[#FFFDF5] p-3 border border-[#E8DFC9] sm:grid-cols-2 lg:grid-cols-4">
               <div className="sm:col-span-2 lg:col-span-4">
                 <p className="text-xs text-[#666666]">
-                  Enter the email address of a registered user (Principal, Bursar, or Dean with an existing account).
+                  Enter any faculty email (e.g. personal Gmail or school email). If they do not have an account yet, one is created automatically so they can sign in with Google or email immediately.
                 </p>
               </div>
               <div>
@@ -458,7 +458,7 @@ export default function StaffRolesClient({
                   className="inline-flex w-full items-center justify-center gap-1.5 rounded-[5px] bg-[#191919] px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#333333] disabled:opacity-50 cursor-pointer"
                 >
                   <UserPlus className="h-4 w-4" />
-                  {updatingId === "new-staff" ? "Linking..." : "Link Staff Member"}
+                  {updatingId === "new-staff" ? "Granting Access..." : "Grant Staff Access"}
                 </button>
               </div>
             </form>
