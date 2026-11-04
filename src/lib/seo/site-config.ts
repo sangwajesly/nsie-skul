@@ -71,9 +71,11 @@ export const SITE_CONFIG = {
   whatsappUrl: "https://wa.me/237682833601",
   currency: "XAF",
 
-  // Verification codes (read from environment variables)
+  // Verification codes (read from environment variables with production fallbacks)
   verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || "",
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      "xT2VFKSUBEyrfe5AQSvIMQyKEZi4Fev0AKCmXC3ZzDs",
     bing: process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION || "",
   },
 
