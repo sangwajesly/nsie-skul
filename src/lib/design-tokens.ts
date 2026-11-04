@@ -1,16 +1,18 @@
+import { SITE_CONFIG } from "@/lib/seo/site-config";
+
 /**
  * Centralized brand configuration and design system tokens.
  * Locked in with Option A: Green & Cream Palette.
  */
 export const BRAND = {
-  name: "Nsei Sukul",
-  systemTitle: "Management Systems",
-  tagline: "School Management, Simplified",
-  domain: "nsei-sukul.klarifypath.com",
-  url: "https://nsei-sukul.klarifypath.com",
-  supportEmail: "contact@nseisukul.com",
-  whatsappPhone: "+237682833601",
-  whatsappUrl: "https://wa.me/237682833601",
+  name: SITE_CONFIG.name,
+  systemTitle: SITE_CONFIG.systemTitle,
+  tagline: SITE_CONFIG.tagline,
+  domain: SITE_CONFIG.domain,
+  url: SITE_CONFIG.url,
+  supportEmail: SITE_CONFIG.supportEmail,
+  whatsappPhone: SITE_CONFIG.whatsappPhone,
+  whatsappUrl: SITE_CONFIG.whatsappUrl,
 };
 
 export const DESIGN_TOKENS = {

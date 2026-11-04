@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { GraduationCap, ArrowLeft, ShieldCheck, Lock, EyeOff, UserCheck, Phone, CheckCircle2 } from "lucide-react";
+import type { Metadata } from "next";
+import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
-export const metadata = {
-  title: "Data Privacy Policy · Nsei Sukul Managements System",
+export const metadata: Metadata = {
+  title: "Data Privacy Policy (Law No. 2024/017)",
   description: "Official student and school data privacy policy under Cameroon Law No. 2024/017 on Personal Data Protection.",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPolicyPage() {
@@ -41,6 +46,12 @@ export default function PrivacyPolicyPage() {
       </header>
 
       {/* Main Content */}
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Privacy Policy", path: "/privacy" },
+        ]}
+      />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         {/* Title Box */}
         <div className="border-b border-[#E8DFC9] pb-6 space-y-2">

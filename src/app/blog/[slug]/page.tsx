@@ -15,6 +15,7 @@ import { CompetencyCopyWidget } from "@/components/blog/CompetencyCopyWidget";
 import { InlineProductCallout } from "@/components/blog/InlineProductCallout";
 import { BlogVisualCover } from "@/components/blog/BlogVisualCover";
 import { BlogCard } from "@/components/blog/BlogCard";
+import { ArticleJsonLd, BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
 interface Props {
   params: Promise<{
@@ -39,10 +40,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   return {
-    title: `${post.title} | Nsei Sukul`,
+    title: post.title,
     description: post.excerpt,
     keywords: post.tags,
+    alternates: {
+      canonical: `/blog/${post.slug}`,
+    },
     openGraph: {
+      url: `/blog/${post.slug}`,
       title: post.title,
       description: post.excerpt,
       type: "article",
@@ -73,6 +78,22 @@ export default async function BlogPostPage({ params }: Props) {
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       <MarketingHeader currentPath="/blog" />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Articles", path: "/blog" },
+          { name: post.title, path: `/blog/${post.slug}` },
+        ]}
+      />
+      <ArticleJsonLd
+        title={post.title}
+        description={post.excerpt}
+        url={`/blog/${post.slug}`}
+        datePublished={post.publishDate}
+        authorName={post.author.name}
+        authorRole={post.author.role}
+        category={post.category}
+      />
 
       <main className="flex-1 pb-16 sm:pb-24">
         {/* ── Editorial Header (Inspired by Image 2 detail view) ── */}

@@ -15,16 +15,36 @@ import {
 } from "lucide-react";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
+import type { Metadata } from "next";
+import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
-export const metadata = {
-  title: "Bursary & Fee Management (FCFA) | Nsei Sukul Managements System",
-  description: "Track school fee installments, issue official printable receipts, and generate instant debtor lists in FCFA for Cameroonian colleges and secondary schools.",
+export const metadata: Metadata = {
+  title: "Bursary & Fee Management (FCFA)",
+  description:
+    "Track school fee installments, issue official printable receipts, and generate instant debtor lists in FCFA for Cameroonian colleges and secondary schools.",
+  alternates: {
+    canonical: "/features/finance",
+  },
+  openGraph: {
+    title: "Bursary & Fee Management in FCFA | Nsei Sukul",
+    description:
+      "Track tuition installments, issue anti-tamper printable receipts, and generate instant student debtor lists before exams in FCFA.",
+    url: "/features/finance",
+    type: "website",
+  },
 };
 
 export default function FinanceFeaturePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       <MarketingHeader currentPath="/features/finance" />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Features", path: "/#features" },
+          { name: "Bursary & Fee Management", path: "/features/finance" },
+        ]}
+      />
 
       <main className="flex-1">
         {/* Hero Section */}

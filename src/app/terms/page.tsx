@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { GraduationCap, ArrowLeft, ShieldCheck, FileText, Phone, CheckCircle2 } from "lucide-react";
+import type { Metadata } from "next";
+import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
-export const metadata = {
-  title: "Terms of Service · Nsei Sukul Managements System",
+export const metadata: Metadata = {
+  title: "Terms of Service",
   description: "Official terms and conditions of use for secondary schools across Cameroon.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsOfServicePage() {
@@ -41,6 +46,12 @@ export default function TermsOfServicePage() {
       </header>
 
       {/* Main Content */}
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Terms of Service", path: "/terms" },
+        ]}
+      />
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-10 space-y-8">
         {/* Title Box */}
         <div className="border-b border-[#E8DFC9] pb-6 space-y-2">

@@ -26,6 +26,24 @@ import { PlatformSchoolsCounter } from "@/components/landing/PlatformSchoolsCoun
 import { PlainEnglishCapabilities } from "@/components/landing/PlainEnglishCapabilities";
 import { getPlatformPublicStats } from "@/lib/public-stats";
 import { BRAND } from "@/lib/design-tokens";
+import type { Metadata } from "next";
+import { SoftwareApplicationJsonLd } from "@/lib/seo/structured-data";
+
+export const metadata: Metadata = {
+  title: "Nsei Sukul | School Management System in Cameroon",
+  description:
+    "Manage your school's students, academic activities, CBA assessments, report cards and finances with Nsei Sukul, a comprehensive school management system designed for secondary schools in Cameroon.",
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    title: "Nsei Sukul | School Management System in Cameroon",
+    description:
+      "Manage students, academic activities, MINESEC 6-sequence assessments, CBA report cards, and bursary fees in CFA Francs.",
+    url: "/",
+    type: "website",
+  },
+};
 
 // ─── Shared primitive classes ────────────────────────────────────────────────
 const CONTAINER = "max-w-6xl mx-auto px-5 sm:px-8";
@@ -51,6 +69,7 @@ export default async function LandingPage() {
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       {/* ── Main Navigation ──────────────────────────────────────────────────── */}
       <MarketingHeader currentPath="/" />
+      <SoftwareApplicationJsonLd />
 
       <main>
         {/* ── Hero ──────────────────────────────────────────────────────────── */}

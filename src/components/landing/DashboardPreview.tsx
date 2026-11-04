@@ -64,8 +64,8 @@ const SHOWCASE_SLIDES: ShowcaseSlide[] = [
       "6 Official Evaluation Sequences",
       "Instant 20-Point Scale & Coef Weighting",
     ],
-    docUrl: "/dashboard/academics/marks",
-    docLabel: "Learn About Mark Entry",
+    docUrl: "/features/report-cards",
+    docLabel: "Explore Marks & Sequences",
   },
   {
     id: "reportcard",
@@ -98,8 +98,8 @@ const SHOWCASE_SLIDES: ShowcaseSlide[] = [
       "Front-Only or Duplex Printing Layouts",
       "Instant QR Code Verification for Phones",
     ],
-    docUrl: "/dashboard/students",
-    docLabel: "Explore Student Dossiers",
+    docUrl: "/register",
+    docLabel: "Start With Student Dossiers",
   },
   {
     id: "honor-roll",
@@ -115,8 +115,8 @@ const SHOWCASE_SLIDES: ShowcaseSlide[] = [
       "Class Honor Roll Laureate Certificates",
       "Automatic Term Assembly Honor Roster",
     ],
-    docUrl: "/dashboard/academics",
-    docLabel: "Learn About Honor Roll",
+    docUrl: "/features/report-cards",
+    docLabel: "Explore Laureates & Awards",
   },
 ];
 
@@ -240,7 +240,9 @@ export function DashboardPreview() {
           <img
             key={activeSlide.id}
             src={activeSlide.image}
-            alt={activeSlide.headline}
+            alt={`${activeSlide.headline} - Nsei Sukul Secondary School Platform`}
+            width={1713}
+            height={1000}
             className="w-full h-full object-cover object-top transition-opacity duration-300"
             loading="eager"
           />

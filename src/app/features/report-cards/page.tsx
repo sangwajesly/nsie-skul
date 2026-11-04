@@ -17,16 +17,36 @@ import {
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
 import { ReportCardShowcaseClient } from "./ReportCardShowcaseClient";
+import type { Metadata } from "next";
+import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
-export const metadata = {
-  title: "MINESEC Report Cards & Exam Sequences | Nsei Sukul Managements System",
-  description: "Official Cameroon MINESEC report cards with 6 sequences, 20-point scale, automated coefficients, class rankings, and single-line compact print layouts.",
+export const metadata: Metadata = {
+  title: "MINESEC Report Cards & Exam Sequences",
+  description:
+    "Official Cameroon MINESEC report cards with 6 sequences, 20-point scale, automated coefficients, class rankings, and single-page A4 print layouts.",
+  alternates: {
+    canonical: "/features/report-cards",
+  },
+  openGraph: {
+    title: "MINESEC Report Cards & Exam Sequences | Nsei Sukul",
+    description:
+      "Official Cameroon secondary report cards with 6 sequences, 20-point scale, automated coefficients, and single-page A4 print layouts.",
+    url: "/features/report-cards",
+    type: "website",
+  },
 };
 
 export default function ReportCardsFeaturePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       <MarketingHeader currentPath="/features/report-cards" />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Features", path: "/#features" },
+          { name: "MINESEC Report Cards", path: "/features/report-cards" },
+        ]}
+      />
 
       <main className="flex-1">
         {/* Hero Section */}

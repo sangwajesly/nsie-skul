@@ -17,16 +17,36 @@ import {
 } from "lucide-react";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
+import type { Metadata } from "next";
+import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 
-export const metadata = {
-  title: "Offline Sukul Hub | Nsei Sukul Management System",
-  description: "Run your school operations 100% offline without internet. Teachers sync marks over local school Wi-Fi even during internet blackouts and power cuts.",
+export const metadata: Metadata = {
+  title: "Offline School Hub · Zero-Internet Infrastructure",
+  description:
+    "Run your school operations 100% offline without internet. Teachers sync marks over local school Wi-Fi even during internet blackouts and power cuts.",
+  alternates: {
+    canonical: "/features/school-hub",
+  },
+  openGraph: {
+    title: "Offline School Hub | Nsei Sukul",
+    description:
+      "Run school operations 100% offline without internet. Teachers sync marks and print MINESEC report cards over local school Wi-Fi.",
+    url: "/features/school-hub",
+    type: "website",
+  },
 };
 
 export default function SchoolHubFeaturePage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#FFFDF5] text-[#142010] antialiased">
       <MarketingHeader currentPath="/features/school-hub" />
+      <BreadcrumbJsonLd
+        items={[
+          { name: "Home", path: "/" },
+          { name: "Features", path: "/#features" },
+          { name: "Offline School Hub", path: "/features/school-hub" },
+        ]}
+      />
 
       <main className="flex-1">
         {/* Hero Section */}

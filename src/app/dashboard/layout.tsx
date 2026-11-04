@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTenantContext, getUserSchools } from "@/lib/tenancy/context";
 import { getActiveAcademicYear } from "@/lib/academic/service";
@@ -11,6 +12,14 @@ import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
 import { SchoolSwitcher } from "@/components/schools/SchoolSwitcher";
 import { LogOut, Globe, Clock, ShieldCheck } from "lucide-react";
+
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
+};
 
 interface DashboardLayoutProps {
   children: ReactNode;

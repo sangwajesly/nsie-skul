@@ -54,7 +54,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
   }, [mobileMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 bg-[#FFFDF5]/95 backdrop-blur-md border-b border-[#E8DFC9]">
+    <header className="sticky top-0 z-40 bg-[#FFFDF5] border-b border-[#E8DFC9]">
       <div className="max-w-6xl mx-auto px-3.5 sm:px-8 h-16 flex items-center justify-between gap-3 sm:gap-6">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
