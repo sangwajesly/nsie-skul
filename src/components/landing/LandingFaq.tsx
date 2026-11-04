@@ -25,6 +25,11 @@ const FAQ_ITEMS: FaqItem[] = [
       "Teachers can open their mark sheet on their smartphone, tablet, or laptop while at home. The system saves their entries offline in their phone's local storage. The moment they arrive on campus and connect to the school Wi-Fi router, their phone automatically synchronizes with the school database without consuming any data bundles.",
   },
   {
+    question: "Do teachers need email addresses or complicated passwords to submit marks?",
+    answer:
+      "No! In most Cameroonian schools, teachers do not check email daily. With Nsei Sukul, your school administrator can simply print staffroom access slips or send a 1-click WhatsApp link. Teachers log in using their Cameroon mobile number (+237) or staff code and a simple 6-digit PIN. For schools using Google Workspace or institutional email, teachers can also sign in with 1-click Google Sign-In.",
+  },
+  {
     question: "Are report cards compliant with official MINESEC standards?",
     answer:
       "Yes. The system is custom-built for Cameroon secondary education. It supports 6 Sequences across 3 Terms, automatic 20-point weighting (Mark × Coef), class averages, highest/lowest marks, class rankings, and teacher/principal remarks. Report cards are formatted to print cleanly on a single A4 sheet without spilling onto a second page.",

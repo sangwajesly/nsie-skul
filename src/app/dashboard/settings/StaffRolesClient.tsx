@@ -39,6 +39,7 @@ interface Props {
 }
 
 const roleLabels: Record<string, string> = {
+  superadmin: "Platform Superadmin",
   school_admin: "School Administrator",
   principal: "Principal / Academic Dean",
   teacher: "Teacher / Academic Faculty",

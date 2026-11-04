@@ -210,22 +210,8 @@ export async function quickCreateSchoolAction(prevState: unknown, formData: Form
     return { success: false, error: `Failed to create school: ${schoolErr?.message || "Unknown error"}` };
   }
 
-  // 3. Link superadmin creator
-  const { data: superRole } = await adminClient
-    .from("roles")
-    .select("id")
-    .eq("code", "superadmin")
-    .single();
-
-  if (superRole) {
-    await adminClient.from("school_memberships").insert({
-      school_id: newSchool.id,
-      user_id: user.id,
-      role_id: superRole.id,
-      title: "Platform Superadmin",
-      status: "active",
-    });
-  }
+  // Note: Platform superadmins access schools cross-tenant via SUPER_ADMIN_EMAILS
+  // and are not inserted into local school staff lists to keep the school roster clean.
 
   // 4. Create trial subscription
   await adminClient.from("school_subscriptions").insert({

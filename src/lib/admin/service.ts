@@ -44,7 +44,9 @@ export async function getSchoolStaffMemberships(schoolId: string): Promise<Schoo
     .order("created_at", { ascending: true });
 
   if (error || !data) return [];
-  return data as unknown as SchoolMembership[];
+  // Exclude platform superadmins from local school faculty lists
+  const staffOnly = (data as any[]).filter((m) => m.role?.code !== "superadmin");
+  return staffOnly as unknown as SchoolMembership[];
 }
 
 /**
