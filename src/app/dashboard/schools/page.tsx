@@ -26,12 +26,25 @@ export default async function PlatformSchoolsPage() {
 
   const adminClient = createAdminClient();
 
-  // 1. Fetch all schools
-  const { data: schoolsData, error } = await adminClient
-    .from("schools")
-    .select("*")
-    .eq("is_active", true)
-    .order("name", { ascending: true });
+  // 1. Fetch all schools and landing page featured configuration in parallel
+  const [schoolsResult, featuredLogResult] = await Promise.all([
+    adminClient
+      .from("schools")
+      .select("*")
+      .eq("is_active", true)
+      .order("name", { ascending: true }),
+    adminClient
+      .from("audit_logs")
+      .select("details")
+      .eq("resource_type", "platform_settings")
+      .eq("resource_id", "featured_landing_schools")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const { data: schoolsData, error } = schoolsResult;
+  const featuredSchoolIds: string[] = featuredLogResult.data?.details?.featuredSchoolIds || [];
 
   if (error || !schoolsData) {
     throw new Error(`Failed to load school network: ${error?.message || "Unknown error"}`);
@@ -118,6 +131,7 @@ export default async function PlatformSchoolsPage() {
         staffCount: staffCount || 0,
         streamCount: streamCount || 0,
         academicYearName: activeYear?.name || null,
+        isFeaturedOnLanding: featuredSchoolIds.includes(sch.id),
         subscription: {
           status: subStatus,
           plan: subData?.plan || "pilot",

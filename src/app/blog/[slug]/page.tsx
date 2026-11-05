@@ -93,6 +93,7 @@ export default async function BlogPostPage({ params }: Props) {
         authorName={post.author.name}
         authorRole={post.author.role}
         category={post.category}
+        image={post.imageUrl}
       />
 
       <main className="flex-1 pb-16 sm:pb-24">
@@ -142,10 +143,17 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         </header>
 
-        {/* Visual Cover Header */}
+        {/* Featured Editorial Photo Header */}
         <div className="max-w-3xl mx-auto px-5 sm:px-8 my-4 sm:my-6">
-          <div className="rounded-[8px] overflow-hidden border border-[#E8DFC9] shadow-xs">
-            <BlogVisualCover type={post.visualType} isHero={true} />
+          <div className="rounded-[12px] overflow-hidden border border-[#E8DFC9] shadow-sm aspect-[16/9] bg-[#FAF8F2]">
+            <img
+              src={post.imageUrl}
+              alt={post.imageAlt || post.title}
+              width={1200}
+              height={675}
+              className="w-full h-full object-cover object-center"
+              loading="eager"
+            />
           </div>
         </div>
 

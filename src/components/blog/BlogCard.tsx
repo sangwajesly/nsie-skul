@@ -11,12 +11,19 @@ export function BlogCard({ post }: Props) {
   return (
     <article className="group flex flex-col justify-between p-4.5 rounded-[14px] bg-[#FFFDF5] border border-[#E8DFC9] hover:border-[#2A7C13] hover:-translate-y-1 hover:shadow-md transition-all duration-200">
       <div className="space-y-3.5">
-        {/* Visual Cover Container */}
+        {/* Real Photography Cover Container */}
         <Link
           href={`/blog/${post.slug}`}
-          className="block relative rounded-[10px] overflow-hidden border border-[#E8DFC9]/70 group-hover:border-[#2A7C13]/50 transition-colors"
+          className="block relative rounded-[10px] overflow-hidden border border-[#E8DFC9]/80 bg-[#FAF8F2] aspect-[16/10] group-hover:border-[#2A7C13] transition-colors"
         >
-          <BlogVisualCover type={post.visualType} />
+          <img
+            src={post.imageUrl}
+            alt={post.imageAlt || post.title}
+            width={600}
+            height={375}
+            className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+          />
         </Link>
 
         {/* Metadata Line: Date | Read Time | Category */}

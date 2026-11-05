@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect } from "react";
 import Link from "next/link";
 import {
   Building2,
@@ -20,12 +20,14 @@ import {
   Calendar,
   X,
   ExternalLink,
+  Star,
 } from "lucide-react";
 import {
   switchSchoolAction,
   extendSchoolTrialAction,
   activateSchoolSubscriptionAction,
   quickCreateSchoolAction,
+  toggleSchoolFeaturedOnLandingAction,
 } from "./actions";
 
 export interface SchoolRow {
@@ -40,6 +42,7 @@ export interface SchoolRow {
   staffCount: number;
   streamCount: number;
   academicYearName: string | null;
+  isFeaturedOnLanding?: boolean;
   subscription: {
     status: "trial" | "active" | "past_due" | "canceled";
     plan: string;
@@ -67,6 +70,11 @@ export function SchoolsManagerClient({
   const [isPending, startTransition] = useTransition();
   const [switchingId, setSwitchingId] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Sync state whenever props update after server revalidations
+  useEffect(() => {
+    setSchools(initialSchools);
+  }, [initialSchools]);
 
   // Quick Create Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -99,6 +107,7 @@ export function SchoolsManagerClient({
   const totalStaff = schools.reduce((acc, s) => acc + s.staffCount, 0);
   const activeSubs = schools.filter((s) => s.subscription.status === "active").length;
   const trialSubs = schools.filter((s) => s.subscription.status === "trial").length;
+  const featuredOnLandingCount = schools.filter((s) => s.isFeaturedOnLanding).length;
 
   const handleSwitchSchool = (schoolId: string) => {
     setSwitchingId(schoolId);
@@ -106,7 +115,10 @@ export function SchoolsManagerClient({
       try {
         await switchSchoolAction(schoolId);
       } catch (err: any) {
-        setActionMessage({ type: "error", text: err?.message || "Failed to switch school." });
+        setActionMessage({
+          type: "error",
+          text: "Unable to switch school session. Please try again.",
+        });
         setSwitchingId(null);
       }
     });
@@ -115,7 +127,14 @@ export function SchoolsManagerClient({
   const handleExtendTrial = (schoolId: string, schoolName: string) => {
     startTransition(async () => {
       try {
-        await extendSchoolTrialAction(schoolId, 30);
+        const res = await extendSchoolTrialAction(schoolId, 30);
+        if (!res.success) {
+          setActionMessage({
+            type: "error",
+            text: res.error || "Unable to extend trial. Please try again.",
+          });
+          return;
+        }
         setSchools((prev) =>
           prev.map((s) =>
             s.id === schoolId
@@ -131,9 +150,15 @@ export function SchoolsManagerClient({
               : s
           )
         );
-        setActionMessage({ type: "success", text: `Trial extended by 30 days for ${schoolName}.` });
+        setActionMessage({
+          type: "success",
+          text: `Trial extended by 30 days for ${schoolName}.`,
+        });
       } catch (err: any) {
-        setActionMessage({ type: "error", text: err?.message || "Failed to extend trial." });
+        setActionMessage({
+          type: "error",
+          text: "Failed to extend trial period. Please try again.",
+        });
       }
     });
   };
@@ -141,7 +166,14 @@ export function SchoolsManagerClient({
   const handleActivateSchool = (schoolId: string, schoolName: string) => {
     startTransition(async () => {
       try {
-        await activateSchoolSubscriptionAction(schoolId, "pilot");
+        const res = await activateSchoolSubscriptionAction(schoolId, "pilot");
+        if (!res.success) {
+          setActionMessage({
+            type: "error",
+            text: res.error || "Unable to activate school. Please try again.",
+          });
+          return;
+        }
         setSchools((prev) =>
           prev.map((s) =>
             s.id === schoolId
@@ -157,9 +189,48 @@ export function SchoolsManagerClient({
               : s
           )
         );
-        setActionMessage({ type: "success", text: `Annual license activated for ${schoolName}!` });
+        setActionMessage({
+          type: "success",
+          text: `Annual license activated for ${schoolName}!`,
+        });
       } catch (err: any) {
-        setActionMessage({ type: "error", text: err?.message || "Failed to activate school." });
+        setActionMessage({
+          type: "error",
+          text: "Failed to activate school. Please try again.",
+        });
+      }
+    });
+  };
+
+  const handleToggleFeaturedLanding = (schoolId: string, schoolName: string) => {
+    startTransition(async () => {
+      try {
+        const res = await toggleSchoolFeaturedOnLandingAction(schoolId);
+        if (!res.success) {
+          setActionMessage({
+            type: "error",
+            text: res.error || "Unable to update homepage display. Please try again.",
+          });
+          return;
+        }
+        setSchools((prev) =>
+          prev.map((s) =>
+            s.id === schoolId
+              ? { ...s, isFeaturedOnLanding: res.isFeatured }
+              : s
+          )
+        );
+        setActionMessage({
+          type: "success",
+          text: res.isFeatured
+            ? `"${schoolName}" is now featured on the public homepage!`
+            : `"${schoolName}" was removed from the public homepage.`,
+        });
+      } catch (err: any) {
+        setActionMessage({
+          type: "error",
+          text: "Unable to update homepage display. Please try again.",
+        });
       }
     });
   };
@@ -231,7 +302,7 @@ export function SchoolsManagerClient({
       </div>
 
       {/* ── METRIC STAT CARDS ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
         <div className="p-4 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#788470] flex items-center gap-1.5">
             <Building2 className="w-3.5 h-3.5 text-[#2A7C13]" />
@@ -281,6 +352,19 @@ export function SchoolsManagerClient({
           </div>
           <div className="text-[11px] text-[#666666] mt-0.5">
             Managed from this console
+          </div>
+        </div>
+
+        <div className="p-4 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-[#788470] flex items-center gap-1.5">
+            <Star className="w-3.5 h-3.5 text-[#B45309]" />
+            <span>Public Homepage</span>
+          </div>
+          <div className="text-2xl font-black text-[#142010] mt-1">
+            {featuredOnLandingCount} <span className="text-xs font-normal text-[#888888]">Featured</span>
+          </div>
+          <div className="text-[11px] text-[#666666] mt-0.5">
+            Names displayed on landing
           </div>
         </div>
       </div>
@@ -388,6 +472,12 @@ export function SchoolsManagerClient({
                       <span className="px-1.5 py-0.5 rounded bg-[#EAF7E4] text-[#166534] text-[10px] font-bold capitalize border border-[#BBF7D0]">
                         {school.subsystem}
                       </span>
+                      {school.isFeaturedOnLanding && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FFF8CF] text-[#7A5B00] text-[10px] font-bold border border-[#FBE6C2]">
+                          <Star className="w-2.5 h-2.5 fill-[#B45309] text-[#B45309]" />
+                          <span>On Homepage</span>
+                        </span>
+                      )}
                       {isCurrentlyActive && (
                         <span className="px-1.5 py-0.5 rounded bg-[#142010] text-[#86EFAC] text-[10px] font-bold">
                           Active Session
@@ -472,14 +562,51 @@ export function SchoolsManagerClient({
                     </button>
                   )}
 
+                  {school.subscription.status === "active" ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0] text-xs font-bold shadow-2xs select-none"
+                      title="Official annual license is active"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
+                      <span>Activated</span>
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleActivateSchool(school.id, school.name)}
+                      disabled={isPending}
+                      title="Activate official annual license"
+                      className="px-3 py-1.5 rounded-[6px] bg-[#FAF8F5] hover:bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0] hover:border-[#166534] text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      Activate
+                    </button>
+                  )}
+
                   <button
                     type="button"
-                    onClick={() => handleActivateSchool(school.id, school.name)}
+                    onClick={() => handleToggleFeaturedLanding(school.id, school.name)}
                     disabled={isPending}
-                    title="Activate official annual license"
-                    className="px-2.5 py-1.5 rounded-[6px] bg-[#FAF8F5] hover:bg-[#EFECE6] text-[#166534] border border-[#BBF7D0] text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                    title={
+                      school.isFeaturedOnLanding
+                        ? "Currently shown on public homepage. Click to remove."
+                        : "Click to show this school on the public platform homepage."
+                    }
+                    className={`px-2.5 py-1.5 rounded-[6px] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 ${
+                      school.isFeaturedOnLanding
+                        ? "bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2] hover:bg-[#FDF3B4]"
+                        : "bg-[#FAF8F5] text-[#525E4B] border border-[#D5CBB2] hover:bg-[#EFECE6]"
+                    }`}
                   >
-                    Activate
+                    <Star
+                      className={`w-3.5 h-3.5 ${
+                        school.isFeaturedOnLanding
+                          ? "fill-[#B45309] text-[#B45309]"
+                          : "text-[#788470]"
+                      }`}
+                    />
+                    <span className="hidden sm:inline">
+                      {school.isFeaturedOnLanding ? "On Homepage" : "Show on Homepage"}
+                    </span>
                   </button>
 
                   <button

@@ -94,6 +94,12 @@ export function MarketingFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/agents" className="text-[#84E466] hover:text-white font-semibold transition-colors flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-[#84E466]" />
+                  <span>School Agent Program</span>
+                </Link>
+              </li>
+              <li>
                 <Link href="/login" className="hover:text-white transition-colors">
                   School Portal Sign In
                 </Link>

@@ -112,7 +112,7 @@ export function PlatformSchoolsCounter({ stats }: PlatformSchoolsCounterProps) {
                 Active Registered Institutions
               </p>
               <div className="flex flex-wrap items-center gap-2 mt-1">
-                {stats.schoolNames.slice(0, 4).map((name, i) => (
+                {stats.schoolNames.slice(0, 8).map((name, i) => (
                   <span
                     key={i}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[6px] bg-[#FFFDF5] border border-[#E8DFC9] text-[12px] font-semibold text-[#142010]"

@@ -13,13 +13,24 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Loader2,
+  ExternalLink,
+  Zap,
 } from "lucide-react";
+import { initiateSchoolLicensePaymentAction } from "./actions";
 
 interface Props {
   schoolName: string;
   schoolCode: string;
   subscription?: SchoolSubscriptionInfo;
 }
+
+const TIERS = [
+  { id: "tier_1", name: "Tier 1: Up to 300 students", amount: 100000, label: "100,000 FCFA / year" },
+  { id: "tier_2", name: "Tier 2: 301 to 750 students", amount: 200000, label: "200,000 FCFA / year", popular: true },
+  { id: "tier_3", name: "Tier 3: 751 to 1,500 students", amount: 350000, label: "350,000 FCFA / year" },
+  { id: "tier_4", name: "Tier 4: 1,501+ students", amount: 500000, label: "500,000 FCFA / year" },
+];
 
 export function SchoolBillingSubscription({
   schoolName,
@@ -29,6 +40,11 @@ export function SchoolBillingSubscription({
   const [copiedNumber, setCopiedNumber] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Online Fapshi payment state
+  const [selectedTier, setSelectedTier] = useState<string>("tier_2");
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+
   const mtnNumber = "682833601";
   const mtnFormatted = "682 833 601";
   const mtnAccountName = "Nsei Sukul Technologies";
@@ -37,6 +53,27 @@ export function SchoolBillingSubscription({
   const isTrial = subscription?.isTrial ?? true;
   const daysRemaining = subscription?.daysRemaining ?? 30;
   const status = subscription?.status ?? "trial";
+
+  const handleOnlinePay = async () => {
+    setIsPaying(true);
+    setPaymentError(null);
+
+    const tier = TIERS.find((t) => t.id === selectedTier) || TIERS[1];
+
+    try {
+      const res = await initiateSchoolLicensePaymentAction(tier.id, tier.amount);
+
+      if (res.success && res.link) {
+        window.location.href = res.link;
+      } else {
+        setPaymentError(res.error || "Unable to start Mobile Money payment. Please try again.");
+        setIsPaying(false);
+      }
+    } catch (err: any) {
+      setPaymentError(err?.message || "An unexpected error occurred.");
+      setIsPaying(false);
+    }
+  };
 
   const copyMtn = () => {
     navigator.clipboard.writeText(mtnNumber);
@@ -161,15 +198,99 @@ export function SchoolBillingSubscription({
         )}
       </div>
 
-      {/* 2. Local Payment Methods (Cameroon) */}
+      {/* 2. Instant Online Payment (MTN MoMo & Orange Money via Fapshi) */}
+      <div className="p-5 rounded-[10px] bg-white border-2 border-[#2A7C13] shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#EAF7E4] text-[#166534] text-[11px] font-bold uppercase tracking-wider mb-1.5 border border-[#BBF7D0]">
+              <Zap className="w-3.5 h-3.5 text-[#2A7C13]" />
+              <span>Instant Activation via Mobile Money</span>
+            </div>
+            <h3 className="text-[15px] font-bold text-[#142010]">
+              Pay Online with MTN MoMo or Orange Money
+            </h3>
+            <p className="text-xs text-[#525E4B] mt-0.5">
+              Select your school size tier below. You will be redirected to complete payment with your PIN and your license activates automatically.
+            </p>
+          </div>
+        </div>
+
+        {paymentError && (
+          <div className="p-3 rounded-[6px] bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-red-600" />
+            <span>{paymentError}</span>
+          </div>
+        )}
+
+        {/* Tier Selector */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+          {TIERS.map((tier) => (
+            <button
+              key={tier.id}
+              type="button"
+              onClick={() => setSelectedTier(tier.id)}
+              disabled={isPaying}
+              className={`p-3 rounded-[8px] text-left border transition-all cursor-pointer ${
+                selectedTier === tier.id
+                  ? "bg-[#EAF7E4] border-[#2A7C13] ring-1 ring-[#2A7C13]"
+                  : "bg-[#FAFAF8] border-[#E5E5DF] hover:border-[#2A7C13]/50"
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-[#142010] block">
+                  {tier.name}
+                </span>
+                {tier.popular && (
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">
+                    Popular
+                  </span>
+                )}
+              </div>
+              <div className="text-base font-extrabold text-[#2A7C13] mt-1">
+                {tier.label}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Action Button */}
+        <div className="pt-2 flex flex-col sm:flex-row items-center gap-3">
+          <button
+            type="button"
+            onClick={handleOnlinePay}
+            disabled={isPaying}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isPaying ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Connecting to Mobile Money...</span>
+              </>
+            ) : (
+              <>
+                <Zap className="w-4 h-4" />
+                <span>
+                  Pay {TIERS.find((t) => t.id === selectedTier)?.label} Online Now
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              </>
+            )}
+          </button>
+          <span className="text-[11px] text-[#788470]">
+            Secured by Fapshi &middot; Supports MTN Mobile Money &amp; Orange Money Cameroon
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Manual Transfer Methods (Alternative) */}
       <div className="p-5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs space-y-5">
         <div>
           <h3 className="text-sm font-bold text-[#142010] flex items-center gap-2">
             <Smartphone className="w-4 h-4 text-[#2A7C13]" />
-            <span>Local Payment Channels (Cameroon)</span>
+            <span>Alternative: Direct Manual MoMo Transfer</span>
           </h3>
           <p className="text-xs text-[#666666] mt-0.5">
-            To activate or renew your school license, send payment via MTN Mobile Money. Orange Money is also available on request.
+            If you prefer to send money manually via USSD code (*126# or #150#) or direct bank transfer:
           </p>
         </div>
 

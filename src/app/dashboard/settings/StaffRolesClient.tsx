@@ -42,7 +42,7 @@ const roleLabels: Record<string, string> = {
   superadmin: "Platform Superadmin",
   school_admin: "School Administrator",
   principal: "Principal / Academic Dean",
-  teacher: "Teacher / Academic Faculty",
+  teacher: "Teacher",
   bursar: "Finance Officer / Bursar",
   class_master: "Teacher (Class Master)",
   hod: "Teacher (Head of Department)",

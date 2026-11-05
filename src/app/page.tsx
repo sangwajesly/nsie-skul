@@ -24,6 +24,7 @@ import { MarketingFooter } from "@/components/landing/MarketingFooter";
 import { LandingFaq } from "@/components/landing/LandingFaq";
 import { PlatformSchoolsCounter } from "@/components/landing/PlatformSchoolsCounter";
 import { PlainEnglishCapabilities } from "@/components/landing/PlainEnglishCapabilities";
+import { RoleShowcase } from "@/components/landing/RoleShowcase";
 import { getPlatformPublicStats } from "@/lib/public-stats";
 import { BRAND } from "@/lib/design-tokens";
 import type { Metadata } from "next";
@@ -113,7 +114,7 @@ export default async function LandingPage() {
 
               {/* Microcopy */}
               <p className="text-[12px] text-[#788470]">
-                Built for the day-to-day realities of schools across Cameroon: Northwest, Southwest, Littoral & Centre.
+                Built for the day-to-day realities of schools across Cameroon: Northwest, Southwest, Littoral &amp; Centre.
               </p>
             </div>
 
@@ -390,84 +391,10 @@ export default async function LandingPage() {
           </div>
         </section>
 
-        {/* ── Role Workflows ────────────────────────────────────────────────── */}
-        <section id="how-it-works" className="py-16 sm:py-24 border-b border-[#E8DFC9] bg-[#FFFDF5]">
-          <div className={CONTAINER}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-start">
-              {/* Left: heading */}
-              <div className="space-y-5">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] border border-[#76C457]/30 text-[#2A7C13] text-[11px] font-bold tracking-wider uppercase mb-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A7C13]" />
-                  <span>Roles & Permissions</span>
-                </div>
-                <h2 className="text-[1.85rem] sm:text-[2.2rem] font-extrabold tracking-tight text-[#142010] leading-tight">
-                  Designed around how secondary schools actually work.
-                </h2>
-                <p className="text-[14px] sm:text-[15px] text-[#525E4B] leading-[1.65]">
-                  Your school should not have to force its academic processes into a generic template. Nsei Sukul assigns precise responsibilities to every staff member.
-                </p>
-
-                {/* Workflow points */}
-                <ul className="space-y-4 pt-2" role="list">
-                  {WORKFLOW_POINTS.map((point) => (
-                    <li key={point} className="flex items-start gap-3 text-[13px] sm:text-[14px] text-[#525E4B] leading-[1.6]">
-                      <CheckCircle2
-                        className="w-4.5 h-4.5 mt-0.5 shrink-0 text-[#2A7C13]"
-                        aria-hidden="true"
-                      />
-                      <span>{point}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Right: visual panel (roles overview) */}
-              <div className="space-y-3">
-                {[
-                  {
-                    role: "Head Teacher / Principal",
-                    badge: "Full access",
-                    badgeColor: "bg-[#2A7C13] text-white",
-                    desc: "Set up academic year, approve sequence results, lock report cards, and oversee fee collection.",
-                  },
-                  {
-                    role: "HOD (Head of Department)",
-                    badge: "Dept. scope",
-                    badgeColor: "bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]",
-                    desc: "Audit subject mark sheets across teachers before marks are finalized and locked.",
-                  },
-                  {
-                    role: "Subject Teacher",
-                    badge: "Allocated classes",
-                    badgeColor: "bg-[#EAF7E4] text-[#2A7C13] border border-[#76C457]/40",
-                    desc: "Enter marks on phone or laptop for assigned classes only. Zero access to unallocated subjects.",
-                  },
-                  {
-                    role: "Bursar & Accounts",
-                    badge: "Finance",
-                    badgeColor: "bg-[#FBE6C2] text-[#422C0A] border border-[#E8DFC9]",
-                    desc: "Record fee tranches in FCFA, print payment slips, and generate examination clearance lists.",
-                  },
-                ].map(({ role, badge, badgeColor, desc }) => (
-                  <div
-                    key={role}
-                    className="flex items-start gap-4 p-4 rounded-[12px] bg-white border border-[#E8DFC9] shadow-2xs hover:-translate-y-0.5 hover:border-[#2A7C13]/50 transition-all duration-200"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-bold text-[13px] text-[#142010]">{role}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-[4px] ${badgeColor}`}>
-                          {badge}
-                        </span>
-                      </div>
-                      <p className="text-[12px] text-[#525E4B] leading-[1.55]">{desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ── Role Workflows & Interactive Showcase ──────────────────────── */}
+        <div id="how-it-works">
+          <RoleShowcase />
+        </div>
 
         {/* ── Teacher Resources & Pedagogic Hub Section ────────────────────── */}
         <section className="py-16 sm:py-20 border-b border-[#E8DFC9] bg-[#FFFDF5]">
@@ -496,23 +423,23 @@ export default async function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Card 1 */}
+              {/* Card 1: Most Recent Guide */}
               <div className="rounded-[10px] bg-white border border-[#E8DFC9] p-5 shadow-2xs hover:shadow-md hover:border-[#2A7C13] hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between space-y-4 group">
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A7C13] bg-[#EAF7E4] px-2 py-0.5 rounded">
-                    CBA Pedagogy
+                    Teacher Tools
                   </span>
                   <h3 className="font-bold text-sm sm:text-base text-[#142010] mt-2.5 leading-snug group-hover:text-[#2A7C13] transition-colors">
-                    <Link href="/blog/minesec-cba-competency-appreciations" className="hover:text-[#2A7C13] transition-colors">
-                      The MINESEC CBA Report Card Handbook: 40 Ready Appreciations
+                    <Link href="/blog/how-cameroon-teachers-make-extra-income" className="hover:text-[#2A7C13] transition-colors">
+                      6 Practical Ways Cameroon Teachers Can Make Extra Income
                     </Link>
                   </h3>
                   <p className="text-xs text-[#666666] mt-1.5 leading-relaxed">
-                    Stop struggling with blank report card boxes. Copy and paste official MINESEC-compliant remarks for Science and Arts.
+                    Realistic, ethical ways educators earn extra income without burning out, from exam booklets to school agent royalties.
                   </p>
                 </div>
                 <Link
-                  href="/blog/minesec-cba-competency-appreciations"
+                  href="/blog/how-cameroon-teachers-make-extra-income"
                   className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline pt-2 border-t border-[#F0EFEA] group-hover:translate-x-0.5 transition-all"
                 >
                   <span>Read Guide</span>

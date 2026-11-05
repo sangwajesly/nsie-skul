@@ -65,79 +65,158 @@ export async function switchSchoolAction(schoolId: string) {
  * 1-Click extend 30-day trial for any school
  */
 export async function extendSchoolTrialAction(schoolId: string, additionalDays: number = 30) {
-  await assertSuperAdmin();
-  const adminClient = createAdminClient();
+  try {
+    await assertSuperAdmin();
+    const adminClient = createAdminClient();
 
-  // 1. Fetch current subscription
-  const { data: currentSub } = await adminClient
-    .from("school_subscriptions")
-    .select("*")
-    .eq("school_id", schoolId)
-    .maybeSingle();
+    // 1. Fetch current subscription
+    const { data: currentSub } = await adminClient
+      .from("school_subscriptions")
+      .select("*")
+      .eq("school_id", schoolId)
+      .maybeSingle();
 
-  const now = new Date();
-  let baseDate = now;
+    const now = new Date();
+    let baseDate = now;
 
-  if (currentSub?.trial_ends_at) {
-    const existingEnd = new Date(currentSub.trial_ends_at);
-    if (existingEnd.getTime() > now.getTime()) {
-      baseDate = existingEnd;
+    if (currentSub?.trial_ends_at) {
+      const existingEnd = new Date(currentSub.trial_ends_at);
+      if (existingEnd.getTime() > now.getTime()) {
+        baseDate = existingEnd;
+      }
     }
-  }
 
-  const newTrialEnds = new Date(baseDate.getTime() + additionalDays * 86400000).toISOString();
+    const newTrialEnds = new Date(baseDate.getTime() + additionalDays * 86400000).toISOString();
 
-  if (currentSub) {
     const { error } = await adminClient
       .from("school_subscriptions")
-      .update({
-        status: "trial",
-        trial_ends_at: newTrialEnds,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("school_id", schoolId);
+      .upsert(
+        {
+          school_id: schoolId,
+          plan: currentSub?.plan || "pilot",
+          status: "trial",
+          trial_ends_at: newTrialEnds,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "school_id" }
+      );
 
-    if (error) throw new Error(error.message);
-  } else {
-    const { error } = await adminClient
-      .from("school_subscriptions")
-      .insert({
-        school_id: schoolId,
-        plan: "pilot",
-        status: "trial",
-        trial_ends_at: newTrialEnds,
-      });
+    if (error) {
+      return { success: false, error: "Unable to extend trial period. Please try again." };
+    }
 
-    if (error) throw new Error(error.message);
+    revalidatePath("/dashboard/schools");
+    return { success: true, newTrialEnds };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "An unexpected error occurred while extending the trial.",
+    };
   }
-
-  revalidatePath("/dashboard/schools");
-  return { success: true, newTrialEnds };
 }
 
 /**
  * 1-Click activate school subscription (Full annual license)
  */
 export async function activateSchoolSubscriptionAction(schoolId: string, plan: string = "pilot") {
-  await assertSuperAdmin();
-  const adminClient = createAdminClient();
+  try {
+    await assertSuperAdmin();
+    const adminClient = createAdminClient();
 
-  const nextYear = new Date(Date.now() + 365 * 86400000).toISOString();
+    const nextYear = new Date(Date.now() + 365 * 86400000).toISOString();
 
-  const { error } = await adminClient
-    .from("school_subscriptions")
-    .upsert({
+    const { error: subError } = await adminClient
+      .from("school_subscriptions")
+      .upsert(
+        {
+          school_id: schoolId,
+          plan,
+          status: "active",
+          current_period_end: nextYear,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "school_id" }
+      );
+
+    if (subError) {
+      console.error("[activateSchoolSubscriptionAction] Subscription error:", subError);
+      return {
+        success: false,
+        error: "Unable to activate school subscription. Please verify your connection and try again.",
+      };
+    }
+
+    // Ensure the school record itself is marked active
+    await adminClient
+      .from("schools")
+      .update({ is_active: true, updated_at: new Date().toISOString() })
+      .eq("id", schoolId);
+
+    revalidatePath("/dashboard/schools");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[activateSchoolSubscriptionAction] Caught error:", err);
+    return {
+      success: false,
+      error: err?.message || "Could not activate annual license. Please try again.",
+    };
+  }
+}
+
+/**
+ * Toggle whether a school is featured on the platform public landing page
+ */
+export async function toggleSchoolFeaturedOnLandingAction(schoolId: string) {
+  try {
+    const { user } = await assertSuperAdmin();
+    const adminClient = createAdminClient();
+
+    // 1. Fetch current featured IDs
+    const { data: featuredLog } = await adminClient
+      .from("audit_logs")
+      .select("details")
+      .eq("resource_type", "platform_settings")
+      .eq("resource_id", "featured_landing_schools")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const currentIds: string[] = featuredLog?.details?.featuredSchoolIds || [];
+    const isCurrentlyFeatured = currentIds.includes(schoolId);
+
+    const updatedIds = isCurrentlyFeatured
+      ? currentIds.filter((id) => id !== schoolId)
+      : [...currentIds, schoolId];
+
+    // 2. Persist update in audit_logs
+    const { error } = await adminClient.from("audit_logs").insert({
       school_id: schoolId,
-      plan,
-      status: "active",
-      current_period_end: nextYear,
-      updated_at: new Date().toISOString(),
+      user_id: user.id,
+      action: isCurrentlyFeatured ? "REMOVE_FEATURED_LANDING_SCHOOL" : "ADD_FEATURED_LANDING_SCHOOL",
+      resource_type: "platform_settings",
+      resource_id: "featured_landing_schools",
+      details: { featuredSchoolIds: updatedIds },
+      created_at: new Date().toISOString(),
     });
 
-  if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[toggleSchoolFeaturedOnLandingAction] Error saving:", error);
+      return {
+        success: false,
+        error: "Unable to update featured schools list. Please try again.",
+      };
+    }
 
-  revalidatePath("/dashboard/schools");
-  return { success: true };
+    revalidatePath("/dashboard/schools");
+    revalidatePath("/");
+    return { success: true, isFeatured: !isCurrentlyFeatured };
+  } catch (err: any) {
+    console.error("[toggleSchoolFeaturedOnLandingAction] Caught error:", err);
+    return {
+      success: false,
+      error: err?.message || "Unable to update homepage school display setting.",
+    };
+  }
 }
 
 const QuickCreateSchoolSchema = z.object({

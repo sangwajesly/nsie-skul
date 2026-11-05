@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/tenancy/context";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { initiateFapshiPayment, getFapshiPaymentStatus } from "@/lib/payments/fapshi";
 
 const AddStaffSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -660,4 +661,90 @@ export async function removeStaffMembershipAction(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard");
+}
+
+/**
+ * Initiates an automated Mobile Money payment (MTN MoMo or Orange Money via Fapshi)
+ * for a school's annual software license.
+ */
+export async function initiateSchoolLicensePaymentAction(plan: string = "standard", amount: number = 200000) {
+  try {
+    const context = await requirePermission("school.settings.manage");
+    const schoolId = context.school.id;
+    const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://nsei-sukul.klarifypath.com").replace(/\/+$/, "");
+
+    // Fapshi externalId allows alphanumeric and underscores/hyphens, rejecting colons
+    const externalId = `LIC_${schoolId}_${plan}_${Date.now()}`;
+    const redirectUrl = `${siteUrl}/dashboard/settings?billing_status=checking#billing`;
+
+    const res = await initiateFapshiPayment({
+      amount,
+      email: context.user.email || undefined,
+      externalId,
+      redirectUrl,
+      userId: context.user.id,
+      message: `Annual license payment for ${context.school.name} (${plan} tier)`,
+    });
+
+    if (!res.success || !res.link) {
+      return {
+        success: false,
+        error: res.error || "Unable to initiate payment with Fapshi. Please try again or use direct MoMo transfer.",
+      };
+    }
+
+    return {
+      success: true,
+      link: res.link,
+      transId: res.transId,
+    };
+  } catch (err: any) {
+    console.error("[initiateSchoolLicensePaymentAction] Error:", err);
+    return {
+      success: false,
+      error: err?.message || "An unexpected error occurred while starting payment.",
+    };
+  }
+}
+
+/**
+ * Manually verifies the live transaction status from Fapshi when a school returns to settings.
+ */
+export async function verifyFapshiPaymentStatusAction(transId: string) {
+  try {
+    const context = await requirePermission("school.settings.manage");
+    const statusRes = await getFapshiPaymentStatus(transId);
+
+    if (!statusRes.success || !statusRes.data) {
+      return { success: false, error: statusRes.error || "Could not check transaction status." };
+    }
+
+    const { status } = statusRes.data;
+
+    if (status === "SUCCESSFUL") {
+      const adminClient = createAdminClient();
+      const nextYear = new Date(Date.now() + 365 * 86400000).toISOString();
+
+      await adminClient.from("school_subscriptions").upsert(
+        {
+          school_id: context.school.id,
+          plan: "standard",
+          status: "active",
+          current_period_end: nextYear,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "school_id" }
+      );
+
+      await adminClient.from("schools").update({ is_active: true }).eq("id", context.school.id);
+
+      revalidatePath("/dashboard/settings");
+      revalidatePath("/dashboard");
+      return { success: true, status: "SUCCESSFUL" };
+    }
+
+    return { success: true, status };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to verify transaction status." };
+  }
 }
