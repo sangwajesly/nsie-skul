@@ -31,7 +31,6 @@ export default async function PlatformSchoolsPage() {
     adminClient
       .from("schools")
       .select("*")
-      .eq("is_active", true)
       .order("name", { ascending: true }),
     adminClient
       .from("audit_logs")
@@ -132,6 +131,7 @@ export default async function PlatformSchoolsPage() {
         streamCount: streamCount || 0,
         academicYearName: activeYear?.name || null,
         isFeaturedOnLanding: featuredSchoolIds.includes(sch.id),
+        isActive: sch.is_active ?? true,
         subscription: {
           status: subStatus,
           plan: subData?.plan || "pilot",

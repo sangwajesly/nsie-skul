@@ -26,6 +26,7 @@ import {
   switchSchoolAction,
   extendSchoolTrialAction,
   activateSchoolSubscriptionAction,
+  deactivateSchoolSubscriptionAction,
   quickCreateSchoolAction,
   toggleSchoolFeaturedOnLandingAction,
 } from "./actions";
@@ -43,6 +44,7 @@ export interface SchoolRow {
   streamCount: number;
   academicYearName: string | null;
   isFeaturedOnLanding?: boolean;
+  isActive?: boolean;
   subscription: {
     status: "trial" | "active" | "past_due" | "canceled";
     plan: string;
@@ -105,8 +107,9 @@ export function SchoolsManagerClient({
   // Calculate totals
   const totalStudents = schools.reduce((acc, s) => acc + s.studentCount, 0);
   const totalStaff = schools.reduce((acc, s) => acc + s.staffCount, 0);
-  const activeSubs = schools.filter((s) => s.subscription.status === "active").length;
-  const trialSubs = schools.filter((s) => s.subscription.status === "trial").length;
+  const activeSubs = schools.filter((s) => s.subscription.status === "active" && s.isActive !== false).length;
+  const trialSubs = schools.filter((s) => s.subscription.status === "trial" && s.isActive !== false).length;
+  const deactivatedCount = schools.filter((s) => s.isActive === false || s.subscription.status === "canceled").length;
   const featuredOnLandingCount = schools.filter((s) => s.isFeaturedOnLanding).length;
 
   const handleSwitchSchool = (schoolId: string) => {
@@ -179,6 +182,7 @@ export function SchoolsManagerClient({
             s.id === schoolId
               ? {
                   ...s,
+                  isActive: true,
                   subscription: {
                     ...s.subscription,
                     status: "active",
@@ -197,6 +201,55 @@ export function SchoolsManagerClient({
         setActionMessage({
           type: "error",
           text: "Failed to activate school. Please try again.",
+        });
+      }
+    });
+  };
+
+  const handleDeactivateSchool = (schoolId: string, schoolName: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `Are you sure you want to deactivate "${schoolName}"?\n\nThe school and its teachers will be suspended from logging in until you activate it again.`
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const res = await deactivateSchoolSubscriptionAction(schoolId);
+        if (!res.success) {
+          setActionMessage({
+            type: "error",
+            text: res.error || "Unable to deactivate school. Please try again.",
+          });
+          return;
+        }
+        setSchools((prev) =>
+          prev.map((s) =>
+            s.id === schoolId
+              ? {
+                  ...s,
+                  isActive: false,
+                  subscription: {
+                    ...s.subscription,
+                    status: "canceled",
+                    daysRemaining: 0,
+                    isExpired: true,
+                  },
+                }
+              : s
+          )
+        );
+        setActionMessage({
+          type: "success",
+          text: `"${schoolName}" has been deactivated.`,
+        });
+      } catch (err: any) {
+        setActionMessage({
+          type: "error",
+          text: "Failed to deactivate school. Please try again.",
         });
       }
     });
@@ -349,6 +402,11 @@ export function SchoolsManagerClient({
           </div>
           <div className="text-2xl font-black text-[#142010] mt-1">
             {activeSubs} <span className="text-xs font-normal text-[#888888]">Active</span> / {trialSubs} <span className="text-xs font-normal text-[#888888]">Trial</span>
+            {deactivatedCount > 0 && (
+              <span className="text-xs font-normal text-red-600 ml-1.5">
+                ({deactivatedCount} Inactive)
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-[#666666] mt-0.5">
             Managed from this console
@@ -441,7 +499,9 @@ export function SchoolsManagerClient({
           filteredSchools.map((school) => {
             const isCurrentlyActive = school.id === currentActiveSchoolId;
             const isSwitching = switchingId === school.id;
-            const isTrial = school.subscription.status === "trial";
+            const isDeactivated = school.isActive === false || school.subscription.status === "canceled";
+            const isTrial = !isDeactivated && school.subscription.status === "trial";
+            const isLicenseActive = !isDeactivated && school.subscription.status === "active";
             const daysLeft = school.subscription.daysRemaining;
 
             return (
@@ -520,7 +580,11 @@ export function SchoolsManagerClient({
                         <strong className="text-[#2A7C13]">{school.streamCount}</strong> classes
                       </span>
                       <span>•</span>
-                      {isTrial ? (
+                      {isDeactivated ? (
+                        <span className="font-semibold px-2 py-0.5 rounded text-[11px] bg-red-100 text-red-800 border border-red-200">
+                          Deactivated
+                        </span>
+                      ) : isTrial ? (
                         <span
                           className={`font-semibold px-2 py-0.5 rounded text-[11px] ${
                             daysLeft <= 3
@@ -562,14 +626,25 @@ export function SchoolsManagerClient({
                     </button>
                   )}
 
-                  {school.subscription.status === "active" ? (
-                    <span
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0] text-xs font-bold shadow-2xs select-none"
-                      title="Official annual license is active"
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
-                      <span>Activated</span>
-                    </span>
+                  {isLicenseActive ? (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0] text-xs font-bold shadow-2xs select-none"
+                        title="Official annual license is active"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
+                        <span>Activated</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeactivateSchool(school.id, school.name)}
+                        disabled={isPending}
+                        title="Deactivate or suspend this school"
+                        className="px-2.5 py-1.5 rounded-[6px] bg-[#FAF8F5] hover:bg-red-50 text-red-600 hover:text-red-700 border border-[#D5CBB2] hover:border-red-300 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Deactivate
+                      </button>
+                    </div>
                   ) : (
                     <button
                       type="button"

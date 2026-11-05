@@ -164,6 +164,75 @@ export async function activateSchoolSubscriptionAction(schoolId: string, plan: s
 }
 
 /**
+ * 1-Click deactivate / suspend school subscription
+ */
+export async function deactivateSchoolSubscriptionAction(schoolId: string) {
+  try {
+    await assertSuperAdmin();
+    const adminClient = createAdminClient();
+
+    const now = new Date().toISOString();
+
+    // 1. Mark subscription as canceled / inactive
+    const { error: subError } = await adminClient
+      .from("school_subscriptions")
+      .upsert(
+        {
+          school_id: schoolId,
+          status: "canceled",
+          current_period_end: now,
+          updated_at: now,
+        },
+        { onConflict: "school_id" }
+      );
+
+    if (subError) {
+      console.error("[deactivateSchoolSubscriptionAction] Subscription error:", subError);
+      return {
+        success: false,
+        error: "Unable to deactivate school subscription. Please try again.",
+      };
+    }
+
+    // 2. Mark the school record as inactive
+    const { error: schoolError } = await adminClient
+      .from("schools")
+      .update({ is_active: false, updated_at: now })
+      .eq("id", schoolId);
+
+    if (schoolError) {
+      console.error("[deactivateSchoolSubscriptionAction] School update error:", schoolError);
+      return {
+        success: false,
+        error: "Subscription marked inactive, but failed to update school status.",
+      };
+    }
+
+    // 3. Log audit event
+    await adminClient.from("audit_logs").insert({
+      school_id: schoolId,
+      action: "SCHOOL_DEACTIVATED",
+      resource_type: "school",
+      resource_id: schoolId,
+      details: {
+        deactivatedAt: now,
+      },
+    });
+
+    revalidatePath("/dashboard/schools");
+    revalidatePath("/dashboard");
+    revalidatePath("/");
+    return { success: true };
+  } catch (err: any) {
+    console.error("[deactivateSchoolSubscriptionAction] Caught error:", err);
+    return {
+      success: false,
+      error: err?.message || "Could not deactivate school. Please try again.",
+    };
+  }
+}
+
+/**
  * Toggle whether a school is featured on the platform public landing page
  */
 export async function toggleSchoolFeaturedOnLandingAction(schoolId: string) {
