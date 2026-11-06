@@ -324,7 +324,7 @@ export default async function BulkReportCardsPage({
             @media print {
               @page {
                 size: A4 portrait;
-                margin: 5mm 6mm;
+                margin: 3.5mm 4mm;
               }
               body {
                 background-color: white !important;
@@ -335,10 +335,15 @@ export default async function BulkReportCardsPage({
               .report-card-print-sheet {
                 page-break-after: always !important;
                 break-after: page !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 border: none !important;
                 box-shadow: none !important;
+                max-height: 290mm !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
               }
               .report-card-print-sheet:last-child {
                 page-break-after: auto !important;

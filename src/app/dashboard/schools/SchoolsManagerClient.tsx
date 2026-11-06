@@ -45,6 +45,7 @@ export interface SchoolRow {
   academicYearName: string | null;
   isFeaturedOnLanding?: boolean;
   isActive?: boolean;
+  logoUrl?: string | null;
   subscription: {
     status: "trial" | "active" | "past_due" | "canceled";
     plan: string;
@@ -515,9 +516,19 @@ export function SchoolsManagerClient({
               >
                 {/* School Profile */}
                 <div className="flex items-start gap-3.5 min-w-0">
-                  <div className="w-11 h-11 rounded-[8px] bg-[#142010] text-white font-black text-base flex items-center justify-center shrink-0 shadow-2xs">
-                    {school.code ? school.code.slice(0, 3) : school.name.charAt(0)}
-                  </div>
+                  {school.logoUrl ? (
+                    <div className="w-11 h-11 rounded-[8px] bg-white border border-[#E8DFC9] p-1 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                      <img
+                        src={school.logoUrl}
+                        alt={`${school.name} logo`}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-11 h-11 rounded-[8px] bg-[#142010] text-white font-black text-base flex items-center justify-center shrink-0 shadow-2xs">
+                      {school.code ? school.code.slice(0, 3) : school.name.charAt(0)}
+                    </div>
+                  )}
 
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

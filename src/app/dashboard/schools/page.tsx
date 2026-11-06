@@ -63,7 +63,7 @@ export default async function PlatformSchoolsPage() {
           .from("students")
           .select("id", { count: "exact", head: true })
           .eq("school_id", sch.id)
-          .eq("is_active", true),
+          .neq("status", "withdrawn"),
         adminClient
           .from("school_memberships")
           .select("id", { count: "exact", head: true })
@@ -132,6 +132,7 @@ export default async function PlatformSchoolsPage() {
         academicYearName: activeYear?.name || null,
         isFeaturedOnLanding: featuredSchoolIds.includes(sch.id),
         isActive: sch.is_active ?? true,
+        logoUrl: sch.logo_url || null,
         subscription: {
           status: subStatus,
           plan: subData?.plan || "pilot",

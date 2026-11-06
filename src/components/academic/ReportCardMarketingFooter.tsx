@@ -2,7 +2,7 @@ import React from "react";
 
 export function ReportCardMarketingFooter() {
   return (
-    <div className="pt-1.5 mt-1 border-t border-zinc-200 w-full flex flex-row items-center justify-between flex-nowrap whitespace-nowrap gap-2 text-[7px] sm:text-[7.5px] print:text-[6.8px] leading-none text-zinc-500 font-mono select-none overflow-hidden">
+    <div className="pt-1 mt-0.5 print:pt-0.5 print:mt-0.5 border-t border-zinc-200 w-full flex flex-row items-center justify-between flex-nowrap whitespace-nowrap gap-2 text-[7px] sm:text-[7.5px] print:text-[6.2px] leading-none text-zinc-500 font-mono select-none overflow-hidden">
       <div className="flex items-center gap-1.5 shrink-0 truncate">
         <span>Generated with</span>
         <strong className="text-zinc-800 font-bold">Nsei Sukul · Management Systems</strong>

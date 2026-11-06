@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTenantContext } from "@/lib/tenancy/context";
+import { createClient } from "@/lib/supabase/server";
 import {
   getEnrolledStudents,
   getActiveAcademicYear,
@@ -348,7 +349,16 @@ export default async function DashboardPage() {
   }
 
   // ── ADMINISTRATOR & BURSAR DASHBOARD VIEW ──
-  const studentCount = enrolledStudents.length;
+  let studentCount = enrolledStudents.length;
+  if (studentCount === 0 && schoolId) {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId)
+      .neq("status", "withdrawn");
+    studentCount = count || 0;
+  }
   const staffCount = staff.filter((member) => member.status === "active").length;
   const subjectCount = subjects.length;
   const departmentCount = departments.length;

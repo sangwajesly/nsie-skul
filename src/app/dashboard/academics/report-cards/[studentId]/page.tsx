@@ -331,7 +331,7 @@ export default async function StudentReportCardPage({
       </div>
 
       {/* Official Report Card Component */}
-      <div className="report-card-print-sheet overflow-x-auto bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-4 print:p-0 print:border-none print:shadow-none print:overflow-visible">
+      <div className="report-card-print-sheet report-card-single-sheet overflow-x-auto bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-4 print:p-0 print:border-none print:shadow-none print:overflow-hidden print:max-h-[290mm]">
         <ReportCardRenderer data={data} canPrint={canPrint} isTrial={context?.subscription?.isTrial} />
       </div>
     </div>

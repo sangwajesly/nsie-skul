@@ -16,7 +16,8 @@ import {
   FileSpreadsheet,
   Award,
   RefreshCw,
-  GraduationCap
+  GraduationCap,
+  Sparkles
 } from "lucide-react";
 import { DashboardPreview } from "@/components/landing/DashboardPreview";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
@@ -100,6 +101,14 @@ export default async function LandingPage() {
                   <span>Register Your School</span>
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Link>
+                <Link
+                  href="/demo"
+                  className={BTN_SECONDARY + " w-full sm:w-auto gap-2 py-3 px-5 text-[14px] sm:text-[15px] bg-[#FFF8CF]/70 hover:bg-[#FFF8CF] border-[#FBE6C2] text-[#7A5B00]"}
+                  title="1-Click Demo Campus - Test marks, report cards and classes instantly"
+                >
+                  <Sparkles className="w-4 h-4 text-[#B45309] shrink-0" />
+                  <span>Explore Live Demo</span>
+                </Link>
                 <a
                   href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20would%20like%20a%20demonstration%20for%20our%20school."
                   target="_blank"
@@ -107,8 +116,7 @@ export default async function LandingPage() {
                   className={BTN_SECONDARY + " w-full sm:w-auto gap-2 py-3 px-5 text-[14px] sm:text-[15px]"}
                 >
                   <MessageCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                  <span>Chat on WhatsApp</span>
-                  <span className="hidden sm:inline">(+237 682 833 601)</span>
+                  <span>WhatsApp</span>
                 </a>
               </div>
 

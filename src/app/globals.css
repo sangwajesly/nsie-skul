@@ -43,7 +43,7 @@ html {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0mm; /* Suppresses browser default headers/footers (URL, page title, date) */
+    margin: 3.5mm 4mm; /* Compact printable margin prevents browser clipping and header/footer interference */
   }
 
   body, html {
@@ -104,30 +104,43 @@ html {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 5mm 6mm !important;
+    padding: 2mm 3mm !important;
     box-sizing: border-box !important;
     background: white !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: visible !important;
+    overflow: hidden !important;
     transform: none !important;
   }
 
-  /* Clean print sheets */
+  /* Clean print sheets with strict 1-page A4 physical boundaries */
   .report-card-print-sheet {
-    page-break-after: always !important;
-    break-after: page !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-    margin: 0 !important;
-    padding: 5mm 6mm !important;
     box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 290mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    width: 100% !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
   }
 
-  .report-card-print-sheet:last-child {
+  /* Single report card never breaks to a 2nd page */
+  .report-card-single-sheet {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  /* Bulk report cards break cleanly after each student */
+  .report-card-bulk-sheet {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .report-card-bulk-sheet:last-child {
     page-break-after: auto !important;
     break-after: auto !important;
   }

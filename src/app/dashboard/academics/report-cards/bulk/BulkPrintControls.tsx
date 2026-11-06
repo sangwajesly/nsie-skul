@@ -23,7 +23,7 @@ export function BulkPrintControls({
   };
 
   return (
-    <div className="print:hidden sticky top-3 z-30 mb-6 bg-white/95 backdrop-blur-md border border-[#E8DFC9] rounded-[10px] p-4 shadow-lg">
+    <div className="print:hidden sticky top-3 z-30 mb-6 bg-white border border-[#E8DFC9] rounded-[10px] p-4 shadow-lg">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link

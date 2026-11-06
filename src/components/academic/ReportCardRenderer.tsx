@@ -30,7 +30,7 @@ export function ReportCardRenderer({
     ((data.school.reportCardTemplate as ReportCardTemplateType) || "cba_grouped_classic");
 
   return (
-    <div className="report-card-print-container relative overflow-hidden flex flex-col justify-between">
+    <div className="report-card-print-container relative overflow-hidden flex flex-col justify-between print:h-[285mm] print:max-h-[285mm] print:overflow-hidden">
       {isTrial && (
         <div
           className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden z-20 select-none print:flex"

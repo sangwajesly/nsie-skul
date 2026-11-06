@@ -445,13 +445,22 @@ function LoginForm() {
           <p className="text-[11px] text-[#666666]">
             Set up your secondary school on Nsei Sukul in 2 minutes.
           </p>
-          <div className="pt-1">
+          <div className="pt-1 flex items-center justify-center gap-3">
             <Link
               href="/register"
               className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline cursor-pointer"
             >
-              <span>Register Your School</span>
+              <span>Register School</span>
               <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+            <span className="text-[#D5D5CF]">|</span>
+            <Link
+              href="/demo"
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#B45309] hover:underline cursor-pointer"
+              title="Test with pre-populated demo classes and report cards"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+              <span>Explore Live Demo</span>
             </Link>
           </div>
         </div>

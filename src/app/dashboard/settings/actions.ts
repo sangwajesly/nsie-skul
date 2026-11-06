@@ -327,6 +327,10 @@ export async function addStaffMemberAction(formData: FormData) {
 export async function updateSchoolSettingsAction(formData: FormData) {
   const context = await requirePermission("school.settings.manage");
 
+  if (context.school.slug === "demo-bilingual-high-school") {
+    return;
+  }
+
   const schoolId = context.school.id;
   const name = (formData.get("name") as string)?.trim();
   const motto = (formData.get("motto") as string) || null;

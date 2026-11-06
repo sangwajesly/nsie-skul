@@ -88,7 +88,7 @@ export function BulkReportCardsView({
   return (
     <div className="space-y-6 print:space-y-0">
       {/* Floating Control Toolbar (Hidden during actual print) */}
-      <div className="print:hidden sticky top-3 z-30 mb-6 bg-white/95 backdrop-blur-md border border-[#E8DFC9] rounded-[10px] p-4 shadow-lg space-y-3">
+      <div className="print:hidden sticky top-3 z-30 mb-6 bg-white border border-[#E8DFC9] rounded-[10px] p-4 shadow-lg space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link
@@ -191,7 +191,7 @@ export function BulkReportCardsView({
           {sortedReportCards.map((rc) => (
             <div
               key={rc.student.id}
-              className="report-card-print-sheet relative overflow-x-auto bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-6 print:p-0 print:border-none print:shadow-none print:overflow-visible"
+              className="report-card-print-sheet report-card-bulk-sheet relative overflow-x-auto bg-white rounded-[8px] shadow-sm border border-[#E8DFC9] p-2 sm:p-6 print:p-0 print:border-none print:shadow-none print:overflow-hidden print:max-h-[290mm]"
             >
               {isTrial && (
                 <div

@@ -15,6 +15,7 @@ import {
   ArrowRight,
   BookOpen,
   LayoutDashboard,
+  Sparkles,
 } from "lucide-react";
 import { BRAND } from "@/lib/design-tokens";
 import { createClient } from "@/lib/supabase/client";
@@ -204,6 +205,14 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             </Link>
           ) : (
             <>
+              <Link
+                href="/demo"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] text-xs font-bold transition-colors shadow-2xs"
+                title="1-Click Demo Campus - Test without an account"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+                <span>Live Demo</span>
+              </Link>
               <Link
                 href="/login"
                 className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1"
@@ -403,22 +412,33 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                     <span>Go to School Dashboard</span>
                   </Link>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
                     <Link
-                      href="/register"
+                      href="/demo"
                       onClick={() => setMobileMenuOpen(false)}
-                      className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors text-center"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-[7px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] font-bold text-xs shadow-2xs transition-colors"
                     >
-                      <span>Register School</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
+                      <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+                      <span>Explore Live Demo Campus</span>
                     </Link>
-                    <Link
-                      href="/login"
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="inline-flex items-center justify-center py-2.5 px-3 rounded-[7px] bg-[#FFFDF5] border border-[#D5D5CF] hover:bg-[#F5F5F0] text-[#142010] font-semibold text-xs transition-colors text-center"
-                    >
-                      Portal Login
-                    </Link>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <Link
+                        href="/register"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors text-center"
+                      >
+                        <span>Register School</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                      <Link
+                        href="/login"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="inline-flex items-center justify-center py-2.5 px-3 rounded-[7px] bg-[#FFFDF5] border border-[#D5D5CF] hover:bg-[#F5F5F0] text-[#142010] font-semibold text-xs transition-colors text-center"
+                      >
+                        Portal Login
+                      </Link>
+                    </div>
                   </div>
                 )}
               </div>

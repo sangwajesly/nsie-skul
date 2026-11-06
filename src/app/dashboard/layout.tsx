@@ -11,6 +11,7 @@ import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
 import { SchoolSwitcher } from "@/components/schools/SchoolSwitcher";
+import { DemoBanner } from "@/components/demo/DemoBanner";
 import { LogOut, Globe, Clock, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -40,6 +41,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const userRole = tenantContext.role.name;
   const activeYear = await getActiveAcademicYear(tenantContext.school.id);
   const academicYearLabel = activeYear?.name || "Academic year not set";
+  const isDemo =
+    tenantContext.school.slug === "demo-bilingual-high-school" ||
+    tenantContext.user.email === "demo@nsei-sukul.klarifypath.com";
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans print:min-h-0 print:bg-white print:block">
@@ -112,6 +116,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
       {/* Main content wrapper */}
       <div className="flex-1 flex flex-col min-w-0 print:block print:w-full">
+        {isDemo && <DemoBanner schoolName={schoolName} />}
         {/* Mobile Header */}
         <div className="md:hidden flex items-center justify-between h-14 px-3 sm:px-4 border-b border-[#E5E5DF] bg-white sticky top-0 z-20 print:hidden">
           <div className="flex items-center gap-2 overflow-hidden">
