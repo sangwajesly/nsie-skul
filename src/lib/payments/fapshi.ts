@@ -45,9 +45,29 @@ export interface FapshiPaymentStatusResult {
 }
 
 function getFapshiConfig() {
-  const rawUser = process.env.FAPSHI_API_USER || process.env.NEXT_PUBLIC_FAPSHI_API_USER || "";
-  const rawKey = process.env.FAPSHI_API_KEY || process.env.NEXT_PUBLIC_FAPSHI_API_KEY || "";
-  const rawBaseUrl = process.env.FAPSHI_BASE_URL || process.env.NEXT_PUBLIC_FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
+  const rawUser =
+    process.env.FAPSHI_API_USER ||
+    process.env.FAPSHI_USER ||
+    process.env.FAPSHI_APIUSER ||
+    process.env.FAPSHI_API_USER_LIVE ||
+    process.env.NEXT_PUBLIC_FAPSHI_API_USER ||
+    process.env.NEXT_PUBLIC_FAPSHI_USER ||
+    "";
+
+  const rawKey =
+    process.env.FAPSHI_API_KEY ||
+    process.env.FAPSHI_KEY ||
+    process.env.FAPSHI_APIKEY ||
+    process.env.FAPSHI_API_KEY_LIVE ||
+    process.env.FAPSHI_TOKEN ||
+    process.env.NEXT_PUBLIC_FAPSHI_API_KEY ||
+    process.env.NEXT_PUBLIC_FAPSHI_KEY ||
+    "";
+
+  const rawBaseUrl =
+    process.env.FAPSHI_BASE_URL ||
+    process.env.NEXT_PUBLIC_FAPSHI_BASE_URL ||
+    "https://sandbox.fapshi.com";
 
   const apiUser = rawUser.trim().replace(/^["']|["']$/g, "");
   const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
