@@ -21,7 +21,7 @@ export function DemoBanner({ schoolName = "Government Bilingual High School (Dem
               Live Demo Campus
             </span>
             <span className="text-[#E0E7DC] truncate">
-              You are exploring <strong>{schoolName}</strong>. Test report cards, marks, and classes freely.
+              You are exploring <strong>{schoolName}</strong>. Sample records are protected from deletion, but you can add new marks, students, and receipts freely.
             </span>
           </div>
         </div>

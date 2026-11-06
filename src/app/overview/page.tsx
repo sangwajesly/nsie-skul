@@ -20,6 +20,12 @@ import {
   ChevronRight,
   TrendingUp,
   BookOpen,
+  Camera,
+  Mic,
+  Bell,
+  CreditCard,
+  IdCard,
+  FileText,
 } from "lucide-react";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
@@ -27,16 +33,16 @@ import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
 import { PitchCopyCard } from "@/components/overview/PitchTools";
 
 export const metadata: Metadata = {
-  title: "What Nsei Sukul Does | Complete Guide and Teacher Pitch Kit",
+  title: "System Overview & School Pitch Guide | Nsei Sukul",
   description:
-    "Everything Nsei Sukul offers for secondary and high schools in Cameroon. Summary, full feature breakdown, future roadmap, and how teachers can introduce it to their school.",
+    "Complete walkthrough of Nsei Sukul capabilities, MINESEC report cards, fee bursary, offline campus hub, upcoming roadmap, and teacher introduction resources.",
   alternates: {
     canonical: "/overview",
   },
   openGraph: {
-    title: "Nsei Sukul Overview: What the System Does and What Is Coming Next",
+    title: "Everything Nsei Sukul Does for Secondary & High Schools in Cameroon",
     description:
-      "A simple, clear guide for teachers, principals, and school leaders. Learn how Nsei Sukul handles MINESEC report cards, school fees, and offline campus work.",
+      "A complete guide to Nsei Sukul academic tools, fee management, offline hub, future roadmap, and teacher pitch resources.",
     url: "/overview",
     type: "website",
   },
@@ -64,12 +70,12 @@ export default function OverviewPage() {
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-[#142010] tracking-tight leading-tight max-w-4xl mx-auto">
-              Everything Nsei Sukul Does, Explained in Plain Human Language
+              Everything Nsei Sukul Does for Secondary and High Schools
             </h1>
 
             <p className="mt-5 text-base sm:text-lg text-[#525E4B] max-w-3xl mx-auto leading-relaxed">
-              No technical buzzwords or confusing jargon. Here is a clear summary of what our system does today,
-              what we are adding next, and how you can introduce it to your school or principal with confidence.
+              A complete guide covering current system capabilities, upcoming roadmap additions,
+              and step-by-step resources to introduce the platform to your school leadership.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
@@ -99,29 +105,41 @@ export default function OverviewPage() {
             </div>
 
             {/* Quick Trust Pillars */}
-            <div className="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 text-left">
-              <div className="bg-white p-3.5 rounded-lg border border-[#E8DFC9] shadow-2xs">
-                <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Printing</div>
-                <div className="text-sm font-extrabold text-[#142010] mt-1">Strict 1-Page A4</div>
-                <div className="text-[11px] text-[#788470] mt-0.5">Never overflows to a 2nd sheet</div>
+            <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-left">
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Report Cards</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Strict 1-Page A4</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">No 2nd-page spillover</div>
               </div>
 
-              <div className="bg-white p-3.5 rounded-lg border border-[#E8DFC9] shadow-2xs">
-                <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Curriculum</div>
-                <div className="text-sm font-extrabold text-[#142010] mt-1">MINESEC Standard</div>
-                <div className="text-[11px] text-[#788470] mt-0.5">6 Sequences, CBA &amp; coefficients</div>
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Identification</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Student ID Cards</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">With photos &amp; barcodes</div>
               </div>
 
-              <div className="bg-white p-3.5 rounded-lg border border-[#E8DFC9] shadow-2xs">
-                <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Network</div>
-                <div className="text-sm font-extrabold text-[#142010] mt-1">Works Offline</div>
-                <div className="text-[11px] text-[#788470] mt-0.5">Local Wi-Fi when internet cuts</div>
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Assemblies</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Honor Certificates</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">Tableau d'Honneur print</div>
               </div>
 
-              <div className="bg-white p-3.5 rounded-lg border border-[#E8DFC9] shadow-2xs">
-                <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Finance</div>
-                <div className="text-sm font-extrabold text-[#142010] mt-1">Mobile Money</div>
-                <div className="text-[11px] text-[#788470] mt-0.5">MTN &amp; Orange instant receipts</div>
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Academic History</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Official Transcripts</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">Multi-year cumulative</div>
+              </div>
+
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Scheduling</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Master Timetable</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">Zero teacher overlap</div>
+              </div>
+
+              <div className="bg-white p-3 rounded-lg border border-[#E8DFC9] shadow-2xs">
+                <div className="text-[10px] font-bold text-[#2A7C13] uppercase tracking-wider">Campus Network</div>
+                <div className="text-[13px] font-extrabold text-[#142010] mt-1">Works Offline</div>
+                <div className="text-[10.5px] text-[#788470] mt-0.5">Local Wi-Fi when offline</div>
               </div>
             </div>
           </div>
@@ -207,12 +225,12 @@ export default function OverviewPage() {
                 Everything Working on the Platform Right Now
               </h3>
               <p className="text-sm text-[#525E4B] mt-2">
-                Here are the core modules and tools available the moment your school signs up.
+                Nsei Sukul is packed with real tools built for Cameroon schools. Here is the full tour of what your school can use today.
               </p>
             </div>
 
             <div className="space-y-8">
-              {/* Feature 1 */}
+              {/* Feature 1: Report Cards */}
               <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                 <div className="lg:col-span-8 space-y-3">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
@@ -223,25 +241,26 @@ export default function OverviewPage() {
                     1. MINESEC-Compliant Report Cards with Strict 1-Page Guarantee
                   </h4>
                   <p className="text-sm text-[#525E4B] leading-relaxed">
-                    Designed specifically for the Cameroon national curriculum (General Secondary, Technical, and Commercial).
-                    It handles 6 sequences, 3 terms, competency-based appreciations (CBA), and weighted subject coefficients.
+                    Custom-built for Cameroon secondary schools (General, Technical, and Commercial streams).
+                    Handles all 6 sequences, 3 terms, Competency-Based Approach (CBA) appreciations, and weighted subject coefficients.
+                    Every report card strictly fits on the front of 1 single sheet of A4 paper with zero overflow.
                   </p>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Automatic class ranks and term averages</span>
+                      <span>Automatic class ranks, sequence totals, and term averages</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Strict 1-page A4 print without multi-page spillover</span>
+                      <span>Strict 1-page physical A4 constraint saves over 50% paper</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Bulk print entire classes with one button click</span>
+                      <span>Bulk 1-click printing for whole classes</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Official MINESEC grading scale &amp; conduct remarks</span>
+                      <span>Official MINESEC grading scale and class master remarks</span>
                     </li>
                   </ul>
                 </div>
@@ -249,12 +268,315 @@ export default function OverviewPage() {
                   <div className="text-xs font-bold text-[#788470] uppercase">Paper Savings</div>
                   <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">50% Less Paper</div>
                   <p className="text-xs text-[#525E4B] mt-1 leading-snug">
-                    By keeping report cards strictly on 1 page front-only, a school with 600 students saves over 1,800 printed sheets every academic year.
+                    No more wasted sheets where only a signature or date spills onto page 2.
                   </p>
                 </div>
               </div>
 
-              {/* Feature 2 */}
+              {/* Feature 2: Honor Roll Certificates */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFF8CF] text-[#7A5B00] text-xs font-bold">
+                    <Award className="w-3.5 h-3.5" />
+                    <span>School Assemblies &amp; Prize Days</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    2. Honor Roll &amp; Distinction Certificates (Tableau d'Honneur)
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Celebrate student excellence on speech days and morning assemblies. The system automatically pulls your top-performing
+                    students and generates beautiful, official printable certificates with the school coat of arms, student photo,
+                    term average, and principal endorsement.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Tableau d'Honneur (Honors) for averages of 12/20 and above</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Modern Laureate and Classic Heritage certificate templates</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Subject Distinction awards for highest score in Math, English, etc.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>1-click batch printing for all honorees across the school</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Assembly Ready</div>
+                  <div className="text-2xl font-extrabold text-[#7A5B00] mt-1">Instant Awards</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Reward hardworking students without spending days typing certificates in Microsoft Word.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 3: Student ID Cards */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
+                    <IdCard className="w-3.5 h-3.5" />
+                    <span>Campus Identification</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    3. Student ID Card Generation with Real Barcodes
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Stop paying expensive third-party graphic designers every September to make student ID cards.
+                    Nsei Sukul generates standard CR80 student identification cards complete with the school badge,
+                    student photograph, matricule, dynamic barcode, date of birth, class, and academic year.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Standard wallet badge size ready for lamination or PVC print</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Scannable Code-128 barcode linked to student matricule</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Batch export ID cards for entire classes in seconds</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Includes principal signature and official school stamp</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Cost Cut</div>
+                  <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">Zero Designer Fees</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Print student badges in-house on your office printer at a fraction of the cost.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 4: Academic Transcripts */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FBE6C2] text-[#5A3C0B] text-xs font-bold">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Official Records</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    4. Official Multi-Year Academic Transcripts (Relevé de Notes)
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    When a student transfers to another institution, applies for a visa, registers for national examinations,
+                    or applies to a university, producing their multi-year transcript usually takes weeks of digging through dusty paper registers.
+                    Nsei Sukul generates a cumulative official transcript with one click.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Multi-year cumulative record of sequences and terms</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Official verification layout accepted by universities &amp; embassies</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Includes student GPA, rank, conduct summary, and honors</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Archived permanently in the school's digital registry</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Administrative Speed</div>
+                  <div className="text-2xl font-extrabold text-[#5A3C0B] mt-1">Ready in 5s</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Print verified transcripts on demand without opening ancient paper registers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 5: Master Timetable */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Academic Planning</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    5. Master Timetable &amp; Teacher Schedule Generator
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Building a secondary school timetable by hand is a massive headache of clashes, teacher overlaps,
+                    and room conflicts. Nsei Sukul maps out your periods across Monday to Friday, assigns subject teachers
+                    to specific classes, and ensures no teacher is scheduled in two places at once.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Master campus timetable view across all forms and streams</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Individual printable timetable slips for each teacher</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Automatic conflict prevention for teacher periods and rooms</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Customizable periods for assemblies, breaks, and sports</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Zero Clashes</div>
+                  <div className="text-2xl font-extrabold text-[#142010] mt-1">100% Conflict Free</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    No teacher will ever find another teacher teaching in their classroom period.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 6: Class Lists & Intake Sheets */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFF8CF] text-[#7A5B00] text-xs font-bold">
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Enrollment &amp; Roster</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    6. Class Lists, Student Dossiers, and Printable Intake Sheets
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Generate official class master registers for class masters and discipline masters with one click.
+                    Includes male/female counts, student matricules, and emergency parent contacts.
+                    The system also provides official printable student intake sheets for admission days and lets you import
+                    existing class rosters from Excel in under 30 seconds.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Printable official class registers with gender ratios</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Ready-to-print paper intake sheets for new school admissions</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>One-click bulk student upload from existing Excel files</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Permanent digital student dossiers with photos and medical notes</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Intake Speed</div>
+                  <div className="text-2xl font-extrabold text-[#7A5B00] mt-1">&lt; 30 Seconds</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Upload an entire Excel list of 80 students and generate their class register instantly.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 7: Bursary & Fees */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FBE6C2] text-[#5A3C0B] text-xs font-bold">
+                    <Wallet className="w-3.5 h-3.5" />
+                    <span>School Bursary</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    7. Fee Management, Installments, Receipts &amp; Mobile Money
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Track all tuition, PTA levies, registration fees, and exam dues in FCFA.
+                    Record cash payments or accept MTN Mobile Money and Orange Money payments seamlessly.
+                    The bursar prints official thermal or A5 receipt slips, and can generate a 1-click debtor list
+                    showing exactly which students owe balances before exams begin.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Track 1st, 2nd, and 3rd fee installments with live balances</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>MTN MoMo and Orange Money payment integration</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Printable official and provisional bursary receipts</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Instant 1-click debtor roster for examination clearance</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Financial Control</div>
+                  <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">Zero Leaks</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Every franc received is tied to a student matricule and logged with collector name and timestamp.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 8: Attendance & Discipline */}
+              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                <div className="lg:col-span-8 space-y-3">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Discipline Master</span>
+                  </div>
+                  <h4 className="text-xl font-bold text-[#142010]">
+                    8. Daily Attendance &amp; Discipline Tracking
+                  </h4>
+                  <p className="text-sm text-[#525E4B] leading-relaxed">
+                    Discipline masters can record student absences and lates with simple taps on a phone or laptop.
+                    The system categorizes absences as justified or unjustified, and tallies the exact absence hours
+                    directly into the conduct section of terminal MINESEC report cards without manual recount.
+                  </p>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Daily morning roll call and period attendance</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Justified vs unjustified absence tally for MINESEC cards</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Discipline sanction records and warning letters</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                      <span>Class conduct overview for staff meetings</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
+                  <div className="text-xs font-bold text-[#788470] uppercase">Discipline Accuracy</div>
+                  <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">Automatic Tallies</div>
+                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
+                    Absence hours automatically display on the official report card without manual recount.
+                  </p>
+                </div>
+              </div>
+
+              {/* Feature 9: Offline School Hub */}
               <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
                 <div className="lg:col-span-8 space-y-3">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFF8CF] text-[#7A5B00] text-xs font-bold">
@@ -262,12 +584,12 @@ export default function OverviewPage() {
                     <span>Campus Resilience</span>
                   </div>
                   <h4 className="text-xl font-bold text-[#142010]">
-                    2. Offline School Hub: Works Without Internet
+                    9. Offline School Hub: Works Without Internet
                   </h4>
                   <p className="text-sm text-[#525E4B] leading-relaxed">
                     Internet outages should never stop a school from working. With Nsei Sukul Offline Hub, teachers connect
                     their laptops or phones to the school's local router. Even when the internet cable is cut or network
-                    bundles expire, teachers can enter marks and print report cards smoothly.
+                    bundles expire, teachers can enter marks, print class lists, and generate report cards smoothly.
                   </p>
                   <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
                     <li className="flex items-center gap-2">
@@ -296,135 +618,6 @@ export default function OverviewPage() {
                   </p>
                 </div>
               </div>
-
-              {/* Feature 3 */}
-              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-8 space-y-3">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FBE6C2] text-[#5A3C0B] text-xs font-bold">
-                    <Wallet className="w-3.5 h-3.5" />
-                    <span>School Bursary</span>
-                  </div>
-                  <h4 className="text-xl font-bold text-[#142010]">
-                    3. Fee Management, Installments, and Mobile Money
-                  </h4>
-                  <p className="text-sm text-[#525E4B] leading-relaxed">
-                    Manage all tuition, PTA levies, registration fees, and exam dues in FCFA. The bursar can record cash
-                    payments or let parents pay directly via MTN Mobile Money and Orange Money. The system automatically
-                    generates official printed receipt slips and tracks debtor balances.
-                  </p>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Custom installment plans (1st, 2nd, 3rd installments)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>MTN MoMo and Orange Money payment integration</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Instant 1-click debtor list for exam clearance</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Printable thermal slips or A5 bursary receipts</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
-                  <div className="text-xs font-bold text-[#788470] uppercase">Financial Control</div>
-                  <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">Zero Leaks</div>
-                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
-                    Every franc received is tied to a student matricule and logged with the collector's name and timestamp.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 4 */}
-              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-8 space-y-3">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>Student Records</span>
-                  </div>
-                  <h4 className="text-xl font-bold text-[#142010]">
-                    4. Student Dossiers, Class Lists, and Fast Bulk Enrollment
-                  </h4>
-                  <p className="text-sm text-[#525E4B] leading-relaxed">
-                    Say goodbye to misplaced physical files. Store each student's full profile: matricule, photo, date of birth,
-                    guardian phone number, address, and academic history. You can upload entire class lists from an existing
-                    Excel or CSV file in under 30 seconds.
-                  </p>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Excel and CSV one-click student roster upload</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Automatic matricule generator for new intake</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Permanent academic archive preserved across years</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Class promotion and transfer management</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
-                  <div className="text-xs font-bold text-[#788470] uppercase">Setup Speed</div>
-                  <div className="text-2xl font-extrabold text-[#142010] mt-1">&lt; 5 Minutes</div>
-                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
-                    Import 500 students and assign them to Form 1 through Upper Sixth before your morning tea break.
-                  </p>
-                </div>
-              </div>
-
-              {/* Feature 5 */}
-              <div className="p-6 rounded-xl border border-[#E8DFC9] bg-[#FFFDF5] grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                <div className="lg:col-span-8 space-y-3">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#FFF8CF] text-[#7A5B00] text-xs font-bold">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>School Life</span>
-                  </div>
-                  <h4 className="text-xl font-bold text-[#142010]">
-                    5. Attendance, Discipline Tracking, and Master Timetable
-                  </h4>
-                  <p className="text-sm text-[#525E4B] leading-relaxed">
-                    Discipline masters can record student absences and lates with simple taps. Unjustified absence counts
-                    feed directly into the conduct section of terminal report cards. In addition, the timetable tool
-                    allows administrators to map teacher periods without overlapping schedules.
-                  </p>
-                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-[#2D3827] pt-2">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Daily morning roll call and period attendance</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Justified vs unjustified absence tally for MINESEC</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Subject teacher schedule and room assignment</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                      <span>Discipline sanction records and warning letters</span>
-                    </li>
-                  </ul>
-                </div>
-                <div className="lg:col-span-4 bg-white p-4 rounded-lg border border-[#E8DFC9] text-center shadow-xs">
-                  <div className="text-xs font-bold text-[#788470] uppercase">Discipline Accuracy</div>
-                  <div className="text-2xl font-extrabold text-[#2A7C13] mt-1">Automatic Tallies</div>
-                  <p className="text-xs text-[#525E4B] mt-1 leading-snug">
-                    Absence hours automatically display on the official report card without manual recount.
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -434,99 +627,99 @@ export default function OverviewPage() {
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF8CF] text-[#7A5B00] text-xs font-bold mb-3">
               <Clock className="w-3.5 h-3.5" />
-              <span>Transparent Development Roadmap</span>
+              <span>Future Roadmap</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010]">
-              What We Are Adding Next to Nsei Sukul
+              What We Plan to Implement Next
             </h2>
             <p className="text-sm text-[#525E4B] mt-2">
-              We update our system every month based on direct feedback from Cameroonian teachers and principals.
-              Here is what is currently in active development.
+              We are constantly evolving and improving Nsei Sukul to make work easier for teachers and school heads.
+              Here are the upcoming features we are actively preparing for the platform.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {/* Roadmap 1 */}
+            {/* Future Item 1 */}
             <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
               <div className="w-9 h-9 rounded-lg bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center font-bold">
                 <Smartphone className="w-5 h-5" />
               </div>
               <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Coming Soon</div>
               <h3 className="text-base font-bold text-[#142010]">
-                Direct WhatsApp Report Card Delivery
+                WhatsApp Report Cards to Parents
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                Parents will receive a secure PDF link of their child's report card directly on WhatsApp the minute the principal releases the term results.
+                Send student terminal report cards directly to parents on WhatsApp as soon as results are released. Parents can view and download their child's card instantly without traveling to the campus.
               </p>
             </div>
 
-            {/* Roadmap 2 */}
+            {/* Future Item 2 */}
             <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
               <div className="w-9 h-9 rounded-lg bg-[#FFF8CF] text-[#7A5B00] flex items-center justify-center font-bold">
-                <Users className="w-5 h-5" />
+                <CreditCard className="w-5 h-5" />
               </div>
-              <div className="text-xs font-bold text-[#7A5B00] uppercase tracking-wider">In Development</div>
+              <div className="text-xs font-bold text-[#7A5B00] uppercase tracking-wider">Coming Soon</div>
               <h3 className="text-base font-bold text-[#142010]">
-                Parent &amp; Student Mobile Portal
+                Fee Payments Directly from Parents' Phones
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                Parents can log in from their phones to check daily attendance, school fee clearance, and sequence marks without traveling to campus.
+                Parents will be able to pay school fees, tuition installments, and PTA levies straight from their own mobile phones from anywhere in Cameroon, saving time and ending long bursary lines.
               </p>
             </div>
 
-            {/* Roadmap 3 */}
+            {/* Future Item 3 */}
             <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
               <div className="w-9 h-9 rounded-lg bg-[#FBE6C2] text-[#5A3C0B] flex items-center justify-center font-bold">
-                <BookOpen className="w-5 h-5" />
+                <Bell className="w-5 h-5" />
               </div>
-              <div className="text-xs font-bold text-[#5A3C0B] uppercase tracking-wider">In Development</div>
+              <div className="text-xs font-bold text-[#5A3C0B] uppercase tracking-wider">Coming Soon</div>
               <h3 className="text-base font-bold text-[#142010]">
-                Digital Teacher Lesson Notebook (Cahier de Texte)
+                SMS &amp; WhatsApp Reminders for Unpaid Fees
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                Teachers log syllabus progress digitally. HODs and MINESEC Pedagogic Inspectors can review lesson coverage in one clean dashboard.
+                Automated, polite reminder notifications sent by SMS and WhatsApp to parents whose children have an outstanding fee balance, showing the exact amount due and how to clear it.
               </p>
             </div>
 
-            {/* Roadmap 4 */}
+            {/* Future Item 4 */}
             <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
               <div className="w-9 h-9 rounded-lg bg-[#EAF7E4] text-[#2A7C13] flex items-center justify-center font-bold">
-                <ShieldCheck className="w-5 h-5" />
+                <Camera className="w-5 h-5" />
               </div>
-              <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Planned</div>
+              <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">AI Innovation</div>
               <h3 className="text-base font-bold text-[#142010]">
-                GCE Board &amp; BEPC Exam Registration Exporter
+                AI Snap-to-Marks Entry (Photo Filling)
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                Automatically format candidate registration lists and photo albums matching official Cameroon GCE Board and DECC submission requirements.
+                Teachers can snap a photo of their handwritten paper mark booklet or test sheet with their phone. The AI automatically scans the handwriting and fills the marks into the system for all students.
               </p>
             </div>
 
-            {/* Roadmap 5 */}
+            {/* Future Item 5 */}
             <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
               <div className="w-9 h-9 rounded-lg bg-[#FFF8CF] text-[#7A5B00] flex items-center justify-center font-bold">
-                <Award className="w-5 h-5" />
+                <Mic className="w-5 h-5" />
               </div>
-              <div className="text-xs font-bold text-[#7A5B00] uppercase tracking-wider">Planned</div>
+              <div className="text-xs font-bold text-[#7A5B00] uppercase tracking-wider">Smart Voice Tool</div>
               <h3 className="text-base font-bold text-[#142010]">
-                Automated Honor Rolls &amp; Merits
+                Offline Voice Mark Entry
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                One-click generation of Tableau d'Honneur, certificates of excellence, and most improved student certificates for school assemblies.
+                Dictate student scores using your voice while working offline on campus. Speak student names and marks, and the system automatically fills them into the mark sheet without typing.
               </p>
             </div>
 
-            {/* Roadmap 6 */}
-            <div className="p-5 rounded-xl border border-[#E8DFC9] bg-white space-y-3 shadow-2xs">
-              <div className="w-9 h-9 rounded-lg bg-[#FBE6C2] text-[#5A3C0B] flex items-center justify-center font-bold">
-                <Clock className="w-5 h-5" />
+            {/* Future Item 6: Commitment to Continuous Improvement */}
+            <div className="p-5 rounded-xl border border-[#2A7C13]/30 bg-[#FAF6E9] space-y-3 shadow-2xs">
+              <div className="w-9 h-9 rounded-lg bg-[#2A7C13] text-white flex items-center justify-center font-bold">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <div className="text-xs font-bold text-[#5A3C0B] uppercase tracking-wider">Planned</div>
+              <div className="text-xs font-bold text-[#2A7C13] uppercase tracking-wider">Continuous Growth</div>
               <h3 className="text-base font-bold text-[#142010]">
-                RFID / Gate Clock-in Scanner
+                Always Improving for Cameroon Schools
               </h3>
               <p className="text-xs text-[#525E4B] leading-relaxed">
-                Optional student card scanner at the school gate that marks daily presence instantly when students arrive on campus.
+                We are always evolving, listening to teachers, and improving the platform. Every update is designed to remove repetitive burdens and make school leadership smoother and more transparent.
               </p>
             </div>
           </div>

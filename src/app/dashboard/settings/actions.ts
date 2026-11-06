@@ -595,6 +595,10 @@ export async function removeStaffMembershipAction(formData: FormData) {
     throw new Error("Invalid staff removal request.");
   }
 
+  if (context.school.slug === "demo-bilingual-high-school") {
+    throw new Error("Demo Campus staff accounts are protected. You can add new staff members freely!");
+  }
+
   const supabase = await createClient();
   const { data: membership, error: fetchErr } = await supabase
     .from("school_memberships")

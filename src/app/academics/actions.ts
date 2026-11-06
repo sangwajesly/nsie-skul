@@ -409,6 +409,12 @@ export async function updateSubjectAction(_state: unknown, formData: FormData) {
 
 export async function deleteSubjectAction(_state: unknown, formData: FormData) {
   const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+
+  if (context.school.slug === "demo-bilingual-high-school") {
+    return {
+      error: "Sample demo subjects are protected so other teachers can explore them. You can add new subjects freely!",
+    };
+  }
   const subjectId = String(formData.get("subjectId") || "");
   const confirmDelete = formData.get("confirmDeleteMarks") === "true";
 
@@ -604,6 +610,12 @@ export async function updateClassAction(_state: unknown, formData: FormData) {
 
 export async function deleteClassAction(_state: unknown, formData: FormData) {
   const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+
+  if (context.school.slug === "demo-bilingual-high-school") {
+    return {
+      error: "Sample demo classes are protected so other teachers can explore them. You can create new classes and streams freely!",
+    };
+  }
   const parsed = ClassDeleteSchema.safeParse({
     classId: formData.get("classId"),
   });
@@ -711,6 +723,12 @@ export async function updateClassStreamAction(_state: unknown, formData: FormDat
 
 export async function deleteClassStreamAction(_state: unknown, formData: FormData) {
   const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+
+  if (context.school.slug === "demo-bilingual-high-school") {
+    return {
+      error: "Sample demo class streams are protected so other teachers can explore them. You can add new streams freely!",
+    };
+  }
   const parsed = ClassStreamDeleteSchema.safeParse({
     classStreamId: formData.get("classStreamId"),
   });
@@ -1683,6 +1701,13 @@ export async function deleteStudentAction(formData: FormData) {
 
   if (fetchErr || !student) {
     return { error: "Student record not found in your school." };
+  }
+
+  // Demo Protection Shield: Protect pre-seeded demo students from deletion
+  if (context.school.slug === "demo-bilingual-high-school" && student.matricule?.startsWith("DEMO-")) {
+    return {
+      error: "Sample demo students are protected so other teachers can explore them. However, you can add new students and delete any student you create!",
+    };
   }
 
   // 2. Audit log before deletion

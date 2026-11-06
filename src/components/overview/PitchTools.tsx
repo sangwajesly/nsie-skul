@@ -19,11 +19,13 @@ export function PitchCopyCard({
 
 I was reviewing Nsei Sukul, an all-in-one school software built specifically for secondary and high schools here in Cameroon.
 
-Here is why it will help our school:
+Here is what our school gets right out of the box:
 1. It calculates all 6 MINESEC sequences, subject coefficients, averages, and class ranks automatically.
-2. Every student report card strictly fits on 1 single page of A4 paper, so we do not waste paper or ink.
-3. It works completely offline on our school Wi-Fi or LAN cable when internet is down in town.
-4. It tracks school fees, Mobile Money payments, and prints official receipt slips in seconds.
+2. Every student report card strictly fits on 1 single page of A4 paper, saving us huge printing costs.
+3. It generates printable student ID cards with barcodes, official transcripts, and Tableau d'Honneur certificates for speech days.
+4. It creates conflict-free master timetables and official class lists in minutes.
+5. It works completely offline on our school Wi-Fi or LAN cable when internet is down in town.
+6. It tracks school fees, Mobile Money payments, and prints official receipt slips in seconds.
 
 They offer a 30-day free trial with no upfront payment, and we can test the live demo right now on any phone or laptop:
 ${demoUrl}
