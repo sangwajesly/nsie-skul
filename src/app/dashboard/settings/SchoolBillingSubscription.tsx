@@ -26,6 +26,7 @@ interface Props {
 }
 
 const TIERS = [
+  { id: "test_tier", name: "Live MoMo Test", amount: 100, label: "100 FCFA (Test Mode)" },
   { id: "tier_1", name: "Tier 1: Up to 300 students", amount: 100000, label: "100,000 FCFA / year" },
   { id: "tier_2", name: "Tier 2: 301 to 750 students", amount: 200000, label: "200,000 FCFA / year", popular: true },
   { id: "tier_3", name: "Tier 3: 751 to 1,500 students", amount: 350000, label: "350,000 FCFA / year" },
@@ -223,7 +224,7 @@ export function SchoolBillingSubscription({
         )}
 
         {/* Tier Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
           {TIERS.map((tier) => (
             <button
               key={tier.id}
@@ -243,6 +244,11 @@ export function SchoolBillingSubscription({
                 {tier.popular && (
                   <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">
                     Popular
+                  </span>
+                )}
+                {tier.id === "test_tier" && (
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                    Live MoMo
                   </span>
                 )}
               </div>
