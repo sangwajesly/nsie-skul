@@ -67,7 +67,7 @@ function getFapshiConfig() {
   const rawBaseUrl =
     process.env.FAPSHI_BASE_URL ||
     process.env.NEXT_PUBLIC_FAPSHI_BASE_URL ||
-    "https://sandbox.fapshi.com";
+    "https://live.fapshi.com";
 
   const apiUser = rawUser.trim().replace(/^["']|["']$/g, "");
   const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
