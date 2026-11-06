@@ -20,6 +20,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
+      url: getCanonicalUrl("/overview"),
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.95,
+    },
+    {
       url: getCanonicalUrl("/features/school-hub"),
       lastModified: now,
       changeFrequency: "monthly",

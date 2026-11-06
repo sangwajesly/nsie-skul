@@ -93,8 +93,26 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             </button>
 
             {featuresDropdownOpen && (
-              <div className="absolute top-full -left-4 w-72 pt-2 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div className="absolute top-full -left-4 w-76 pt-2 animate-in fade-in slide-in-from-top-1 duration-150">
                 <div className="rounded-[10px] bg-white border border-[#E8DFC9] shadow-lg p-2 space-y-1">
+                  <Link
+                    href="/overview"
+                    className="flex items-start gap-3 p-2.5 rounded-[7px] bg-[#FAF6E9] hover:bg-[#F3EED9] border border-[#E8DFC9] transition-all group"
+                  >
+                    <div className="w-8 h-8 rounded-[6px] bg-[#2A7C13] text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-[13px] font-bold text-[#142010] flex items-center gap-1.5">
+                        <span>Full System Overview</span>
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">Guide</span>
+                      </div>
+                      <p className="text-[11px] text-[#525E4B] mt-0.5 leading-snug">
+                        Summary, capabilities, roadmap &amp; pitch kit for schools.
+                      </p>
+                    </div>
+                  </Link>
+
                   <Link
                     href="/features/school-hub"
                     className="flex items-start gap-3 p-2.5 rounded-[7px] hover:bg-[#FFFDF5] hover:border-[#E8DFC9] border border-transparent transition-all group"
@@ -150,6 +168,15 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
               </div>
             )}
           </div>
+
+          <Link 
+            href="/overview" 
+            className={`hover:text-[#142010] transition-colors ${
+              currentPath === "/overview" ? "text-[#2A7C13] font-semibold" : ""
+            }`}
+          >
+            Overview
+          </Link>
 
           <Link 
             href="/#capabilities" 
@@ -254,7 +281,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             {/* Backdrop Scrim */}
             <div
               onClick={() => setMobileMenuOpen(false)}
-              className="fixed inset-0 top-16 bg-black/50 backdrop-blur-xs transition-opacity"
+              className="fixed inset-0 top-16 bg-black/60 transition-opacity"
               aria-hidden="true"
             />
 
@@ -262,6 +289,25 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             <div className="relative z-10 w-full max-h-[calc(100dvh-4rem)] overflow-y-auto bg-[#FFFDF5] border-b-2 border-[#2A7C13] shadow-2xl flex flex-col overscroll-contain animate-in slide-in-from-top-2 duration-150">
               {/* Scrollable Navigation Body */}
               <div className="px-4 py-5 space-y-5">
+                {/* 1-Click Overview Banner */}
+                <Link
+                  href="/overview"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-start gap-3 p-3 rounded-[8px] bg-[#FAF6E9] border-2 border-[#2A7C13]/30 hover:border-[#2A7C13] transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-[6px] bg-[#2A7C13] text-white flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-bold text-[#142010] flex items-center gap-1.5">
+                      <span>Full System Overview</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">Guide</span>
+                    </div>
+                    <div className="text-[11px] text-[#525E4B] leading-tight">
+                      Capabilities, future roadmap &amp; pitch kit for teachers
+                    </div>
+                  </div>
+                </Link>
                 {isAuthenticated && (
                   <div className="p-3.5 rounded-[8px] bg-[#F0FDF4] border border-[#BBF7D0] flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2.5">

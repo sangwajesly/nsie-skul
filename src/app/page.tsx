@@ -121,9 +121,14 @@ export default async function LandingPage() {
               </div>
 
               {/* Microcopy */}
-              <p className="text-[12px] text-[#788470]">
-                Built for the day-to-day realities of schools across Cameroon: Northwest, Southwest, Littoral &amp; Centre.
-              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-[12px] text-[#788470]">
+                <span>Built for schools across Cameroon: Northwest, Southwest, Littoral &amp; Centre.</span>
+                <span className="hidden sm:inline">&bull;</span>
+                <Link href="/overview" className="text-[#2A7C13] font-bold hover:underline inline-flex items-center gap-1">
+                  <span>See Full System Overview &amp; Teacher Pitch Kit</span>
+                  <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
 
             {/* Product preview */}

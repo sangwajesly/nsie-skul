@@ -89,6 +89,11 @@ export function MarketingFooter() {
             </h4>
             <ul className="space-y-2 text-[12.5px]">
               <li>
+                <Link href="/overview" className="text-white hover:text-[#84E466] font-medium transition-colors">
+                  System Overview &amp; Roadmap
+                </Link>
+              </li>
+              <li>
                 <Link href="/blog" className="text-white hover:text-[#84E466] font-medium transition-colors">
                   Pedagogy &amp; Guides
                 </Link>
