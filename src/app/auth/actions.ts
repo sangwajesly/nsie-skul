@@ -116,14 +116,13 @@ export async function loginWithTeacherCodeAction(
 ): Promise<ActionResult> {
   const identifier = String(formData.get("identifier") || "").trim();
   const schoolCodeInput = String(formData.get("schoolCode") || "").trim().toUpperCase();
-  const pin = String(formData.get("pin") || "").trim();
+  const rawPin = String(formData.get("pin") || "").trim();
+  // Default to system initial PIN "123456" if left empty by the teacher
+  const pin = rawPin || "123456";
   const returnUrl = (formData.get("returnUrl") as string) || "/dashboard";
 
   if (!identifier) {
-    return { error: "Please enter your Cameroon phone number or staff code." };
-  }
-  if (!pin) {
-    return { error: "Please enter your 4 to 6 digit PIN." };
+    return { error: "Please enter your teacher code (e.g. T-101) or phone number." };
   }
 
   // Rate limiting check
@@ -226,6 +225,11 @@ export async function loginWithTeacherCodeAction(
     if (attempt.blocked) {
       return {
         error: `Too many incorrect PIN attempts. Access locked for ${attempt.retryAfterSeconds || 60} seconds for security.`,
+      };
+    }
+    if (!rawPin) {
+      return {
+        error: "Could not log in with initial default PIN (123456). If your school set a custom PIN for you, please enter it below.",
       };
     }
     return {
@@ -350,5 +354,9 @@ export async function signOutAction() {
   // Called from a plain <form action={}> : redirect() is safe here (not inside useActionState)
   const supabase = await createClient();
   await supabase.auth.signOut();
+  const cookieStore = await cookies();
+  cookieStore.delete(ACTIVE_SCHOOL_COOKIE);
+  cookieStore.delete("nsei_is_demo");
+  cookieStore.delete("nsei_demo_school_id");
   redirect("/login");
 }

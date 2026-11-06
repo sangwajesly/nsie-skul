@@ -21,6 +21,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
+import { createClient } from "@/lib/supabase/client";
 import {
   hasOfflineVault,
   verifyOfflinePin,
@@ -37,7 +38,7 @@ function LoginForm() {
   const urlError = searchParams.get("error");
   const [isNavigating, setIsNavigating] = useState(false);
 
-  // URL parameters from 1-click WhatsApp links: ?p=677123456&c=T-101&s=BHS
+  // URL parameters from 1-click WhatsApp or invitation links: ?c=T-101&s=BHS or ?p=677123456
   const paramPhone = searchParams.get("p") || "";
   const paramCode = searchParams.get("c") || "";
   const paramSchool = searchParams.get("s") || "";
@@ -45,8 +46,8 @@ function LoginForm() {
   // Audience Tabs: "teacher" (Default for 95% of users) vs "admin" (School management)
   const [roleTab, setRoleTab] = useState<"teacher" | "admin">("teacher");
 
-  // Input states
-  const [identifier, setIdentifier] = useState(paramPhone || paramCode || "");
+  // Input states (automatically pre-filled from invite URL or device cache)
+  const [identifier, setIdentifier] = useState(paramCode || paramPhone || "");
   const [schoolCode, setSchoolCode] = useState(paramSchool || "");
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(false);
@@ -69,12 +70,45 @@ function LoginForm() {
     router.prefetch(returnUrl);
   }, [router, returnUrl]);
 
-  // When WhatsApp parameters are present, auto-focus PIN
+  // Read invite parameters & cache them in localStorage so PWA retains them on iPhone
   useEffect(() => {
-    if (paramPhone || paramCode) {
-      pinInputRef.current?.focus();
+    if (paramSchool) {
+      const cleanSchool = paramSchool.trim().toUpperCase();
+      setSchoolCode(cleanSchool);
+      try { localStorage.setItem("nsei_school_code", cleanSchool); } catch {}
+    } else {
+      try {
+        const cached = localStorage.getItem("nsei_school_code");
+        if (cached) setSchoolCode(cached);
+      } catch {}
     }
-  }, [paramPhone, paramCode]);
+
+    if (paramCode || paramPhone) {
+      const val = (paramCode || paramPhone).trim();
+      setIdentifier(val);
+      try { localStorage.setItem("nsei_teacher_code", val); } catch {}
+    } else {
+      try {
+        const cached = localStorage.getItem("nsei_teacher_code");
+        if (cached) setIdentifier(cached);
+      } catch {}
+    }
+
+    // Ensure demo session is purged if user visits real school login
+    if (typeof document !== "undefined" && document.cookie.includes("nsei_is_demo")) {
+      try {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data }) => {
+          if (data?.user?.email === "demo@nsei-sukul.klarifypath.com") {
+            supabase.auth.signOut().then(() => {
+              document.cookie = "nsei_is_demo=; path=/; max-age=0";
+              document.cookie = "nsei_active_school_id=; path=/; max-age=0";
+            });
+          }
+        });
+      } catch {}
+    }
+  }, [paramSchool, paramCode, paramPhone]);
 
   // Handle successful cloud login & cache PIN automatically for offline use
   useEffect(() => {
@@ -87,9 +121,10 @@ function LoginForm() {
   useEffect(() => {
     if (codeState && "redirectTo" in codeState) {
       setIsNavigating(true);
-      // Seamlessly cache credentials so the exact same PIN works offline!
-      if (pin && identifier) {
-        saveOfflineTeacherCredentials(identifier, pin);
+      // Seamlessly cache credentials so the exact same credentials work offline
+      const effectivePin = pin || "123456";
+      if (identifier) {
+        saveOfflineTeacherCredentials(identifier, effectivePin);
       }
       router.replace(codeState.redirectTo);
     }
@@ -121,14 +156,11 @@ function LoginForm() {
       e.preventDefault();
       setOfflineError(null);
 
-      if (!pin || pin.trim().length < 4) {
-        setOfflineError("Please enter your 4 to 6 digit PIN.");
-        return;
-      }
+      const effectivePin = pin || "123456";
 
       setIsVerifyingOffline(true);
       try {
-        const valid = await verifyOfflinePin(pin);
+        const valid = await verifyOfflinePin(effectivePin);
         if (valid) {
           setOfflineSuccess(true);
           setOfflineUnlocked(true);
@@ -218,13 +250,14 @@ function LoginForm() {
             </div>
           )}
 
-          {/* WhatsApp 1-Click Verification Banner */}
-          {paramPhone && roleTab === "teacher" && (
+          {/* School Invitation Banner */}
+          {schoolCode && roleTab === "teacher" && (
             <div className="p-2.5 rounded-[6px] bg-[#EBF5E9] border border-[#C3E4BC] text-xs text-[#1F5C0E] flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-[#2A7C13] shrink-0" />
-              <span className="font-semibold">
-                WhatsApp Link Verified: +237 {paramPhone}
-              </span>
+              <Building2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+              <div className="leading-tight">
+                <span className="font-bold">School Invitation: </span>
+                <span>Connecting to <strong>{schoolCode}</strong></span>
+              </div>
             </div>
           )}
 
@@ -248,26 +281,49 @@ function LoginForm() {
             </div>
           )}
 
-          {/* ── AUDIENCE 1: TEACHER & STAFF LOGIN (Unified Online & Offline) ── */}
+          {/* ── AUDIENCE 1: TEACHER & STAFF LOGIN (School Code + Teacher Code) ── */}
           {roleTab === "teacher" ? (
             <form action={codeFormAction} onSubmit={handleTeacherSubmit} className="space-y-3.5">
               <input type="hidden" name="returnUrl" value={returnUrl} />
-              <input type="hidden" name="schoolCode" value={schoolCode} />
 
+              {/* 1. School Code */}
+              <div>
+                <label
+                  htmlFor="teacher-school-code"
+                  className="block text-xs font-semibold text-[#444444] mb-1"
+                >
+                  School Code *
+                </label>
+                <div className="relative flex rounded-[6px] border border-[#D5CBB2] bg-white focus-within:border-[#2A7C13] focus-within:ring-1 focus-within:ring-[#2A7C13] transition-all">
+                  <div className="flex items-center pl-2.5 pr-2 text-[#777777]">
+                    <Building2 className="w-3.5 h-3.5" />
+                  </div>
+                  <input
+                    id="teacher-school-code"
+                    name="schoolCode"
+                    type="text"
+                    required
+                    disabled={isBusy}
+                    value={schoolCode}
+                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. GBHS or BHS"
+                    className="w-full px-2 py-2.5 text-xs font-mono font-bold uppercase text-[#142010] placeholder-[#BBBBBB] bg-transparent focus:outline-none"
+                  />
+                </div>
+                <p className="mt-1 text-[10.5px] text-[#788470]">
+                  The code or acronym of your school (e.g. GBHS).
+                </p>
+              </div>
+
+              {/* 2. Teacher Code */}
               <div>
                 <label
                   htmlFor="teacher-identifier"
                   className="block text-xs font-semibold text-[#444444] mb-1"
                 >
-                  Cameroon Phone or Staff Code
+                  Teacher Code (or Phone) *
                 </label>
                 <div className="relative flex rounded-[6px] border border-[#D5CBB2] bg-white focus-within:border-[#2A7C13] focus-within:ring-1 focus-within:ring-[#2A7C13] transition-all">
-                  {isNumericOnly && identifier.length > 2 && (
-                    <div className="flex items-center gap-1 pl-2.5 pr-2 border-r border-[#E8DFC9] bg-[#F7F3E8] text-[#444444] text-[11px] font-bold select-none">
-                      <span>🇨🇲</span>
-                      <span className="font-mono text-[#555555]">+237</span>
-                    </div>
-                  )}
                   <input
                     id="teacher-identifier"
                     name="identifier"
@@ -276,22 +332,26 @@ function LoginForm() {
                     disabled={isBusy}
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
-                    placeholder="e.g. 677 12 34 56 or T-101"
+                    placeholder="e.g. T-001 or 677 12 34 56"
                     className="w-full px-3 py-2.5 text-xs font-mono font-medium text-[#142010] placeholder-[#BBBBBB] bg-transparent focus:outline-none"
                   />
                 </div>
                 <p className="mt-1 text-[10.5px] text-[#788470]">
-                  Enter your WhatsApp phone number or the staff code on your slip.
+                  Your unique teacher code on your slip (e.g. T-001) or WhatsApp number.
                 </p>
               </div>
 
+              {/* 3. PIN Code (Optional - default is 123456) */}
               <div>
-                <label
-                  htmlFor="teacher-pin"
-                  className="block text-xs font-semibold text-[#444444] mb-1"
-                >
-                  PIN Code
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label
+                    htmlFor="teacher-pin"
+                    className="block text-xs font-semibold text-[#444444]"
+                  >
+                    PIN Code <span className="font-normal text-[#888888]">(optional)</span>
+                  </label>
+                  <span className="text-[10px] text-[#2A7C13] font-semibold">Initial default: 123456</span>
+                </div>
                 <div className="relative">
                   <input
                     id="teacher-pin"
@@ -300,12 +360,11 @@ function LoginForm() {
                     type={showPin ? "text" : "password"}
                     inputMode="numeric"
                     maxLength={8}
-                    required
                     disabled={isBusy}
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
-                    placeholder="••••••"
-                    className="w-full pl-3 pr-10 py-2.5 text-sm font-mono tracking-[0.25em] rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
+                    placeholder="Leave blank for default (123456)"
+                    className="w-full pl-3 pr-10 py-2.5 text-xs font-mono rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
                   />
                   <button
                     type="button"
@@ -316,17 +375,11 @@ function LoginForm() {
                     {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
-                <div className="flex items-center justify-between mt-1 text-[10.5px] text-[#788470]">
-                  <span>Initial PIN is usually <strong>123456</strong></span>
-                  {offlineProfile && isOffline && (
-                    <span className="text-[#2A7C13] font-bold">Cached: {offlineProfile.schoolName}</span>
-                  )}
-                </div>
               </div>
 
               <button
                 type="submit"
-                disabled={isBusy || identifier.length < 3 || pin.length < 4}
+                disabled={isBusy || !identifier || identifier.trim().length < 2 || !schoolCode || schoolCode.trim().length < 2}
                 className="w-full mt-2 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#142010] hover:bg-[#20361a] text-white font-bold text-xs rounded-[6px] shadow-sm transition-all disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
               >
                 {isBusy ? (
@@ -336,7 +389,7 @@ function LoginForm() {
                   </>
                 ) : (
                   <>
-                    <span>{isOffline ? "Unlock Offline Workspace" : "Open My Classes"}</span>
+                    <span>Enter School Workspace</span>
                     <ArrowRight className="w-4 h-4 text-[#86EFAC]" />
                   </>
                 )}

@@ -66,6 +66,12 @@ export async function updateSession(request: NextRequest) {
 
   // --- Authenticated user hitting login/register → send to dashboard ---
   if (user && isPublicAuthRoute) {
+    // If the active session is the temporary demo user, NEVER trap them!
+    // Allow them to access /login or /register freely so they can enter their real school.
+    if (user.email === "demo@nsei-sukul.klarifypath.com") {
+      return supabaseResponse;
+    }
+
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
