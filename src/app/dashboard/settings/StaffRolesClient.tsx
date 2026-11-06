@@ -65,7 +65,7 @@ export default function StaffRolesClient({
   
   // Registration mode: "phone" (default for Cameroon teachers) vs "email"
   const [addMode, setAddMode] = useState<"phone" | "email">("phone");
-  const [registeredResult, setRegisteredResult] = useState<RegisteredTeacherResult | null>(null);
+  const [registeredResult, setRegisteredResult] = useState<Extract<RegisteredTeacherResult, { success: true }> | null>(null);
   const [copied, setCopied] = useState(false);
   
   // Quick WhatsApp share modal for existing staff
@@ -82,6 +82,13 @@ export default function StaffRolesClient({
 
     try {
       const result = await registerTeacherWithCodeAction(formData);
+      if (!result.success) {
+        setStatusMessage({
+          type: "error",
+          text: result.error || "Could not register this teacher.",
+        });
+        return;
+      }
       form.reset();
       setRegisteredResult(result);
       setStatusMessage({
@@ -104,7 +111,14 @@ export default function StaffRolesClient({
     setStatusMessage(null);
 
     try {
-      await addStaffMemberAction(new FormData(form));
+      const res = await addStaffMemberAction(new FormData(form));
+      if (!res.success) {
+        setStatusMessage({
+          type: "error",
+          text: res.error || "Could not add this staff member.",
+        });
+        return;
+      }
       form.reset();
       setStatusMessage({ type: "success", text: "Staff member linked to this school." });
       router.refresh();
@@ -320,6 +334,9 @@ export default function StaffRolesClient({
                     className="w-full rounded-[5px] border border-[#D5CBB2] bg-white pl-13 pr-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none font-mono"
                   />
                 </div>
+                <p className="text-[10.5px] text-[#788470] mt-1">
+                  Enter 9 digits (e.g. 677 12 34 56). Country code (+237) is accepted automatically.
+                </p>
               </div>
 
               <div>
