@@ -12,6 +12,7 @@ import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
 import { SchoolSwitcher } from "@/components/schools/SchoolSwitcher";
 import { DemoBanner } from "@/components/demo/DemoBanner";
+import { FirstLoginPinModal } from "@/components/auth/FirstLoginPinModal";
 import { LogOut, Globe, Clock, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -280,6 +281,11 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           }}
           availableSchools={userSchools}
         />
+
+        {/* First-Login Secret PIN Shield for Teachers */}
+        {tenantContext.needsPinSetup && !isDemo && (
+          <FirstLoginPinModal teacherName={userFullName} />
+        )}
 
         <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
           {children}

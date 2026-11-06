@@ -387,7 +387,7 @@ export default function StaffRolesClient({
                   id="reg-code"
                   name="accessCode"
                   type="text"
-                  placeholder="e.g. T-101 (Auto-generated if blank)"
+                  placeholder={`e.g. ${schoolCode}-482 (Auto-generated if blank)`}
                   className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none uppercase font-mono"
                 />
               </div>

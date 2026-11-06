@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ACTIVE_SCHOOL_COOKIE } from "@/lib/tenancy/context";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import {
   checkLoginRateLimit,
@@ -359,4 +360,57 @@ export async function signOutAction() {
   cookieStore.delete("nsei_is_demo");
   cookieStore.delete("nsei_demo_school_id");
   redirect("/login");
+}
+
+/**
+ * Updates a teacher's personal 4-digit PIN to replace the initial default PIN (123456),
+ * protecting their marks and evaluations from student guessing.
+ */
+export async function updateTeacherPinAction(
+  formData: FormData
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const newPin = String(formData.get("newPin") || "").trim();
+    const confirmPin = String(formData.get("confirmPin") || "").trim();
+
+    if (!newPin || newPin.length < 4) {
+      return { success: false, error: "Please enter a PIN with at least 4 digits." };
+    }
+    if (newPin.length > 8) {
+      return { success: false, error: "PIN must be 8 digits or fewer." };
+    }
+    if (!/^\d+$/.test(newPin)) {
+      return { success: false, error: "PIN must contain only numbers (0 to 9)." };
+    }
+    if (newPin === "123456" || newPin === "0000" || newPin === "1234") {
+      return { success: false, error: "Please choose a safer PIN than 123456 or 0000 for exam security." };
+    }
+    if (newPin !== confirmPin) {
+      return { success: false, error: "The two PINs do not match. Please re-enter." };
+    }
+
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Your session has expired. Please sign in again." };
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPin,
+      data: {
+        needs_pin_setup: false,
+        pin_updated_at: new Date().toISOString(),
+      },
+    });
+
+    if (updateError) {
+      return { success: false, error: updateError.message || "Failed to update your PIN." };
+    }
+
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "An unexpected error occurred while saving your PIN." };
+  }
 }

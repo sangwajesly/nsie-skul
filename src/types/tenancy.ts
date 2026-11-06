@@ -22,6 +22,7 @@ export interface ActiveTenantContext {
   isHod?: boolean;
   subscription?: SchoolSubscriptionInfo;
   isSuperAdmin?: boolean;
+  needsPinSetup?: boolean;
 }
 
 export interface UserSchoolOption {

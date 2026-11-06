@@ -312,6 +312,7 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     isHod,
     subscription,
     isSuperAdmin: isSuperAdminUser,
+    needsPinSetup: Boolean(authUser.user_metadata?.needs_pin_setup),
   };
 });
 

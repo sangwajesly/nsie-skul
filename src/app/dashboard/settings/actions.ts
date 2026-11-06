@@ -97,16 +97,39 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
     }
 
     const admin = createAdminClient();
-    const schoolCode = context.school.code || context.school.slug.toUpperCase().slice(0, 4) || "SCH";
+    const schoolCode = (context.school.code || context.school.slug.toUpperCase().slice(0, 4) || "SCH").trim();
 
-    // Auto-generate access code if left empty (e.g. T-101)
+    // Auto-generate unpredictable 3-digit teacher code (e.g. GBHS-482)
+    // Prevents students from guessing sequential numbers (01, 02, 03)
     if (!accessCode) {
-      const { count } = await supabase
-        .from("school_memberships")
-        .select("id", { count: "exact", head: true })
-        .eq("school_id", context.school.id);
-      const seq = (count || 0) + 1;
-      accessCode = `T-${seq.toString().padStart(3, "0")}`;
+      let uniqueFound = false;
+      let candidate = "";
+      let attempts = 0;
+
+      while (!uniqueFound && attempts < 10) {
+        attempts++;
+        const randomDigits = Math.floor(100 + Math.random() * 900);
+        candidate = `${schoolCode}-${randomDigits}`;
+
+        const { data: existing } = await supabase
+          .from("school_memberships")
+          .select("id")
+          .eq("school_id", context.school.id)
+          .eq("access_code", candidate)
+          .maybeSingle();
+
+        if (!existing) {
+          uniqueFound = true;
+          accessCode = candidate;
+        }
+      }
+
+      if (!accessCode) {
+        accessCode = `${schoolCode}-${Math.floor(100 + Math.random() * 900)}`;
+      }
+    } else if (!accessCode.includes("-") && !accessCode.startsWith(schoolCode)) {
+      // Prefix school code if admin typed just a number (e.g. "482" -> "GBHS-482")
+      accessCode = `${schoolCode}-${accessCode}`;
     }
 
     // Ensure initial PIN meets minimum 6 characters for Supabase Auth
@@ -157,6 +180,7 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
           full_name: fullName,
           phone: cleanDigits,
           created_by_school: context.school.id,
+          needs_pin_setup: !pin || pin === "123456",
         },
       });
 
