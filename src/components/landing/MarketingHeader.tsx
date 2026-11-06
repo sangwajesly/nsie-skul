@@ -73,16 +73,16 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
         </Link>
 
         {/* Desktop Nav Links */}
-        <nav className="hidden md:flex items-center gap-7 text-[13px] font-medium text-[#525E4B]" aria-label="Main navigation">
+        <nav className="hidden md:flex items-center gap-5 lg:gap-6 text-[13px] font-medium text-[#525E4B]" aria-label="Main navigation">
           {/* Features Dropdown */}
           <div 
-            className="relative"
+            className="relative whitespace-nowrap shrink-0"
             onMouseEnter={() => setFeaturesDropdownOpen(true)}
             onMouseLeave={() => setFeaturesDropdownOpen(false)}
           >
             <button
               type="button"
-              className={`inline-flex items-center gap-1.5 py-2 hover:text-[#142010] transition-colors focus:outline-none ${
+              className={`inline-flex items-center gap-1.5 py-2 hover:text-[#142010] transition-colors focus:outline-none whitespace-nowrap ${
                 currentPath.startsWith("/features") ? "text-[#2A7C13] font-semibold" : ""
               }`}
               onClick={() => setFeaturesDropdownOpen(!featuresDropdownOpen)}
@@ -108,7 +108,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">Guide</span>
                       </div>
                       <p className="text-[11px] text-[#525E4B] mt-0.5 leading-snug">
-                        Summary, capabilities, roadmap &amp; pitch kit for schools.
+                        2-minute summary, 9 modules &amp; future roadmap.
                       </p>
                     </div>
                   </Link>
@@ -126,7 +126,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FFF8CF] text-[#4A3D00]">LAN Sync</span>
                       </div>
                       <p className="text-[11px] text-[#788470] mt-0.5 leading-snug">
-                        Zero-internet local network server for marks & records.
+                        Zero-internet local network server for marks &amp; records.
                       </p>
                     </div>
                   </Link>
@@ -143,7 +143,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                         MINESEC Report Cards
                       </div>
                       <p className="text-[11px] text-[#788470] mt-0.5 leading-snug">
-                        6 Sequences, coefficients, auto-ranks & 1-page prints.
+                        6 Sequences, coefficients, auto-ranks &amp; 1-page prints.
                       </p>
                     </div>
                   </Link>
@@ -157,10 +157,10 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                     </div>
                     <div>
                       <div className="text-[13px] font-bold text-[#142010]">
-                        Bursary & Fee Management
+                        Bursary &amp; Fee Management
                       </div>
                       <p className="text-[11px] text-[#788470] mt-0.5 leading-snug">
-                        FCFA installments, printable receipt slips & debtors.
+                        FCFA installments, printable receipt slips &amp; debtors.
                       </p>
                     </div>
                   </Link>
@@ -171,7 +171,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
           <Link 
             href="/overview" 
-            className={`hover:text-[#142010] transition-colors ${
+            className={`whitespace-nowrap shrink-0 hover:text-[#142010] transition-colors ${
               currentPath === "/overview" ? "text-[#2A7C13] font-semibold" : ""
             }`}
           >
@@ -179,52 +179,44 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
           </Link>
 
           <Link 
-            href="/#capabilities" 
-            className="hover:text-[#142010] transition-colors"
-          >
-            Capabilities
-          </Link>
-
-          <Link 
-            href="/blog" 
-            className={`hover:text-[#142010] transition-colors ${
-              currentPath.startsWith("/blog") ? "text-[#2A7C13] font-semibold" : ""
-            }`}
-          >
-            Guides &amp; Pedagogy
-          </Link>
-
-          <Link 
             href="/#how-it-works" 
-            className="hover:text-[#142010] transition-colors"
+            className="whitespace-nowrap shrink-0 hover:text-[#142010] transition-colors"
           >
             How It Works
           </Link>
 
           <Link 
+            href="/blog" 
+            className={`whitespace-nowrap shrink-0 hover:text-[#142010] transition-colors ${
+              currentPath.startsWith("/blog") ? "text-[#2A7C13] font-semibold" : ""
+            }`}
+          >
+            Guides
+          </Link>
+
+          <Link 
+            href="/agents" 
+            className={`whitespace-nowrap shrink-0 hover:text-[#142010] transition-colors ${
+              currentPath.startsWith("/agents") ? "text-[#2A7C13] font-semibold" : ""
+            }`}
+          >
+            Agent Program
+          </Link>
+
+          <Link 
             href="/#faq" 
-            className="hover:text-[#142010] transition-colors"
+            className="whitespace-nowrap shrink-0 hover:text-[#142010] transition-colors"
           >
             FAQ
           </Link>
-
-          <a
-            href="https://wa.me/237682833601?text=Hello%20Nsei%20Sukul%20Team,%20I%20would%20like%20to%20request%20a%20school%20demonstration."
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[#2A7C13] hover:text-[#20600E] font-medium transition-colors"
-          >
-            <MessageCircle className="w-3.5 h-3.5" />
-            <span>+237 682 833 601</span>
-          </a>
         </nav>
 
         {/* Action CTAs */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {isAuthenticated ? (
             <Link
               href="/dashboard"
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0"
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0 whitespace-nowrap"
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
               <span>Go to Dashboard</span>
@@ -234,7 +226,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             <>
               <Link
                 href="/demo"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] text-xs font-bold transition-colors shadow-2xs"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] text-xs font-bold transition-colors shadow-2xs whitespace-nowrap shrink-0"
                 title="1-Click Demo Campus - Test without an account"
               >
                 <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
@@ -242,13 +234,13 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
               </Link>
               <Link
                 href="/login"
-                className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1"
+                className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1 whitespace-nowrap shrink-0"
               >
                 Sign in
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0"
+                className="inline-flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0 whitespace-nowrap"
               >
                 <span>Get Started</span>
                 <ArrowRight className="w-3.5 h-3.5 ml-1.5 hidden sm:inline" />
@@ -304,7 +296,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">Guide</span>
                     </div>
                     <div className="text-[11px] text-[#525E4B] leading-tight">
-                      Capabilities, future roadmap &amp; pitch kit for teachers
+                      2-minute summary, 9 modules &amp; future roadmap
                     </div>
                   </div>
                 </Link>

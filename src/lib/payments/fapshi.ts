@@ -45,12 +45,18 @@ export interface FapshiPaymentStatusResult {
 }
 
 function getFapshiConfig() {
-  const apiUser = process.env.FAPSHI_API_USER?.trim();
-  const apiKey = process.env.FAPSHI_API_KEY?.trim();
-  const baseUrl = (process.env.FAPSHI_BASE_URL?.trim() || "https://sandbox.fapshi.com").replace(/\/+$/, "");
+  const rawUser = process.env.FAPSHI_API_USER || process.env.NEXT_PUBLIC_FAPSHI_API_USER || "";
+  const rawKey = process.env.FAPSHI_API_KEY || process.env.NEXT_PUBLIC_FAPSHI_API_KEY || "";
+  const rawBaseUrl = process.env.FAPSHI_BASE_URL || process.env.NEXT_PUBLIC_FAPSHI_BASE_URL || "https://sandbox.fapshi.com";
+
+  const apiUser = rawUser.trim().replace(/^["']|["']$/g, "");
+  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+  const baseUrl = rawBaseUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 
   if (!apiUser || !apiKey) {
-    throw new Error("Missing Fapshi API credentials (FAPSHI_API_USER or FAPSHI_API_KEY).");
+    throw new Error(
+      "Missing Fapshi API credentials (FAPSHI_API_USER or FAPSHI_API_KEY). If you recently added these in Vercel, please trigger a Redeploy in your Vercel dashboard so the active deployment receives the new environment variables."
+    );
   }
 
   return { apiUser, apiKey, baseUrl };

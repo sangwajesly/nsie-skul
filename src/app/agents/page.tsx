@@ -13,10 +13,13 @@ import {
   Building2,
   Banknote,
   Clock,
+  HelpCircle,
+  Award,
 } from "lucide-react";
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
 import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
+import { PitchCopyCard } from "@/components/overview/PitchTools";
 
 export const metadata: Metadata = {
   title: "School Agent Program | Earn Extra Income Helping Schools",
@@ -356,6 +359,128 @@ export default function AgentsPage() {
 
                   <p className="text-[11.5px] text-[#788470] leading-relaxed">
                     You do not enter marks for other teachers. You are simply the trusted teacher in the school who introduced the system and calls us if the school needs anything.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Teacher Pitch Kit & Script ─────────────────────────────────────── */}
+        <section id="pitch-kit" className="py-14 sm:py-20 border-b border-[#E8DFC9] bg-[#FAF6E9]">
+          <div className="max-w-5xl mx-auto px-5 sm:px-8 space-y-10">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold">
+                <Award className="w-3.5 h-3.5" />
+                <span>Teacher Pitch Playbook</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010]">
+                How to Introduce Nsei Sukul to Your Principal
+              </h2>
+              <p className="text-sm text-[#525E4B] leading-relaxed">
+                Here is a simple, proven 4-step approach that has helped dozens of teachers convince their Principals
+                and Vice Principals to adopt the system.
+              </p>
+            </div>
+
+            {/* 4 Step Pitch Guide */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
+                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
+                  1
+                </div>
+                <h3 className="text-sm font-bold text-[#142010]">Show the Live Demo</h3>
+                <p className="text-xs text-[#525E4B] leading-relaxed">
+                  During break, open <span className="font-semibold text-[#142010]">/demo</span> on your phone or laptop. Show them a populated Form 1 class with marks and ranks already calculated.
+                </p>
+              </div>
+
+              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
+                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
+                  2
+                </div>
+                <h3 className="text-sm font-bold text-[#142010]">Show the 1-Page Report</h3>
+                <p className="text-xs text-[#525E4B] leading-relaxed">
+                  Show them how every report card strictly fits on one sheet of A4 paper. Explain how much money the school will save on paper and printing toner.
+                </p>
+              </div>
+
+              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
+                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
+                  3
+                </div>
+                <h3 className="text-sm font-bold text-[#142010]">Explain the 30-Day Trial</h3>
+                <p className="text-xs text-[#525E4B] leading-relaxed">
+                  Let the principal know the school pays zero francs upfront. They have a full 30 days to test the software with their real classes before deciding.
+                </p>
+              </div>
+
+              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
+                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
+                  4
+                </div>
+                <h3 className="text-sm font-bold text-[#142010]">Highlight the Offline Hub</h3>
+                <p className="text-xs text-[#525E4B] leading-relaxed">
+                  Assure them that internet network failure will not stop the school. The local hub continues working right on campus even when internet is out.
+                </p>
+              </div>
+            </div>
+
+            {/* Interactive Pitch Tool Card */}
+            <PitchCopyCard />
+
+            {/* Common Principal Questions & Answers */}
+            <div className="space-y-4 pt-4 border-t border-[#E8DFC9]">
+              <div className="text-center max-w-xl mx-auto mb-6">
+                <h3 className="text-lg font-bold text-[#142010]">
+                  How to Answer Common Questions from Your Principal
+                </h3>
+                <p className="text-xs text-[#525E4B] mt-1">
+                  Be ready when your school leadership asks these practical questions.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
+                  <h4 className="text-sm font-bold text-[#142010] flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                    <span>"We already use Excel for marks. Why should we switch?"</span>
+                  </h4>
+                  <p className="mt-2 text-xs sm:text-[13px] text-[#525E4B] leading-relaxed">
+                    Excel formulas break easily when teachers delete cells or copy formulas incorrectly. A virus or flash drive crash can wipe out weeks of marks.
+                    With Nsei Sukul, calculations are 100% automated and protected. In addition, Excel cannot manage student photos, print student ID cards with barcodes, or track fee installments.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
+                  <h4 className="text-sm font-bold text-[#142010] flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                    <span>"Internet in our town is very weak and unreliable. Will this work for us?"</span>
+                  </h4>
+                  <p className="mt-2 text-xs sm:text-[13px] text-[#525E4B] leading-relaxed">
+                    Yes. That is the exact reason Nsei Sukul was created. Our platform has an Offline School Hub. You connect a basic Wi-Fi router in the staffroom without an active internet subscription.
+                    Teachers connect to that Wi-Fi network and enter marks smoothly. When internet is back, the system syncs in the background.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
+                  <h4 className="text-sm font-bold text-[#142010] flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                    <span>"Is it difficult for older teachers who are not very good with computers?"</span>
+                  </h4>
+                  <p className="mt-2 text-xs sm:text-[13px] text-[#525E4B] leading-relaxed">
+                    Not at all. The marks entry screen looks identical to the traditional paper mark booklet teachers already use. If a teacher can type numbers on a phone keypad or send a WhatsApp message, they can use Nsei Sukul in less than 10 minutes.
+                  </p>
+                </div>
+
+                <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
+                  <h4 className="text-sm font-bold text-[#142010] flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
+                    <span>"How much will it cost our school?"</span>
+                  </h4>
+                  <p className="mt-2 text-xs sm:text-[13px] text-[#525E4B] leading-relaxed">
+                    Pricing is flexible based on your school's total student enrollment. There is an unconditional 30-day free trial so the school only commits after seeing the system work with their real students.
+                    Most schools save more money in printing paper, printer toner, and prevented fee leakages than the small software fee.
                   </p>
                 </div>
               </div>

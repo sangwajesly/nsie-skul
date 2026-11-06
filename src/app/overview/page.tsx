@@ -30,7 +30,6 @@ import {
 import { MarketingHeader } from "@/components/landing/MarketingHeader";
 import { MarketingFooter } from "@/components/landing/MarketingFooter";
 import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
-import { PitchCopyCard } from "@/components/overview/PitchTools";
 
 export const metadata: Metadata = {
   title: "System Overview & School Pitch Guide | Nsei Sukul",
@@ -88,11 +87,11 @@ export default function OverviewPage() {
               </Link>
 
               <a
-                href="#pitch-kit"
+                href="#features"
                 className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg bg-white hover:bg-[#F3EED9] text-[#142010] border border-[#D8CDB2] text-sm font-bold shadow-xs transition-colors"
               >
-                <MessageCircle className="w-4 h-4 text-[#2A7C13]" />
-                <span>Get Pitch Kit for Your Principal</span>
+                <span>Explore All 9 Modules</span>
+                <ArrowRight className="w-4 h-4 text-[#2A7C13]" />
               </a>
 
               <Link
@@ -215,7 +214,7 @@ export default function OverviewPage() {
         </section>
 
         {/* SECTION 2: DETAILED BREAKDOWN OF CURRENT CAPABILITIES */}
-        <section className="py-14 bg-white border-y border-[#E8DFC9]">
+        <section id="features" className="py-14 bg-white border-y border-[#E8DFC9]">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <h2 className="text-xs font-bold uppercase tracking-wider text-[#2A7C13]">
@@ -721,156 +720,6 @@ export default function OverviewPage() {
               <p className="text-xs text-[#525E4B] leading-relaxed">
                 We are always evolving, listening to teachers, and improving the platform. Every update is designed to remove repetitive burdens and make school leadership smoother and more transparent.
               </p>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 4: TEACHER PITCH KIT */}
-        <section id="pitch-kit" className="py-14 bg-[#FAF6E9] border-t border-[#E8DFC9]">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="text-center max-w-2xl mx-auto">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EAF7E4] text-[#2A7C13] text-xs font-bold mb-3">
-                <Award className="w-3.5 h-3.5" />
-                <span>Teacher Pitch Kit</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010]">
-                How to Introduce Nsei Sukul to Your School
-              </h2>
-              <p className="text-sm text-[#525E4B] mt-2">
-                Want your school to start using Nsei Sukul? Here is a simple, 4-step approach that has helped dozens
-                of teachers convince their Principals and Vice Principals to adopt the system.
-              </p>
-            </div>
-
-            {/* 4 Step Pitch Guide */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
-                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
-                  1
-                </div>
-                <h3 className="text-sm font-bold text-[#142010]">Show the Live Demo</h3>
-                <p className="text-xs text-[#525E4B] leading-relaxed">
-                  During break, open <span className="font-semibold text-[#142010]">/demo</span> on your phone or laptop. Show them a populated Form 1 class with marks and ranks already calculated.
-                </p>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
-                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
-                  2
-                </div>
-                <h3 className="text-sm font-bold text-[#142010]">Show the 1-Page Report</h3>
-                <p className="text-xs text-[#525E4B] leading-relaxed">
-                  Show them how every report card strictly fits on one sheet of A4 paper. Explain how much money the school will save on paper and printing toner.
-                </p>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
-                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
-                  3
-                </div>
-                <h3 className="text-sm font-bold text-[#142010]">Explain the 30-Day Trial</h3>
-                <p className="text-xs text-[#525E4B] leading-relaxed">
-                  Let the principal know the school pays zero francs upfront. They have a full 30 days to test the software with their real classes before deciding.
-                </p>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-[#E8DFC9] shadow-2xs space-y-2">
-                <div className="w-7 h-7 rounded-full bg-[#2A7C13] text-white flex items-center justify-center text-xs font-extrabold">
-                  4
-                </div>
-                <h3 className="text-sm font-bold text-[#142010]">Highlight the Offline Hub</h3>
-                <p className="text-xs text-[#525E4B] leading-relaxed">
-                  Assure them that internet network failure will not stop the school. The local hub continues working right on campus even when internet is out.
-                </p>
-              </div>
-            </div>
-
-            {/* Interactive Pitch Tool Card */}
-            <PitchCopyCard />
-          </div>
-        </section>
-
-        {/* SECTION 5: COMMON OBJECTIONS & ANSWERS */}
-        <section className="py-14 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#2A7C13]">
-              School Leadership Questions
-            </h2>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-[#142010] mt-1">
-              Common Questions from Principals (And How to Answer)
-            </h3>
-            <p className="text-sm text-[#525E4B] mt-2">
-              Be ready when your school leadership asks these practical questions.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
-              <h3 className="text-base font-bold text-[#142010] flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                <span>"We already use Excel for marks. Why should we switch?"</span>
-              </h3>
-              <p className="mt-2 text-sm text-[#525E4B] leading-relaxed">
-                Excel formulas break easily when teachers delete cells or copy formulas incorrectly. A virus or flash drive crash can wipe out weeks of marks.
-                With Nsei Sukul, calculations are 100% automated and protected. In addition, Excel cannot manage student photos, track fee installments, or produce instant debtor lists.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
-              <h3 className="text-base font-bold text-[#142010] flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                <span>"Internet in our town is very weak and unreliable. Will this work for us?"</span>
-              </h3>
-              <p className="mt-2 text-sm text-[#525E4B] leading-relaxed">
-                Yes. That is the exact reason Nsei Sukul was created. Our platform has an Offline School Hub. You connect a basic Wi-Fi router in the staffroom without an active internet subscription.
-                Teachers connect to that Wi-Fi network and enter marks smoothly. When internet is back, the system syncs in the background.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
-              <h3 className="text-base font-bold text-[#142010] flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                <span>"Is it difficult for older teachers who are not very good with computers?"</span>
-              </h3>
-              <p className="mt-2 text-sm text-[#525E4B] leading-relaxed">
-                Not at all. The marks entry screen looks identical to the traditional paper mark booklet teachers already use. If a teacher can type numbers on a phone keypad or send a WhatsApp message, they can use Nsei Sukul in less than 10 minutes.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl border border-[#E8DFC9] p-5 shadow-2xs">
-              <h3 className="text-base font-bold text-[#142010] flex items-center gap-2">
-                <HelpCircle className="w-4 h-4 text-[#2A7C13] shrink-0" />
-                <span>"How much will it cost our school?"</span>
-              </h3>
-              <p className="mt-2 text-sm text-[#525E4B] leading-relaxed">
-                Pricing is flexible based on your school's total student enrollment. There is an unconditional 30-day free trial so the school only commits after seeing the system work with their real students.
-                Most schools save more money in printing paper, printer toner, and prevented fee leakages than the small software fee.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 6: AGENT PROGRAM REMINDER FOR TEACHERS */}
-        <section className="py-12 bg-[#EAF7E4] border-t border-[#C5E8BB]">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-[#2A7C13] text-xs font-bold shadow-2xs">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Earn Extra Income While Helping Schools</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#142010]">
-              Are You a Teacher Introducing Schools to Nsei Sukul?
-            </h2>
-            <p className="text-sm text-[#525E4B] max-w-2xl mx-auto leading-relaxed">
-              Through the Nsei Sukul School Agent Program, you earn an instant 10% cash bonus (up to 50,000 FCFA per school) paid directly to your MTN MoMo or Orange Money account when a school joins, plus a 5% bonus every September when they renew.
-            </p>
-            <div className="pt-2">
-              <Link
-                href="/agents"
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs sm:text-sm font-bold shadow-xs transition-colors"
-              >
-                <span>Read Full Agent Program Details</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
             </div>
           </div>
         </section>

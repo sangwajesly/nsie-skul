@@ -10,8 +10,9 @@ import { revalidatePath } from "next/cache";
  */
 export async function POST(req: NextRequest) {
   try {
-    const rawSecretHeader = req.headers.get("x-wh-secret");
-    const expectedSecret = process.env.FAPSHI_WEBHOOK_SECRET?.trim();
+    const rawSecretHeader = req.headers.get("x-wh-secret")?.trim();
+    const rawExpected = process.env.FAPSHI_WEBHOOK_SECRET || process.env.NEXT_PUBLIC_FAPSHI_WEBHOOK_SECRET || "";
+    const expectedSecret = rawExpected.trim().replace(/^["']|["']$/g, "");
 
     // Verify webhook secret if configured
     if (expectedSecret && rawSecretHeader !== expectedSecret) {
