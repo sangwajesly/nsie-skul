@@ -763,7 +763,7 @@ export async function initiateSchoolLicensePaymentAction(plan: string = "standar
 
     // Fapshi externalId allows alphanumeric and underscores/hyphens, rejecting colons
     const externalId = `LIC_${schoolId}_${plan}_${Date.now()}`;
-    const redirectUrl = `${siteUrl}/dashboard/settings?billing_status=checking#billing`;
+    const redirectUrl = `${siteUrl}/dashboard/settings?billing_status=verify`;
 
     const res = await initiateFapshiPayment({
       amount,
@@ -801,22 +801,37 @@ export async function initiateSchoolLicensePaymentAction(plan: string = "standar
 export async function verifyFapshiPaymentStatusAction(transId: string) {
   try {
     const context = await requirePermission("school.settings.manage");
-    const statusRes = await getFapshiPaymentStatus(transId);
+    const cleanedTransId = transId?.trim();
+    if (!cleanedTransId) {
+      return { success: false, error: "Please provide a valid transaction ID." };
+    }
+
+    const statusRes = await getFapshiPaymentStatus(cleanedTransId);
 
     if (!statusRes.success || !statusRes.data) {
       return { success: false, error: statusRes.error || "Could not check transaction status." };
     }
 
-    const { status } = statusRes.data;
+    const { status, amount, externalId, medium, financialTransId } = statusRes.data;
 
     if (status === "SUCCESSFUL") {
       const adminClient = createAdminClient();
       const nextYear = new Date(Date.now() + 365 * 86400000).toISOString();
 
+      let plan = "standard";
+      if (externalId && typeof externalId === "string") {
+        if (externalId.startsWith("LIC_")) {
+          const parts = externalId.split("_");
+          if (parts.length >= 3 && parts[2]) {
+            plan = parts[2];
+          }
+        }
+      }
+
       await adminClient.from("school_subscriptions").upsert(
         {
           school_id: context.school.id,
-          plan: "standard",
+          plan,
           status: "active",
           current_period_end: nextYear,
           updated_at: new Date().toISOString(),
@@ -824,14 +839,33 @@ export async function verifyFapshiPaymentStatusAction(transId: string) {
         { onConflict: "school_id" }
       );
 
-      await adminClient.from("schools").update({ is_active: true }).eq("id", context.school.id);
+      await adminClient
+        .from("schools")
+        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .eq("id", context.school.id);
+
+      await adminClient.from("audit_logs").insert({
+        school_id: context.school.id,
+        action: "FAPSHI_MOMO_LICENSE_ACTIVATED",
+        resource_type: "school_subscription",
+        resource_id: cleanedTransId,
+        details: {
+          transId: cleanedTransId,
+          amount,
+          medium: medium || "Mobile Money",
+          financialTransId: financialTransId || null,
+          plan,
+          externalId,
+          activatedAt: new Date().toISOString(),
+        },
+      });
 
       revalidatePath("/dashboard/settings");
       revalidatePath("/dashboard");
-      return { success: true, status: "SUCCESSFUL" };
+      return { success: true, status: "SUCCESSFUL", amount, plan };
     }
 
-    return { success: true, status };
+    return { success: true, status, amount };
   } catch (err: any) {
     return { success: false, error: err?.message || "Failed to verify transaction status." };
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SchoolSubscriptionInfo } from "@/types/tenancy";
 import {
   CreditCard,
@@ -17,7 +17,10 @@ import {
   ExternalLink,
   Zap,
 } from "lucide-react";
-import { initiateSchoolLicensePaymentAction } from "./actions";
+import {
+  initiateSchoolLicensePaymentAction,
+  verifyFapshiPaymentStatusAction,
+} from "./actions";
 
 interface Props {
   schoolName: string;
@@ -26,7 +29,6 @@ interface Props {
 }
 
 const TIERS = [
-  { id: "test_tier", name: "Live MoMo Test", amount: 100, label: "100 FCFA (Test Mode)" },
   { id: "tier_1", name: "Tier 1: Up to 300 students", amount: 100000, label: "100,000 FCFA / year" },
   { id: "tier_2", name: "Tier 2: 301 to 750 students", amount: 200000, label: "200,000 FCFA / year", popular: true },
   { id: "tier_3", name: "Tier 3: 751 to 1,500 students", amount: 350000, label: "350,000 FCFA / year" },
@@ -46,14 +48,118 @@ export function SchoolBillingSubscription({
   const [isPaying, setIsPaying] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // Automated & Manual verification state
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<{
+    success: boolean;
+    message: string;
+    amount?: number;
+  } | null>(null);
+  const [manualTransId, setManualTransId] = useState("");
+  const [showManualVerify, setShowManualVerify] = useState(false);
+
+  const hasCheckedRef = useRef(false);
+
   const mtnNumber = "682833601";
   const mtnFormatted = "682 833 601";
   const mtnAccountName = "Nsei Sukul Technologies";
 
-  const isExpired = subscription?.isExpired ?? false;
-  const isTrial = subscription?.isTrial ?? true;
-  const daysRemaining = subscription?.daysRemaining ?? 30;
-  const status = subscription?.status ?? "trial";
+  // Dynamic subscription status reflecting immediate in-session verification
+  const isLicenseActive =
+    verificationResult?.success ||
+    (!subscription?.isExpired && subscription?.status === "active");
+  const isExpired = verificationResult?.success
+    ? false
+    : (subscription?.isExpired ?? false);
+  const isTrial = verificationResult?.success
+    ? false
+    : (subscription?.isTrial ?? true);
+  const daysRemaining = verificationResult?.success
+    ? 365
+    : (subscription?.daysRemaining ?? 30);
+
+  // Auto-verify transaction upon return from Fapshi checkout
+  useEffect(() => {
+    if (typeof window === "undefined" || hasCheckedRef.current) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    let transId = urlParams.get("transId") || urlParams.get("transferId");
+
+    // Check hash just in case Fapshi appended after #
+    if (!transId && window.location.hash.includes("transId=")) {
+      const match = window.location.hash.match(/transId=([^&]+)/);
+      if (match) transId = match[1];
+    }
+
+    if (!transId) {
+      try {
+        transId = localStorage.getItem("nsei_pending_fapshi_transId");
+      } catch (e) {
+        // Local storage inaccessible
+      }
+    }
+
+    if (transId) {
+      hasCheckedRef.current = true;
+      runVerification(transId, false);
+    }
+  }, []);
+
+  const runVerification = async (transIdToVerify: string, isManual: boolean) => {
+    const tid = transIdToVerify.trim();
+    if (!tid) return;
+
+    setIsVerifying(true);
+    setVerificationResult(null);
+
+    try {
+      const res = await verifyFapshiPaymentStatusAction(tid);
+
+      if (res.success && res.status === "SUCCESSFUL") {
+        try {
+          localStorage.removeItem("nsei_pending_fapshi_transId");
+        } catch (e) {}
+
+        setVerificationResult({
+          success: true,
+          message: `Payment verified successfully! Your school license is now activated for 1 year (${res.plan || "standard"} tier).`,
+          amount: res.amount,
+        });
+
+        // Clean query parameters from URL without reloading
+        if (typeof window !== "undefined" && window.history?.replaceState) {
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, document.title, cleanUrl);
+        }
+      } else if (res.status === "FAILED" || res.status === "EXPIRED") {
+        try {
+          localStorage.removeItem("nsei_pending_fapshi_transId");
+        } catch (e) {}
+
+        setVerificationResult({
+          success: false,
+          message: `Payment ${tid} was marked as ${res.status.toLowerCase()} by Mobile Money. If you were debited, please contact support with your SMS confirmation.`,
+        });
+      } else if (res.status === "PENDING" || res.status === "CREATED") {
+        setVerificationResult({
+          success: false,
+          message: `Transaction ${tid} is still pending on the telecom network. Please authorize the prompt on your phone or check back shortly.`,
+        });
+      } else {
+        setVerificationResult({
+          success: false,
+          message: res.error || `Could not verify transaction ${tid}. Please try again.`,
+        });
+      }
+    } catch (err: any) {
+      setVerificationResult({
+        success: false,
+        message: err?.message || "Failed to contact payment verification server.",
+      });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const handleOnlinePay = async () => {
     setIsPaying(true);
@@ -65,6 +171,12 @@ export function SchoolBillingSubscription({
       const res = await initiateSchoolLicensePaymentAction(tier.id, tier.amount);
 
       if (res.success && res.link) {
+        if (res.transId) {
+          try {
+            localStorage.setItem("nsei_pending_fapshi_transId", res.transId);
+            localStorage.setItem("nsei_pending_tier", tier.id);
+          } catch (e) {}
+        }
         window.location.href = res.link;
       } else {
         setPaymentError(res.error || "Unable to start Mobile Money payment. Please try again.");
@@ -95,56 +207,96 @@ export function SchoolBillingSubscription({
 
   return (
     <div className="space-y-6">
+      {/* Verification Feedback Banners */}
+      {isVerifying && (
+        <div className="p-4 rounded-[10px] bg-[#FFF8CF] border border-[#FBE6C2] flex items-center gap-3 animate-pulse">
+          <Loader2 className="w-5 h-5 text-[#7A5B00] animate-spin shrink-0" />
+          <div className="text-xs font-semibold text-[#7A5B00]">
+            Checking Mobile Money transaction status with Fapshi... Please wait.
+          </div>
+        </div>
+      )}
+
+      {verificationResult?.success && (
+        <div className="p-4 rounded-[10px] bg-[#EAF7E4] border-2 border-[#2A7C13] shadow-xs space-y-1.5 animate-in fade-in duration-300">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="w-5 h-5 text-[#2A7C13] shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h4 className="text-sm font-bold text-[#142010]">
+                School License Activated Successfully!
+              </h4>
+              <p className="text-xs text-[#2A7C13] leading-relaxed">
+                {verificationResult.message}
+              </p>
+              <div className="text-[11px] text-[#525E4B]">
+                Official MINESEC report card generation, class rankings, and bulk PDF downloads are fully unlocked for your institution.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {verificationResult && !verificationResult.success && (
+        <div className="p-4 rounded-[10px] bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-1.5">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <div className="space-y-1 flex-1">
+              <div className="font-bold text-[#142010]">Payment Status Notice</div>
+              <p className="text-amber-800">{verificationResult.message}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. License Overview Banner */}
       <div className="p-5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F0EFEA]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[8px] bg-[#142010] text-[#4ADE80] flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5" />
+            <div className={`p-2.5 rounded-[8px] border ${isLicenseActive ? "bg-[#EAF7E4] border-[#BBF7D0] text-[#2A7C13]" : "bg-[#FFF8CF] border-[#FBE6C2] text-[#7A5B00]"}`}>
+              <CreditCard className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-[15px] font-bold text-[#142010]">
-                School License &amp; Billing
-              </h2>
-              <p className="text-xs text-[#666666]">
-                Manage your school&apos;s subscription, access tiers, and local payment verification.
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-[#142010]">
+                  School Software License
+                </h2>
+                <span
+                  className={`px-2 py-0.5 rounded-[4px] text-[10px] font-bold uppercase tracking-wider ${
+                    isLicenseActive
+                      ? "bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0]"
+                      : isExpired
+                      ? "bg-red-100 text-red-800 border border-red-200"
+                      : "bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2]"
+                  }`}
+                >
+                  {isLicenseActive ? "Active" : isExpired ? "Expired" : "Trial Active"}
+                </span>
+              </div>
+              <p className="text-xs text-[#525E4B] mt-0.5">
+                Annual institutional access to Nsei Sukul Academic Management Platform
               </p>
             </div>
           </div>
 
-          <div>
-            {status === "active" && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0]">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Active School License</span>
-              </span>
-            )}
-            {status === "trial" && !isExpired && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#FFF8CF] text-[#7A5B00] border border-[#FBE6C2]">
-                <Clock className="w-3.5 h-3.5" />
-                <span>30-Day Pilot Trial · {daysRemaining} days left</span>
-              </span>
-            )}
-            {isExpired && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>License Expired</span>
-              </span>
-            )}
+          <div className="text-right sm:text-right">
+            <span className="text-xs text-[#788470]">Annual License:</span>
+            <div className="text-sm font-bold text-[#142010]">
+              From 100,000 FCFA / year
+            </div>
           </div>
         </div>
 
-        {/* License Details Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+        {/* Status Details */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="p-3.5 rounded-[8px] bg-[#FAFAF8] border border-[#E5E5DF]">
             <div className="text-[11px] font-medium text-[#788470]">
-              License Tier
+              Institution
             </div>
-            <div className="text-sm font-bold text-[#142010] mt-0.5 capitalize">
-              {subscription?.plan || "Pilot / Trial"}
+            <div className="text-sm font-bold text-[#142010] mt-0.5 truncate">
+              {schoolName}
             </div>
             <div className="text-[10px] text-[#888888] mt-1">
-              {status === "active" ? "Full Academic Year" : "Evaluation Period"}
+              Registered Academic Center
             </div>
           </div>
 
@@ -175,10 +327,12 @@ export function SchoolBillingSubscription({
               Status / Validity
             </div>
             <div className="text-sm font-bold text-[#142010] mt-0.5">
-              {isExpired ? "Action Required" : `${daysRemaining} Days Active`}
+              {isLicenseActive ? `${daysRemaining} Days Active` : isExpired ? "Action Required" : `${daysRemaining} Days Active`}
             </div>
             <div className="text-[10px] text-[#888888] mt-1">
-              {subscription?.trialEndsAt
+              {isLicenseActive
+                ? "Full Annual License Active"
+                : subscription?.trialEndsAt
                 ? `Ends ${new Date(subscription.trialEndsAt).toLocaleDateString()}`
                 : "Active for 2026/2027"}
             </div>
@@ -186,7 +340,7 @@ export function SchoolBillingSubscription({
         </div>
 
         {/* Expiry Warning Callout */}
-        {isExpired && (
+        {isExpired && !isLicenseActive && (
           <div className="p-4 rounded-[8px] bg-red-50 border border-red-200 text-xs text-red-800 space-y-1">
             <p className="font-bold flex items-center gap-1.5 text-red-900">
               <AlertTriangle className="w-4 h-4 text-red-700" />
@@ -224,7 +378,7 @@ export function SchoolBillingSubscription({
         )}
 
         {/* Tier Selector */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 pt-1">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
           {TIERS.map((tier) => (
             <button
               key={tier.id}
@@ -244,11 +398,6 @@ export function SchoolBillingSubscription({
                 {tier.popular && (
                   <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#2A7C13] text-white">
                     Popular
-                  </span>
-                )}
-                {tier.id === "test_tier" && (
-                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
-                    Live MoMo
                   </span>
                 )}
               </div>
@@ -285,6 +434,52 @@ export function SchoolBillingSubscription({
           <span className="text-[11px] text-[#788470]">
             Secured by Fapshi &middot; Supports MTN Mobile Money &amp; Orange Money Cameroon
           </span>
+        </div>
+
+        {/* Manual Status Verification Tool */}
+        <div className="pt-2 border-t border-[#F0EFEA] flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowManualVerify(!showManualVerify)}
+            className="text-[11px] text-[#2A7C13] hover:underline font-semibold flex items-center gap-1.5 self-start cursor-pointer"
+          >
+            <span>Already completed MoMo transfer? Verify by Transaction ID</span>
+          </button>
+
+          {showManualVerify && (
+            <div className="p-3.5 rounded-[8px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 animate-in fade-in duration-200">
+              <div className="text-xs font-semibold text-[#142010]">
+                Enter Fapshi Transfer ID or MoMo Reference:
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. 1BYtZ8Un or Transfer ID"
+                  value={manualTransId}
+                  onChange={(e) => setManualTransId(e.target.value)}
+                  className="flex-1 px-3 py-2 text-xs rounded-[6px] border border-[#D5D5CD] bg-white text-[#142010] focus:outline-none focus:ring-1 focus:ring-[#2A7C13] font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => runVerification(manualTransId, true)}
+                  disabled={isVerifying || !manualTransId.trim()}
+                  className="px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  {isVerifying ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Checking...</span>
+                    </>
+                  ) : (
+                    <span>Verify &amp; Activate</span>
+                  )}
+                </button>
+              </div>
+              <p className="text-[11px] text-[#788470]">
+                If your payment succeeded on checkout or via USSD prompt, entering the Transfer ID confirms it with Fapshi and activates your license immediately.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -386,7 +581,7 @@ export function SchoolBillingSubscription({
         </div>
       </div>
 
-      {/* 3. Safe Data Retention & 90-Day Preservation Guarantee */}
+      {/* 4. Safe Data Retention & 90-Day Preservation Guarantee */}
       <div className="p-5 rounded-[10px] bg-[#FFFDF5] border border-[#E8DFC9] shadow-2xs space-y-3">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-[6px] bg-[#EBF5E9] text-[#1F5C0E] border border-[#C3E4BC]">
