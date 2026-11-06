@@ -50,6 +50,9 @@ function getFapshiConfig() {
     process.env.FAPSHI_USER ||
     process.env.FAPSHI_APIUSER ||
     process.env.FAPSHI_API_USER_LIVE ||
+    process.env.FAPSHI_LIVE_API_USER ||
+    process.env.FAPSHI_USER_ID ||
+    process.env.FAPSHI_API_USERID ||
     process.env.NEXT_PUBLIC_FAPSHI_API_USER ||
     process.env.NEXT_PUBLIC_FAPSHI_USER ||
     "";
@@ -59,7 +62,11 @@ function getFapshiConfig() {
     process.env.FAPSHI_KEY ||
     process.env.FAPSHI_APIKEY ||
     process.env.FAPSHI_API_KEY_LIVE ||
+    process.env.FAPSHI_LIVE_API_KEY ||
     process.env.FAPSHI_TOKEN ||
+    process.env.FAPSHI_API_TOKEN ||
+    process.env.FAPSHI_SECRET ||
+    process.env.FAPSHI_API_SECRET ||
     process.env.NEXT_PUBLIC_FAPSHI_API_KEY ||
     process.env.NEXT_PUBLIC_FAPSHI_KEY ||
     "";
@@ -69,13 +76,42 @@ function getFapshiConfig() {
     process.env.NEXT_PUBLIC_FAPSHI_BASE_URL ||
     "https://live.fapshi.com";
 
-  const apiUser = rawUser.trim().replace(/^["']|["']$/g, "");
-  const apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
+  let apiUser = rawUser.trim().replace(/^["']|["']$/g, "");
+  let apiKey = rawKey.trim().replace(/^["']|["']$/g, "");
   const baseUrl = rawBaseUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 
+  // Dynamic scan across process.env if direct lookup did not resolve
   if (!apiUser || !apiKey) {
+    for (const [k, v] of Object.entries(process.env)) {
+      if (!v) continue;
+      const lower = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+      const cleanVal = v.trim().replace(/^["']|["']$/g, "");
+      if (!cleanVal) continue;
+
+      if (!apiUser && lower.includes("fapshi") && (lower.includes("user") || lower.includes("id"))) {
+        apiUser = cleanVal;
+      }
+      if (!apiKey && lower.includes("fapshi") && (lower.includes("key") || lower.includes("secret") || lower.includes("token"))) {
+        apiKey = cleanVal;
+      }
+    }
+  }
+
+  if (!apiUser || !apiKey) {
+    const fapshiDetectedKeys = Object.keys(process.env).filter((k) =>
+      k.toLowerCase().includes("fapshi")
+    );
+    const userFound = Boolean(apiUser);
+    const keyFound = Boolean(apiKey);
+
     throw new Error(
-      "Missing Fapshi API credentials (FAPSHI_API_USER or FAPSHI_API_KEY). If you recently added these in Vercel, please trigger a Redeploy in your Vercel dashboard so the active deployment receives the new environment variables."
+      `Fapshi API credentials not found in Vercel environment. User: ${
+        userFound ? "Found" : "MISSING"
+      }, API Key: ${
+        keyFound ? "Found" : "MISSING"
+      }. Variables detected containing 'fapshi': [${
+        fapshiDetectedKeys.join(", ") || "None"
+      }]. Please ensure FAPSHI_API_USER and FAPSHI_API_KEY are configured in Vercel Project Settings for the Production environment and that the deployment has finished.`
     );
   }
 

@@ -31,6 +31,11 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
   useEffect(() => {
     setMounted(true);
+    // Fast synchronous cookie inspection to prevent auth flash on refresh for logged-in users
+    if (typeof document !== "undefined" && document.cookie.includes("-auth-token")) {
+      setIsAuthenticated(true);
+    }
+
     try {
       const supabase = createClient();
       supabase.auth.getUser().then(({ data }) => {
@@ -213,7 +218,20 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
         {/* Action CTAs */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-          {isAuthenticated ? (
+          {/* Live Demo button is permanently visible across both authenticated and public states */}
+          <Link
+            href="/demo"
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] text-xs font-bold transition-colors shadow-2xs whitespace-nowrap shrink-0"
+            title="1-Click Demo Campus - Test without an account"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+            <span>Live Demo</span>
+          </Link>
+
+          {!mounted || isAuthenticated === null ? (
+            /* Smooth loading placeholder to prevent flash of wrong auth buttons */
+            <div className="w-24 sm:w-28 h-8 rounded-[7px] bg-[#E8DFC9]/30 animate-pulse shrink-0" />
+          ) : isAuthenticated ? (
             <Link
               href="/dashboard"
               className="inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs sm:text-[13px] shadow-xs transition-colors shrink-0 whitespace-nowrap"
@@ -224,14 +242,6 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
             </Link>
           ) : (
             <>
-              <Link
-                href="/demo"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] hover:bg-[#FDF3B4] border border-[#FBE6C2] text-[#7A5B00] text-xs font-bold transition-colors shadow-2xs whitespace-nowrap shrink-0"
-                title="1-Click Demo Campus - Test without an account"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
-                <span>Live Demo</span>
-              </Link>
               <Link
                 href="/login"
                 className="hidden sm:inline text-[13px] font-medium text-[#525E4B] hover:text-[#142010] transition-colors px-2 py-1 whitespace-nowrap shrink-0"
