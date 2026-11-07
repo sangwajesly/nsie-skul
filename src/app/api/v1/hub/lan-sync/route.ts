@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   let body: any = {};
@@ -28,11 +28,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 1. Identify School ID from sequence or stream
   const { data: seq } = await supabase
-    .from("sequences")
+    .from("evaluation_sequences")
     .select("school_id")
     .eq("id", sequenceId)
     .single();

@@ -1,6 +1,6 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { requirePermission } from "@/lib/tenancy/context";
 import { revalidatePath } from "next/cache";
 import crypto from "crypto";
@@ -20,8 +20,8 @@ export async function registerNewHubNodeAction(formData: FormData) {
   const nodeKey = `hub_${context.school.code ? context.school.code.toLowerCase() : "nsei"}_${crypto.randomBytes(16).toString("hex")}`;
   const hardwareId = crypto.randomBytes(12).toString("hex");
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
     .from("school_hubs")
     .insert({
       school_id: context.school.id,
@@ -56,8 +56,8 @@ export async function revokeHubNodeAction(formData: FormData) {
   const hubId = formData.get("hubId") as string;
   if (!hubId) return { error: "Hub ID is required." };
 
-  const supabase = await createClient();
-  const { error } = await supabase
+  const adminClient = createAdminClient();
+  const { error } = await adminClient
     .from("school_hubs")
     .update({ status: "revoked", updated_at: new Date().toISOString() })
     .eq("id", hubId)

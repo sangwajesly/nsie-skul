@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function POST(req: NextRequest) {
   const hubKey = req.headers.get("x-hub-key");
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   }
 
   const startTime = Date.now();
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   // 1. Authenticate Hub Node
   const { data: hub, error: hubError } = await supabase

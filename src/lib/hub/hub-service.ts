@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface SchoolHubNode {
   id: string;
@@ -73,8 +74,9 @@ export function getLocalServerLanIp(): string {
  * Lists all registered Hub server nodes for the current school.
  */
 export async function getSchoolHubs(schoolId: string): Promise<SchoolHubNode[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
+  if (!schoolId) return [];
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
     .from("school_hubs")
     .select("*")
     .eq("school_id", schoolId)
