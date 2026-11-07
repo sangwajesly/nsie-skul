@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     version: currentHubVersion,
     releaseDate,
     minSupportedVersion: "1.0.0",
-    downloadUrl: `${baseUrl}/downloads/NseiSukulHubSetup.exe`,
+    downloadUrl: `${baseUrl}/api/v1/hub/download`,
     fileName: "NseiSukulHubSetup.exe",
     sha256Checksum: null,
     hasUpdate,

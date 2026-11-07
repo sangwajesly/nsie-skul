@@ -219,6 +219,7 @@ export function SchoolHubSettings({
 
           <a
             href="/api/v1/hub/download"
+            download="NseiSukulHubSetup.exe"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-[6px] bg-[#4ADE80] hover:bg-[#22C55E] text-[#142010] font-bold text-xs shadow-md transition-all shrink-0 cursor-pointer"
           >
             <Download className="w-4 h-4 text-[#142010]" />
@@ -367,6 +368,7 @@ export function SchoolHubSettings({
                 <div className="pt-1 flex flex-col sm:flex-row items-center gap-2">
                   <a
                     href="/api/v1/hub/download"
+                    download="NseiSukulHubSetup.exe"
                     className="w-full py-2 px-3 rounded bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />

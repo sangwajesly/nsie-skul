@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "package:hub": "node scripts/package-standalone-hub.js"
+    "package:hub": "node scripts/package-standalone-hub.js",
+    "upload:hub": "node scripts/upload-hub-installer.js"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
