@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { Download, Share, PlusSquare, X, Smartphone, Sparkles, Check } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -36,11 +37,29 @@ const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 const DISMISS_KEY = "nsei_pwa_dismissed_at";
 
 export function PwaProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  const isAuthPage =
+    Boolean(pathname) &&
+    (pathname.startsWith("/login") ||
+      pathname.startsWith("/register") ||
+      pathname.startsWith("/forgot-password"));
+
+  const shouldShowPrompt = useCallback(() => {
+    try {
+      const lastDismissed = localStorage.getItem(DISMISS_KEY);
+      if (!lastDismissed) return true;
+      const elapsed = Date.now() - parseInt(lastDismissed, 10);
+      return elapsed >= TWO_DAYS_MS;
+    } catch {
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     // 1. Register Service Worker
@@ -69,46 +88,16 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
     const isAppleDevice = /iphone|ipad|ipod/.test(userAgent) && !(window as unknown as { MSStream?: unknown }).MSStream;
     setIsIOS(isAppleDevice);
 
-    // 4. Check 2-Day frequency
-    const shouldShowEveryTwoDays = () => {
-      try {
-        const lastDismissed = localStorage.getItem(DISMISS_KEY);
-        if (!lastDismissed) return true;
-        const elapsed = Date.now() - parseInt(lastDismissed, 10);
-        return elapsed >= TWO_DAYS_MS;
-      } catch {
-        return false;
-      }
-    };
-
-    // 5. Handle beforeinstallprompt (Chromium, Android, Edge, Desktop Chrome)
+    // 4. Handle beforeinstallprompt (Chromium, Android, Edge, Desktop Chrome)
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
-
-      if (shouldShowEveryTwoDays()) {
-        const timer = setTimeout(() => {
-          setShowPromptModal(true);
-        }, 3500);
-        return () => clearTimeout(timer);
-      }
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstall);
 
-    // 6. If iOS Safari and not installed, trigger 2-day modal as well
-    if (isAppleDevice && !isStandalone && shouldShowEveryTwoDays()) {
-      const timer = setTimeout(() => {
-        setShowPromptModal(true);
-      }, 4000);
-      return () => {
-        window.removeEventListener("beforeinstallprompt", handleBeforeInstall);
-        clearTimeout(timer);
-      };
-    }
-
-    // 7. Track successful installation
+    // 5. Track successful installation
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
@@ -123,6 +112,24 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("appinstalled", handleAppInstalled);
     };
   }, []);
+
+  // Show install prompt modal after login on dashboard or main view (never on auth pages)
+  useEffect(() => {
+    if (isInstalled || isAuthPage) {
+      setShowPromptModal(false);
+      return;
+    }
+
+    // Prompt user on the dashboard when they reach their workspace
+    if (pathname?.startsWith("/dashboard")) {
+      if (shouldShowPrompt() && (deferredPrompt || isIOS)) {
+        const timer = setTimeout(() => {
+          setShowPromptModal(true);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [pathname, isInstalled, isAuthPage, deferredPrompt, isIOS, shouldShowPrompt]);
 
   const dismissModal = useCallback(() => {
     setShowPromptModal(false);
@@ -202,18 +209,22 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
             {/* Description */}
             <p className="text-xs text-[#525E4B] leading-relaxed">
-              Add Nsei Sukul Managements System to your home screen for instant access to student marks, attendance rolls, and class rosters without opening your browser.
+              Add Nsei Sukul Management System to your phone&apos;s home screen for instant access to student marks, attendance rolls, and class rosters without opening your browser. You stay signed in!
             </p>
 
             {/* Feature Bullets */}
             <div className="p-3 rounded-[8px] bg-[#FFFDF5] border border-[#E8DFC9] space-y-1.5 text-[11px] text-[#666666]">
               <div className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-[#2A7C13] shrink-0" />
-                <span>Instant full-screen app experience</span>
+                <span>Instant full-screen app &amp; works offline</span>
               </div>
               <div className="flex items-center gap-2">
                 <Check className="w-3.5 h-3.5 text-[#2A7C13] shrink-0" />
-                <span>Quick access from your phone or desktop</span>
+                <span>Stay signed in to your school workspace</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Check className="w-3.5 h-3.5 text-[#2A7C13] shrink-0" />
+                <span>1-tap access directly from your phone home screen</span>
               </div>
             </div>
 

@@ -176,6 +176,18 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
           error: `This teacher (+237 ${cleanDigits}) is already registered in this school with access code ${existingMembership.access_code || "assigned"}.`,
         };
       }
+
+      // If the administrator inputted a name, update user profile & auth metadata so it reflects the correct teacher name
+      if (fullName && fullName.length >= 2) {
+        await admin
+          .from("user_profiles")
+          .update({ full_name: fullName, phone: cleanDigits })
+          .eq("id", userId);
+
+        await admin.auth.admin.updateUserById(userId, {
+          user_metadata: { full_name: fullName, phone: cleanDigits },
+        });
+      }
     } else {
       // Create new Supabase Auth user
       const syntheticEmail = `teacher_${cleanDigits}@staff.nseisukul.internal`;
@@ -197,10 +209,10 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
 
       userId = newAuth.user.id;
 
-      // Create user_profile row
+      // Upsert user_profile row with the teacher's name and phone
       const { error: profileError } = await admin
         .from("user_profiles")
-        .insert({
+        .upsert({
           id: userId,
           full_name: fullName,
           email: syntheticEmail,
@@ -236,7 +248,7 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
       return { success: false, error: membershipError.message || "Failed to link teacher to school." };
     }
 
-    const resolvedName = existingProfile?.full_name || fullName;
+    const resolvedName = (fullName && fullName.length >= 2) ? fullName : (existingProfile?.full_name || "Teacher");
 
     await supabase.from("audit_logs").insert({
       school_id: context.school.id,
@@ -756,6 +768,74 @@ export async function removeStaffMembershipAction(formData: FormData) {
   revalidatePath("/dashboard/settings");
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard");
+}
+
+export async function updateStaffMemberAction(formData: FormData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const context = await requirePermission("staff.manage");
+    const membershipId = String(formData.get("membershipId") || "").trim();
+    const fullName = String(formData.get("fullName") || "").trim();
+    const title = String(formData.get("title") || "").trim();
+    const roleId = String(formData.get("roleId") || "").trim();
+
+    if (!membershipId) {
+      return { success: false, error: "Missing staff membership identifier." };
+    }
+
+    const admin = createAdminClient();
+    const { data: membership, error: memError } = await admin
+      .from("school_memberships")
+      .select("id, user_id, school_id")
+      .eq("id", membershipId)
+      .eq("school_id", context.school.id)
+      .maybeSingle();
+
+    if (memError || !membership) {
+      return { success: false, error: "Staff member not found in this school." };
+    }
+
+    // 1. Update membership title and role if provided
+    const updatePayload: Record<string, any> = {};
+    if (title !== undefined) updatePayload.title = title || null;
+    if (roleId) updatePayload.role_id = roleId;
+
+    if (Object.keys(updatePayload).length > 0) {
+      await admin
+        .from("school_memberships")
+        .update(updatePayload)
+        .eq("id", membership.id);
+    }
+
+    // 2. Update user profile and auth metadata full_name if provided
+    if (fullName && fullName.length >= 2) {
+      await admin
+        .from("user_profiles")
+        .update({ full_name: fullName })
+        .eq("id", membership.user_id);
+
+      await admin.auth.admin.updateUserById(membership.user_id, {
+        user_metadata: { full_name: fullName },
+      });
+    }
+
+    await admin.from("audit_logs").insert({
+      school_id: context.school.id,
+      user_id: context.user.id,
+      action: "UPDATE_STAFF_MEMBER",
+      resource_type: "school_membership",
+      resource_id: membershipId,
+      details: { fullName, title, roleId },
+    });
+
+    revalidatePath("/dashboard/settings");
+    revalidatePath("/dashboard/academics");
+    revalidatePath("/dashboard");
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[updateStaffMemberAction] Error:", err);
+    return { success: false, error: err?.message || "Failed to update staff member." };
+  }
 }
 
 /**

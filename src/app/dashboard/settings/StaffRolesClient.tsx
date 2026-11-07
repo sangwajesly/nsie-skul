@@ -7,6 +7,7 @@ import { SchoolMembership, Role } from "@/types/database";
 import {
   addStaffMemberAction,
   registerTeacherWithCodeAction,
+  updateStaffMemberAction,
   updateStaffRoleAction,
   toggleStaffStatusAction,
   removeStaffMembershipAction,
@@ -28,6 +29,7 @@ import {
   Sparkles,
   Mail,
   X,
+  Pencil,
 } from "lucide-react";
 
 interface Props {
@@ -71,6 +73,8 @@ export default function StaffRolesClient({
   
   // Quick WhatsApp share modal for existing staff
   const [shareStaffMember, setShareStaffMember] = useState<SchoolMembership | null>(null);
+  // Edit staff member modal
+  const [editingStaffMember, setEditingStaffMember] = useState<SchoolMembership | null>(null);
 
   useEffect(() => {
     const cleanup = () => {
@@ -218,6 +222,32 @@ export default function StaffRolesClient({
     }
   }
 
+  async function handleEditStaffSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingStaffMember) return;
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    formData.set("membershipId", editingStaffMember.id);
+    setUpdatingId(`edit-${editingStaffMember.id}`);
+    setStatusMessage(null);
+
+    try {
+      const res = await updateStaffMemberAction(formData);
+      if (!res.success) {
+        setStatusMessage({ type: "error", text: res.error || "Could not update staff member." });
+        return;
+      }
+      setEditingStaffMember(null);
+      setStatusMessage({ type: "success", text: "Staff member details updated successfully!" });
+      router.refresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not update staff member.";
+      setStatusMessage({ type: "error", text: msg });
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const generateWhatsAppMessage = (name: string, code: string, pin: string, phone: string) => {
     const text = `Good day ${name}, your Nsei Sukul teacher login for ${schoolName} is ready:\n\n1-Click Direct Login:\nhttps://nsei-sukul.klarifypath.com/login?p=${phone}&c=${code}&s=${schoolCode}\n\nYour Login Details:\n• Phone: +237 ${phone}\n• School Code: ${schoolCode}\n• Teacher Code: ${code}\n• Initial PIN: ${pin}\n\nTap the 1-click link above directly on your phone to open your classes and submit marks.`;
     return `https://api.whatsapp.com/send?phone=237${phone}&text=${encodeURIComponent(text)}`;
@@ -331,6 +361,7 @@ export default function StaffRolesClient({
                   name="fullName"
                   type="text"
                   required
+                  autoComplete="off"
                   placeholder="e.g. Mr. Emmanuel Forbi"
                   className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
                 />
@@ -600,6 +631,16 @@ export default function StaffRolesClient({
                           <span className="text-[10px] text-[#888888] font-medium italic">You</span>
                         ) : (
                           <div className="flex items-center justify-end gap-1.5">
+                            {/* Edit Teacher Name & Title button */}
+                            <button
+                              type="button"
+                              onClick={() => setEditingStaffMember(m)}
+                              title="Edit teacher name or title"
+                              className="p-1.5 rounded-[4px] border border-[#D5CBB2] bg-white text-[#444444] hover:bg-[#F5F5F0] transition-colors cursor-pointer"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+
                             {/* Share / WhatsApp button */}
                             {m.user?.phone && (
                               <button
@@ -862,6 +903,91 @@ export default function StaffRolesClient({
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Staff Member Modal */}
+      {editingStaffMember && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-[10px] bg-white p-5 shadow-xl space-y-4 border border-[#E8DFC9]">
+            <div className="flex items-center justify-between border-b border-[#E8DFC9] pb-2">
+              <h4 className="font-bold text-sm text-[#142010] flex items-center gap-2">
+                <Pencil className="w-4 h-4 text-[#2A7C13]" />
+                <span>Edit Teacher Details</span>
+              </h4>
+              <button
+                type="button"
+                onClick={() => setEditingStaffMember(null)}
+                className="text-[#888888] hover:text-[#142010] p-1 rounded-full cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditStaffSubmit} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">
+                  Teacher Full Name *
+                </label>
+                <input
+                  name="fullName"
+                  type="text"
+                  required
+                  autoComplete="off"
+                  defaultValue={editingStaffMember.user?.full_name || ""}
+                  placeholder="e.g. Mr. Emmanuel Forbi"
+                  className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">
+                  Teaching Title / Subject
+                </label>
+                <input
+                  name="title"
+                  type="text"
+                  defaultValue={editingStaffMember.title || ""}
+                  placeholder="e.g. Mathematics Form 1-5"
+                  className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#444444] mb-1">
+                  School Role *
+                </label>
+                <select
+                  name="roleId"
+                  defaultValue={editingStaffMember.role_id}
+                  className="w-full rounded-[5px] border border-[#D5CBB2] bg-white px-3 py-2 text-xs text-[#142010] focus:border-[#2A7C13] focus:outline-none"
+                >
+                  {schoolRoles.map((role) => (
+                    <option key={role.id} value={role.id}>
+                      {roleLabels[role.code] || role.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E8DFC9]">
+                <button
+                  type="button"
+                  onClick={() => setEditingStaffMember(null)}
+                  className="px-3 py-1.5 rounded-[5px] border border-[#D5CBB2] text-[#555555] hover:bg-[#F7F3E8] cursor-pointer font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingId === `edit-${editingStaffMember.id}`}
+                  className="px-4 py-1.5 rounded-[5px] bg-[#142010] hover:bg-[#20361a] text-white font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {updatingId === `edit-${editingStaffMember.id}` ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

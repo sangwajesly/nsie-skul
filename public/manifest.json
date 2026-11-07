@@ -2,7 +2,7 @@
   "name": "Nsei Sukul Management System",
   "short_name": "Nsei Sukul",
   "description": "Secondary school management platform for Cameroon: CBA marks entry, sequence assessments, and report cards.",
-  "start_url": "/",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFFDF5",
