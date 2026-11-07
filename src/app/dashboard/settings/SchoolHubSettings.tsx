@@ -13,6 +13,10 @@ import {
   Check,
   HardDrive,
   Laptop,
+  Download,
+  Radio,
+  HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { registerNewHubNodeAction, revokeHubNodeAction } from "./hub-actions";
 import type { SchoolHubNode } from "@/lib/hub/hub-service";
@@ -200,6 +204,54 @@ export function SchoolHubSettings({
         </div>
       </div>
 
+      {/* Standalone Installer Download Card */}
+      <div className="p-4 rounded-[8px] bg-gradient-to-r from-[#142010] to-[#1C3217] text-white space-y-3 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm text-white">Nsei Sukul School Hub for Windows (.exe)</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2A7C13] text-[#DCFCE7]">v1.2.0</span>
+            </div>
+            <p className="text-xs text-[#CCECC0] max-w-xl leading-relaxed">
+              Download the compiled standalone installer to run your school server offline. Starts automatically on Windows boot with zero source code exposed.
+            </p>
+          </div>
+
+          <a
+            href="/api/v1/hub/download"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-[6px] bg-[#4ADE80] hover:bg-[#22C55E] text-[#142010] font-bold text-xs shadow-md transition-all shrink-0 cursor-pointer"
+          >
+            <Download className="w-4 h-4 text-[#142010]" />
+            <span>Download Installer (.exe)</span>
+          </a>
+        </div>
+
+        {/* 3-Step Deployment Guide */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-2 border-t border-white/15 text-[11px]">
+          <div className="flex items-start gap-2 bg-white/5 p-2 rounded">
+            <span className="w-4 h-4 rounded-full bg-[#4ADE80] text-[#142010] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">1</span>
+            <div>
+              <strong className="text-white block">Download &amp; Run Setup</strong>
+              <span className="text-[#CCECC0]">Run NseiSukulHubSetup.exe on the school PC or laptop.</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 bg-white/5 p-2 rounded">
+            <span className="w-4 h-4 rounded-full bg-[#4ADE80] text-[#142010] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">2</span>
+            <div>
+              <strong className="text-white block">Paste Your Hub Key</strong>
+              <span className="text-[#CCECC0]">Paste the generated Node Key into the installer wizard.</span>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 bg-white/5 p-2 rounded">
+            <span className="w-4 h-4 rounded-full bg-[#4ADE80] text-[#142010] flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5">3</span>
+            <div>
+              <strong className="text-white block">Connect via Wi-Fi or Hotspot</strong>
+              <span className="text-[#CCECC0]">Works with a staff router OR a laptop Mobile Hotspot (zero router).</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Registered Hub Nodes Section */}
       <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
@@ -287,9 +339,12 @@ export function SchoolHubSettings({
             {generatedKey ? (
               <div className="space-y-3">
                 <div className="p-3 rounded bg-[#EBF7E5] border border-[#CCECC0] text-[#1B5E20] space-y-1">
-                  <div className="font-bold">Hub Registered Successfully!</div>
-                  <p className="text-[11px]">
-                    Copy this Node Key. You will paste it into the <code>.env.hub</code> file on the school computer:
+                  <div className="font-bold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-[#2A7C13]" />
+                    <span>Hub Registered Successfully!</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Copy this Node Key. Paste it into the installer wizard when running <code>NseiSukulHubSetup.exe</code> on the school computer:
                   </p>
                 </div>
 
@@ -303,19 +358,28 @@ export function SchoolHubSettings({
                   <button
                     type="button"
                     onClick={() => copyToClipboard(generatedKey)}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded bg-[#2A7C13] text-white text-[11px] font-bold cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded bg-[#2A7C13] text-white text-[11px] font-bold cursor-pointer hover:bg-[#20600E]"
                   >
-                    {copiedKey ? "Copied!" : "Copy"}
+                    {copiedKey ? "Copied!" : "Copy Key"}
                   </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterModal(false)}
-                  className="w-full py-2 rounded bg-[#142010] text-white font-bold text-xs cursor-pointer"
-                >
-                  Done
-                </button>
+                <div className="pt-1 flex flex-col sm:flex-row items-center gap-2">
+                  <a
+                    href="/api/v1/hub/download"
+                    className="w-full py-2 px-3 rounded bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Windows Installer (.exe)</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegisterModal(false)}
+                    className="w-full sm:w-auto py-2 px-4 rounded border border-[#E8DFC9] text-[#142010] font-semibold text-xs hover:bg-[#FAF8F5] cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleRegisterHub} className="space-y-3">

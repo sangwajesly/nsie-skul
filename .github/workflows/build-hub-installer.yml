@@ -1,0 +1,55 @@
+name: Build School Hub Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js standalone
+        run: npm run build
+        env:
+          NEXT_PUBLIC_HUB_MODE: "true"
+
+      - name: Package Standalone Distribution
+        run: node scripts/package-standalone-hub.js
+
+      - name: Setup Inno Setup Compiler
+        run: choco install innosetup -y
+
+      - name: Compile Windows Installer (.exe)
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\NseiSukulHubSetup.iss
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NseiSukulHubSetup
+          path: public/downloads/NseiSukulHubSetup.exe
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: public/downloads/NseiSukulHubSetup.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

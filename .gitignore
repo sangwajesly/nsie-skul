@@ -56,3 +56,8 @@ next-env.d.ts
 # Local agent workspace and tooling
 .agents/
 skills-lock.json
+
+# Hub standalone build artifacts
+/dist-hub/
+/public/downloads/*.exe
+
