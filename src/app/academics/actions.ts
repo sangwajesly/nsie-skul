@@ -1175,6 +1175,9 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     return { error: "No active academic year found. Please configure an academic year first." };
   }
 
+  // Support assignmentMode: 'co_teach' (default) or 'replace' (replaces previous teacher)
+  const assignmentMode = String(formData.get("assignmentMode") || "co_teach").trim();
+
   // If caller is an HOD (and not school_admin / principal / superadmin), verify the subject belongs to their department
   const isAdmin = ["school_admin", "principal", "superadmin"].includes(context.role.code);
   const isHodCaller = !isAdmin && (context.role.code === "hod" || Boolean(context.isHod));
@@ -1199,13 +1202,12 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
   const teacherName = (membershipResult.data.user_profiles as any)?.full_name || "Teacher";
   const subjectName = subject.name;
 
-  // Check which selected classes already have this teacher assigned to this subject in this academic year
-  const { data: existingTeacherAssignments, error: checkError } = await supabase
+  // Query ALL existing assignments for this subject in the selected streams (any teacher)
+  const { data: allExistingSubjectAssignments, error: checkError } = await supabase
     .from("teacher_assignments")
-    .select("class_stream_id")
+    .select("id, class_stream_id, teacher_user_id, teacher:user_profiles(full_name)")
     .eq("school_id", context.school.id)
     .eq("academic_year_id", effectiveYearId)
-    .eq("teacher_user_id", teacherUserId)
     .eq("subject_id", subjectId)
     .in("class_stream_id", validStreams.map((s) => s.id));
 
@@ -1213,8 +1215,11 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     return { error: `Could not verify existing teacher assignments: ${checkError.message}` };
   }
 
+  // Streams where THIS teacher is already assigned
   const alreadyAssignedStreamIds = new Set(
-    existingTeacherAssignments?.map((a) => a.class_stream_id) || []
+    allExistingSubjectAssignments
+      ?.filter((a) => a.teacher_user_id === teacherUserId)
+      .map((a) => a.class_stream_id) || []
   );
 
   const streamsToAssign = validStreams.filter((s) => !alreadyAssignedStreamIds.has(s.id));
@@ -1233,6 +1238,24 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
     };
   }
 
+  // If mode is 'replace', remove any prior assignments by OTHER teachers in these streams
+  if (assignmentMode === "replace" && allExistingSubjectAssignments && allExistingSubjectAssignments.length > 0) {
+    const otherTeacherAssignmentIds = allExistingSubjectAssignments
+      .filter((a) => a.teacher_user_id !== teacherUserId && streamsToAssign.some((s) => s.id === a.class_stream_id))
+      .map((a) => a.id);
+
+    if (otherTeacherAssignmentIds.length > 0) {
+      const { error: deleteOldError } = await supabase
+        .from("teacher_assignments")
+        .delete()
+        .in("id", otherTeacherAssignmentIds);
+
+      if (deleteOldError) {
+        return { error: `Could not reassign previous teacher: ${deleteOldError.message}` };
+      }
+    }
+  }
+
   // 1. Batch upsert teacher_assignments for new class streams
   const teacherRows = streamsToAssign.map((stream) => ({
     school_id: context.school.id,
@@ -1248,6 +1271,21 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
   );
 
   if (assignError) {
+    // Graceful handling for duplicate key constraint violation when table still has legacy single-teacher constraint
+    if (
+      assignError.code === "23505" ||
+      assignError.message?.includes("teacher_assignments_academic_year_id_class_stream_id_subjec_key") ||
+      assignError.message?.includes("teacher_assignments_academic_year_id_class_stream_id_subject_id_key")
+    ) {
+      const otherTeachers = allExistingSubjectAssignments
+        ?.filter((a) => a.teacher_user_id !== teacherUserId)
+        ?.map((a) => (a.teacher as any)?.full_name || "another teacher") || [];
+      const distinctNames = Array.from(new Set(otherTeachers)).join(", ");
+
+      return {
+        error: `Another teacher (${distinctNames || "already assigned"}) is currently assigned to ${subjectName} in this class. Please select 'Replace Existing Teacher' to switch teachers, or run database migration 00021 in your Supabase SQL Editor to allow co-teaching.`,
+      };
+    }
     return { error: `Could not save the teacher assignments: ${assignError.message}` };
   }
 
@@ -1287,6 +1325,13 @@ export async function assignTeacherAction(_previousState: unknown, formData: For
 
   const newlyAssignedNames = streamsToAssign.map((s) => s.name).join(", ");
   const alreadyAssignedNames = alreadyAssignedStreams.map((s) => s.name).join(", ");
+
+  if (assignmentMode === "replace") {
+    return {
+      success: true,
+      message: `Replaced previous teacher and assigned ${teacherName} to ${subjectName} in ${newlyAssignedNames}.`,
+    };
+  }
 
   if (alreadyAssignedStreams.length > 0) {
     return {
