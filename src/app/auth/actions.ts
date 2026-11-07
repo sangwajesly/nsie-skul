@@ -101,6 +101,8 @@ export async function loginAction(
   }
 
   const cookieStore = await cookies();
+  cookieStore.delete("nsei_is_demo");
+  cookieStore.delete("nsei_demo_school_id");
   cookieStore.set(ACTIVE_SCHOOL_COOKIE, memberships[0].school_id, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -164,6 +166,33 @@ export async function loginWithTeacherCodeAction(
 
     if (profile) {
       userEmail = profile.email;
+
+      // If a school code was passed (e.g. from invite link ?s=BHS), preselect that school
+      if (schoolCodeInput) {
+        const { data: school } = await admin
+          .from("schools")
+          .select("id")
+          .or(`code.ilike.${schoolCodeInput},slug.ilike.${schoolCodeInput}`)
+          .maybeSingle();
+
+        if (school) {
+          preselectedSchoolId = school.id;
+        }
+      }
+
+      // If school not specified via code, preselect their first active real school membership
+      if (!preselectedSchoolId) {
+        const { data: userMemberships } = await admin
+          .from("school_memberships")
+          .select("school_id")
+          .eq("user_id", profile.id)
+          .eq("status", "active")
+          .limit(1);
+
+        if (userMemberships && userMemberships.length > 0) {
+          preselectedSchoolId = userMemberships[0].school_id;
+        }
+      }
     }
   }
 
@@ -178,6 +207,8 @@ export async function loginWithTeacherCodeAction(
       targetStaffCode = parts.slice(1).join("-");
     }
 
+    const cleanStaff = targetStaffCode.replace(/^[-_]+/, "");
+
     if (targetSchoolCode) {
       const { data: school } = await admin
         .from("schools")
@@ -186,13 +217,14 @@ export async function loginWithTeacherCodeAction(
         .maybeSingle();
 
       if (school) {
-        // Look up membership by access_code
+        const prefixedStaff = `${school.code || targetSchoolCode}-${cleanStaff}`;
+        // Look up membership by access_code with broad matching (exact, trimmed, or school-prefixed)
         const { data: membership } = await admin
           .from("school_memberships")
           .select("id, school_id, user_id, access_code, status, user:user_profiles(id, email)")
           .eq("school_id", school.id)
           .eq("status", "active")
-          .or(`access_code.ilike.${targetStaffCode},access_code.ilike.${identifier}`)
+          .or(`access_code.ilike.${targetStaffCode},access_code.ilike.${identifier},access_code.ilike.${prefixedStaff},access_code.ilike.%-${cleanStaff}`)
           .maybeSingle();
 
         if (membership && membership.user) {
@@ -200,6 +232,20 @@ export async function loginWithTeacherCodeAction(
           userEmail = userObj.email;
           preselectedSchoolId = school.id;
         }
+      }
+    } else {
+      // No school code provided: search active memberships directly across schools
+      const { data: membership } = await admin
+        .from("school_memberships")
+        .select("id, school_id, user_id, access_code, status, user:user_profiles(id, email)")
+        .eq("status", "active")
+        .or(`access_code.ilike.${identifier},access_code.ilike.%-${cleanStaff}`)
+        .maybeSingle();
+
+      if (membership && membership.user) {
+        const userObj = membership.user as unknown as { id: string; email: string };
+        userEmail = userObj.email;
+        preselectedSchoolId = membership.school_id;
       }
     }
   }
@@ -275,6 +321,8 @@ export async function loginWithTeacherCodeAction(
       : "/dashboard";
 
   const cookieStore = await cookies();
+  cookieStore.delete("nsei_is_demo");
+  cookieStore.delete("nsei_demo_school_id");
 
   // If teacher logged in with a specific school code, take them straight to that school
   if (preselectedSchoolId) {

@@ -344,6 +344,15 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
         </div>
 
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Link
+              href="/dashboard/academics?tab=sequences"
+              className="px-3 py-1.5 rounded-[6px] bg-[#EAF7E4] text-[#1F5C0E] border border-[#C3E4BC] text-xs font-bold hover:bg-[#DCFCE7] transition-all inline-flex items-center gap-1.5 shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#2A7C13]" />
+              <span>Open / Close Sequences</span>
+            </Link>
+          )}
           <span className="px-3 py-1 rounded-[4px] bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2] text-xs font-bold">
             {activeYear?.name || "Academic year not set"}
           </span>

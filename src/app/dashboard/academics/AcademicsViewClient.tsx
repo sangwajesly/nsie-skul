@@ -273,8 +273,8 @@ export function AcademicsViewClient({
             </span>
           </button>
 
-          {/* Tab 4: Evaluation Sequences */}
-          {canManageAcademics && sequences.length > 0 && (
+          {/* Tab 4: Sequences (Open / Close) */}
+          {canManageAcademics && (
             <button
               type="button"
               onClick={() => handleTabChange("sequences")}
@@ -285,7 +285,7 @@ export function AcademicsViewClient({
               }`}
             >
               <Sparkles className={`w-4 h-4 shrink-0 ${activeTab === "sequences" ? "text-[#2A7C13]" : "text-[#777777]"}`} />
-              <span>Evaluation Windows</span>
+              <span>Sequences (Open / Close)</span>
               {openSequencesCount > 0 ? (
                 <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-[#EAF7E4] text-[#1F5C0E] border border-[#76C457]/30 font-bold shrink-0">
                   {openSequencesCount} Open

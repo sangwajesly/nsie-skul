@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Globe,
   Building2,
+  Sparkles,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -28,8 +29,9 @@ function NavSection({ label }: { label: string }) {
   );
 }
 
-function isRouteActive(pathname: string, currentHash: string, href: string): boolean {
-  const [cleanHref, hashPart] = href.split("#");
+function isRouteActive(pathname: string, currentHash: string, currentSearch: string, href: string): boolean {
+  const [urlWithoutHash, hashPart] = href.split("#");
+  const [cleanHref, queryPart] = urlWithoutHash.split("?");
   const targetHash = hashPart ? `#${hashPart}` : "";
 
   // 0. Public root: strictly matches / only
@@ -42,10 +44,14 @@ function isRouteActive(pathname: string, currentHash: string, href: string): boo
     return pathname === "/dashboard";
   }
 
-  // 2. Academics parent: strictly matches /dashboard/academics
-  // (marks and report-cards have dedicated sidebar entries)
+  // 2. Academics parent with or without query tab:
   if (cleanHref === "/dashboard/academics") {
-    return pathname === "/dashboard/academics";
+    if (pathname !== "/dashboard/academics") return false;
+    if (queryPart) {
+      return currentSearch.includes(queryPart);
+    }
+    // Base Classes & Subjects tab is active when not on ?tab=sequences
+    return !currentSearch.includes("tab=sequences");
   }
 
   // 3. Activity Log (Audit): exact or sub-paths
@@ -83,6 +89,7 @@ function NavLink({
   label,
   sublabel,
   currentHash,
+  currentSearch,
   onNavClick,
 }: {
   href: string;
@@ -90,10 +97,11 @@ function NavLink({
   label: string;
   sublabel?: string;
   currentHash: string;
+  currentSearch?: string;
   onNavClick?: () => void;
 }) {
   const pathname = usePathname();
-  const isActive = isRouteActive(pathname, currentHash, href);
+  const isActive = isRouteActive(pathname, currentHash, currentSearch || "", href);
 
   return (
     <Link
@@ -163,13 +171,22 @@ export default function DashboardNavigation({
     isSuper;
 
   const [currentHash, setCurrentHash] = useState("");
+  const [currentSearch, setCurrentSearch] = useState("");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setCurrentHash(window.location.hash);
-      const handleHashChange = () => setCurrentHash(window.location.hash);
-      window.addEventListener("hashchange", handleHashChange);
-      return () => window.removeEventListener("hashchange", handleHashChange);
+      setCurrentSearch(window.location.search);
+      const handleLocationChange = () => {
+        setCurrentHash(window.location.hash);
+        setCurrentSearch(window.location.search);
+      };
+      window.addEventListener("hashchange", handleLocationChange);
+      window.addEventListener("popstate", handleLocationChange);
+      return () => {
+        window.removeEventListener("hashchange", handleLocationChange);
+        window.removeEventListener("popstate", handleLocationChange);
+      };
     }
   }, []);
 
@@ -194,6 +211,18 @@ export default function DashboardNavigation({
           label="Classes & Subjects"
           sublabel="Set up classes, subjects and departments"
           currentHash={currentHash}
+          currentSearch={currentSearch}
+          onNavClick={onNavClick}
+        />
+      )}
+      {isAdmin && (
+        <NavLink
+          href="/dashboard/academics?tab=sequences"
+          icon={Sparkles}
+          label="Sequences (Open / Close)"
+          sublabel="Open or lock mark entry windows"
+          currentHash={currentHash}
+          currentSearch={currentSearch}
           onNavClick={onNavClick}
         />
       )}

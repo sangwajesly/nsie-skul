@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, useCallback, memo, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   saveSequenceMarksAction,
   approveDepartmentalSequenceAction,
@@ -1162,6 +1163,15 @@ export function MarksGridClient({
                 : `Mark entry for ${sequenceName} is currently closed. You are viewing this mark sheet in read-only mode. If a student mark requires correction, submit the physical marked test script to the School Administration for an administrative mark rectification.`}
             </p>
           </div>
+          {isAdmin && (
+            <Link
+              href="/dashboard/academics?tab=sequences"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] bg-[#1E40AF] text-white font-bold hover:bg-[#1D4ED8] transition-colors shrink-0 shadow-xs cursor-pointer text-xs self-start"
+            >
+              <Unlock className="w-3.5 h-3.5" />
+              <span>Open / Close Sequences</span>
+            </Link>
+          )}
         </div>
       )}
 

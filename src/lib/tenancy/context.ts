@@ -126,6 +126,16 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     activeMembership = memberships[0];
   }
 
+  // Ensure a real user is never trapped in the demo school if they have a real school
+  if (authUser.email !== "demo@nsei-sukul.klarifypath.com") {
+    const nonDemoMembership = memberships.find(
+      (m: any) => m.schools?.slug !== "demo-bilingual-high-school"
+    );
+    if (nonDemoMembership && (activeMembership?.schools as any)?.slug === "demo-bilingual-high-school") {
+      activeMembership = nonDemoMembership;
+    }
+  }
+
   if (!activeMembership) {
     return null;
   }

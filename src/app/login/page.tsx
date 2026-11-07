@@ -94,14 +94,19 @@ function LoginForm() {
       } catch {}
     }
 
-    // Ensure demo session is purged if user visits real school login
-    if (typeof document !== "undefined" && document.cookie.includes("nsei_is_demo")) {
+    // Unconditionally purge any leftover demo session/cookies so real teachers are never trapped in demo mode
+    if (typeof document !== "undefined") {
       try {
+        if (paramSchool || paramCode || paramPhone || document.cookie.includes("nsei_is_demo")) {
+          document.cookie = "nsei_is_demo=; path=/; max-age=0";
+          document.cookie = "nsei_demo_school_id=; path=/; max-age=0";
+        }
         const supabase = createClient();
         supabase.auth.getUser().then(({ data }) => {
           if (data?.user?.email === "demo@nsei-sukul.klarifypath.com") {
             supabase.auth.signOut().then(() => {
               document.cookie = "nsei_is_demo=; path=/; max-age=0";
+              document.cookie = "nsei_demo_school_id=; path=/; max-age=0";
               document.cookie = "nsei_active_school_id=; path=/; max-age=0";
             });
           }
@@ -491,32 +496,40 @@ function LoginForm() {
         </div>
 
         {/* ── AUDIENCE 3: NEW INSTITUTION ONBOARDING BANNER ── */}
-        <div className="mt-4 p-3.5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs text-center space-y-1">
-          <div className="text-xs font-bold text-[#142010]">
-            Principal or School Proprietor?
+        {!(paramSchool || paramCode || paramPhone) ? (
+          <div className="mt-4 p-3.5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs text-center space-y-1">
+            <div className="text-xs font-bold text-[#142010]">
+              Principal or School Proprietor?
+            </div>
+            <p className="text-[11px] text-[#666666]">
+              Set up your secondary school on Nsei Sukul in 2 minutes.
+            </p>
+            <div className="pt-1 flex items-center justify-center gap-3">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline cursor-pointer"
+              >
+                <span>Register School</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <span className="text-[#D5D5CF]">|</span>
+              <Link
+                href="/demo"
+                className="inline-flex items-center gap-1 text-xs font-bold text-[#B45309] hover:underline cursor-pointer"
+                title="Test with pre-populated demo classes and report cards"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+                <span>Explore Live Demo</span>
+              </Link>
+            </div>
           </div>
-          <p className="text-[11px] text-[#666666]">
-            Set up your secondary school on Nsei Sukul in 2 minutes.
-          </p>
-          <div className="pt-1 flex items-center justify-center gap-3">
-            <Link
-              href="/register"
-              className="inline-flex items-center gap-1 text-xs font-bold text-[#2A7C13] hover:underline cursor-pointer"
-            >
-              <span>Register School</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-            <span className="text-[#D5D5CF]">|</span>
-            <Link
-              href="/demo"
-              className="inline-flex items-center gap-1 text-xs font-bold text-[#B45309] hover:underline cursor-pointer"
-              title="Test with pre-populated demo classes and report cards"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
-              <span>Explore Live Demo</span>
-            </Link>
+        ) : (
+          <div className="mt-4 p-3 rounded-[10px] bg-[#F7F3E8] border border-[#E8DFC9] shadow-2xs text-center">
+            <p className="text-[11px] text-[#687660]">
+              Invited staff: Enter your teacher code and PIN (default 123456) to access your classes directly.
+            </p>
           </div>
-        </div>
+        )}
 
         {/* Footer Links & Contact */}
         <div className="flex items-center justify-center gap-3 text-[11px] text-[#888888] mt-4">
