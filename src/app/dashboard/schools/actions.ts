@@ -431,47 +431,53 @@ export async function quickCreateSchoolAction(prevState: unknown, formData: Form
           school_id: newSchool.id,
           term_id: term1?.id,
           sequence_number: 1,
-          name: isFrench ? "1ère Séquence" : "1st Sequence",
+          name: isFrench ? "1ère Séquence" : "Sequence 1",
           is_active: true,
+          is_open_for_marks: true,
         },
         {
           school_id: newSchool.id,
           term_id: term1?.id,
           sequence_number: 2,
-          name: isFrench ? "2ème Séquence" : "2nd Sequence",
+          name: isFrench ? "2ème Séquence" : "Sequence 2",
           is_active: false,
+          is_open_for_marks: false,
         },
         {
           school_id: newSchool.id,
           term_id: term2?.id,
           sequence_number: 3,
-          name: isFrench ? "3ème Séquence" : "3rd Sequence",
+          name: isFrench ? "3ème Séquence" : "Sequence 3",
           is_active: false,
+          is_open_for_marks: false,
         },
         {
           school_id: newSchool.id,
           term_id: term2?.id,
           sequence_number: 4,
-          name: isFrench ? "4ème Séquence" : "4th Sequence",
+          name: isFrench ? "4ème Séquence" : "Sequence 4",
           is_active: false,
+          is_open_for_marks: false,
         },
         {
           school_id: newSchool.id,
           term_id: term3?.id,
           sequence_number: 5,
-          name: isFrench ? "5ème Séquence" : "5th Sequence",
+          name: isFrench ? "5ème Séquence" : "Sequence 5",
           is_active: false,
+          is_open_for_marks: false,
         },
         {
           school_id: newSchool.id,
           term_id: term3?.id,
           sequence_number: 6,
-          name: isFrench ? "6ème Séquence" : "6th Sequence",
+          name: isFrench ? "6ème Séquence" : "Sequence 6",
           is_active: false,
+          is_open_for_marks: false,
         },
       ];
 
-      await adminClient.from("sequences").insert(seqsData);
+      await adminClient.from("evaluation_sequences").insert(seqsData);
     }
 
     // 8. Seed Standard MINESEC Class Levels

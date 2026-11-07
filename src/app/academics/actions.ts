@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission, requireAnyPermission } from "@/lib/tenancy/context";
-import { getActiveAcademicYear, generateNextStudentMatricule, getHodScope } from "@/lib/academic/service";
+import { getActiveAcademicYear, generateNextStudentMatricule, getHodScope, ensureStandardSequences } from "@/lib/academic/service";
 import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -2605,6 +2605,16 @@ export async function setActiveSequenceAction(formData: FormData) {
   revalidatePath("/dashboard/academics");
   revalidatePath("/dashboard/academics/marks");
   revalidatePath("/dashboard/academics/report-cards");
+}
+
+export async function initializeSchoolSequencesAction() {
+  const context = await requirePermission("academics.manage");
+  const seqs = await ensureStandardSequences(context.school.id);
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/academics");
+  revalidatePath("/dashboard/academics/marks");
+  revalidatePath("/dashboard/academics/report-cards");
+  return { success: true, count: seqs.length };
 }
 
 // ==============================================================================

@@ -18,7 +18,6 @@ import {
   ShieldCheck,
   Globe,
   Building2,
-  Sparkles,
 } from "lucide-react";
 
 function NavSection({ label }: { label: string }) {
@@ -210,17 +209,6 @@ export default function DashboardNavigation({
           icon={BookOpen}
           label="Classes & Subjects"
           sublabel="Set up classes, subjects and departments"
-          currentHash={currentHash}
-          currentSearch={currentSearch}
-          onNavClick={onNavClick}
-        />
-      )}
-      {isAdmin && (
-        <NavLink
-          href="/dashboard/academics?tab=sequences"
-          icon={Sparkles}
-          label="Sequences (Open / Close)"
-          sublabel="Open or lock mark entry windows"
           currentHash={currentHash}
           currentSearch={currentSearch}
           onNavClick={onNavClick}

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import {
   Department,
   Subject,
@@ -13,6 +14,186 @@ import {
   AcademicYear,
   EvaluationSequence,
 } from "@/types/database";
+
+/**
+ * Auto-provisions the 6 standard Cameroon MINESEC sequences for a school if they do not exist yet.
+ */
+export async function ensureStandardSequences(schoolId: string): Promise<EvaluationSequence[]> {
+  if (!schoolId) return [];
+
+  try {
+    const admin = createAdminClient();
+
+    // Check again to avoid duplicate creation
+    const { data: existing } = await admin
+      .from("evaluation_sequences")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("sequence_number", { ascending: true });
+
+    if (existing && existing.length > 0) {
+      return existing as EvaluationSequence[];
+    }
+
+    // Look up school terms
+    let { data: terms } = await admin
+      .from("terms")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("term_number", { ascending: true });
+
+    if (!terms || terms.length === 0) {
+      // Find or create current academic year
+      let { data: year } = await admin
+        .from("academic_years")
+        .select("*")
+        .eq("school_id", schoolId)
+        .eq("is_current", true)
+        .maybeSingle();
+
+      if (!year) {
+        const { data: anyYear } = await admin
+          .from("academic_years")
+          .select("*")
+          .eq("school_id", schoolId)
+          .order("start_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        year = anyYear;
+      }
+
+      if (!year) {
+        const { data: newYear } = await admin
+          .from("academic_years")
+          .insert({
+            school_id: schoolId,
+            name: "2026/2027",
+            start_date: "2026-09-01",
+            end_date: "2027-06-30",
+            is_current: true,
+          })
+          .select()
+          .single();
+        year = newYear;
+      }
+
+      if (year) {
+        const termsToInsert = [
+          {
+            school_id: schoolId,
+            academic_year_id: year.id,
+            term_number: 1,
+            name: "First Term",
+            start_date: "2026-09-01",
+            end_date: "2026-12-18",
+            is_active: true,
+          },
+          {
+            school_id: schoolId,
+            academic_year_id: year.id,
+            term_number: 2,
+            name: "Second Term",
+            start_date: "2027-01-05",
+            end_date: "2027-03-26",
+            is_active: false,
+          },
+          {
+            school_id: schoolId,
+            academic_year_id: year.id,
+            term_number: 3,
+            name: "Third Term",
+            start_date: "2027-04-12",
+            end_date: "2027-06-30",
+            is_active: false,
+          },
+        ];
+        const { data: createdTerms } = await admin
+          .from("terms")
+          .insert(termsToInsert)
+          .select();
+        terms = createdTerms || [];
+      }
+    }
+
+    const term1 = terms?.find((t) => t.term_number === 1) || terms?.[0];
+    const term2 = terms?.find((t) => t.term_number === 2) || terms?.[1] || term1;
+    const term3 = terms?.find((t) => t.term_number === 3) || terms?.[2] || term2;
+
+    const sequencesToInsert = [
+      {
+        school_id: schoolId,
+        term_id: term1?.id,
+        sequence_number: 1,
+        name: "Sequence 1",
+        start_date: "2026-09-01",
+        end_date: "2026-10-24",
+        is_open_for_marks: true,
+        is_active: true,
+      },
+      {
+        school_id: schoolId,
+        term_id: term1?.id,
+        sequence_number: 2,
+        name: "Sequence 2",
+        start_date: "2026-10-27",
+        end_date: "2026-12-18",
+        is_open_for_marks: false,
+        is_active: false,
+      },
+      {
+        school_id: schoolId,
+        term_id: term2?.id,
+        sequence_number: 3,
+        name: "Sequence 3",
+        start_date: "2027-01-05",
+        end_date: "2027-02-13",
+        is_open_for_marks: false,
+        is_active: false,
+      },
+      {
+        school_id: schoolId,
+        term_id: term2?.id,
+        sequence_number: 4,
+        name: "Sequence 4",
+        start_date: "2027-02-16",
+        end_date: "2027-03-26",
+        is_open_for_marks: false,
+        is_active: false,
+      },
+      {
+        school_id: schoolId,
+        term_id: term3?.id,
+        sequence_number: 5,
+        name: "Sequence 5",
+        start_date: "2027-04-12",
+        end_date: "2027-05-20",
+        is_open_for_marks: false,
+        is_active: false,
+      },
+      {
+        school_id: schoolId,
+        term_id: term3?.id,
+        sequence_number: 6,
+        name: "Sequence 6",
+        start_date: "2027-05-21",
+        end_date: "2027-06-30",
+        is_open_for_marks: false,
+        is_active: false,
+      },
+    ];
+
+    const { data: createdSeqs } = await admin
+      .from("evaluation_sequences")
+      .insert(sequencesToInsert)
+      .select()
+      .order("sequence_number", { ascending: true });
+
+    return (createdSeqs as EvaluationSequence[]) || [];
+  } catch (error) {
+    console.error("Failed to ensure standard sequences:", error);
+    return [];
+  }
+}
 
 /**
  * Retrieves the currently active academic year for a school.
@@ -37,7 +218,9 @@ export const getActiveAcademicYear = cache(async function getActiveAcademicYear(
 /**
  * Lists all academic years for a school, sorted chronologically descending.
  */
-export async function getSchoolAcademicYears(schoolId: string): Promise<AcademicYear[]> {
+export const getSchoolAcademicYears = cache(async function getSchoolAcademicYears(
+  schoolId: string
+): Promise<AcademicYear[]> {
   if (!schoolId) return [];
   const supabase = await createClient();
   const { data } = await supabase
@@ -47,15 +230,17 @@ export async function getSchoolAcademicYears(schoolId: string): Promise<Academic
     .order("start_date", { ascending: false });
 
   return (data as AcademicYear[]) || [];
-}
+});
 
 /**
  * Retrieves the 6 evaluation sequences for an academic year.
- * Cached per request.
+ * Cached per request. Auto-provisions if missing.
  */
 export const getSchoolSequences = cache(async function getSchoolSequences(
   schoolId: string
 ): Promise<EvaluationSequence[]> {
+  if (!schoolId) return [];
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("evaluation_sequences")
@@ -63,7 +248,12 @@ export const getSchoolSequences = cache(async function getSchoolSequences(
     .eq("school_id", schoolId)
     .order("sequence_number", { ascending: true });
 
-  return (data as EvaluationSequence[]) || [];
+  if (data && data.length > 0) {
+    return data as EvaluationSequence[];
+  }
+
+  // Auto-provision standard sequences if not found
+  return await ensureStandardSequences(schoolId);
 });
 
 /**
