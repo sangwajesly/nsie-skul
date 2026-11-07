@@ -23,7 +23,11 @@ import {
 import { DepartmentListItem } from "./DepartmentListItem";
 import { DepartmentCreateForm, SubjectCreateForm } from "./AcademicSetupForms";
 import HodAssignmentForm from "./HodAssignmentForm";
-import { deleteSubjectAction, updateSubjectAction } from "@/app/academics/actions";
+import {
+  deleteSubjectAction,
+  updateSubjectAction,
+  assignSubjectToDepartmentAction,
+} from "@/app/academics/actions";
 
 interface DepartmentItem {
   id: string;
@@ -103,14 +107,16 @@ export function DepartmentsSubjectsManager({
 
   const handleUpdateCatalogSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectToEdit || !editName.trim() || !editCode.trim()) return;
+    if (!subjectToEdit || !editName.trim()) return;
 
     setFeedback(null);
     startTransition(async () => {
       const fd = new FormData();
       fd.set("subjectId", subjectToEdit.id);
       fd.set("name", editName.trim());
-      fd.set("code", editCode.trim().toUpperCase());
+      if (editCode.trim()) {
+        fd.set("code", editCode.trim().toUpperCase());
+      }
       if (editDeptId) {
         fd.set("departmentId", editDeptId);
       }
@@ -158,6 +164,28 @@ export function DepartmentsSubjectsManager({
       }
     });
   };
+
+  const handleAssignSubject = (subjectId: string, targetDeptId: string) => {
+    setFeedback(null);
+    startTransition(async () => {
+      const res = await assignSubjectToDepartmentAction(subjectId, targetDeptId);
+      if (res && "error" in res && res.error) {
+        setFeedback({ type: "error", text: res.error });
+      } else {
+        const sub = subjects.find((s) => s.id === subjectId);
+        const dept = departments.find((d) => d.id === targetDeptId);
+        setFeedback({
+          type: "success",
+          text: `Subject "${sub?.name || "Subject"}" assigned to ${dept?.name || "department"}.`,
+        });
+      }
+    });
+  };
+
+  // Unassigned subjects (created without a department)
+  const unassignedSubjects = useMemo(() => {
+    return subjects.filter((s) => !s.department_id);
+  }, [subjects]);
 
   // Filtered Departments
   const filteredDepartments = useMemo(() => {
@@ -400,7 +428,7 @@ export function DepartmentsSubjectsManager({
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
-          <DepartmentCreateForm />
+          <DepartmentCreateForm unassignedSubjects={unassignedSubjects} />
         </div>
       )}
 
@@ -465,11 +493,79 @@ export function DepartmentsSubjectsManager({
                     key={dept.id}
                     dept={dept}
                     subjects={deptSubjects}
+                    unassignedSubjects={unassignedSubjects}
                     hodName={assignedHod?.hod_user?.full_name || null}
                     canManage={canManageAcademics}
                   />
                 );
               })}
+            </div>
+          )}
+
+          {/* Unassigned Subjects Section (Discoverable in Departments view) */}
+          {unassignedSubjects.length > 0 && (
+            <div className="rounded-[8px] border border-amber-200 bg-[#FFFDF5] p-4 shadow-2xs space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                    <BookOpen className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#142010]">
+                      Unassigned Subjects ({unassignedSubjects.length})
+                    </h4>
+                    <p className="text-[11px] text-[#788470]">
+                      These subjects were created without an assigned department. You can assign them to any department below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {unassignedSubjects.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="p-3 rounded-[6px] bg-white border border-[#E5E5DF] space-y-2 flex flex-col justify-between"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-[#142010] truncate">
+                        {sub.name}
+                      </span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-[#F0EFEA] text-[#555555]">
+                        {sub.code}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-[#788470]">
+                      <span>Coef {sub.default_coefficient}</span>
+                      <span>Max {sub.default_max_marks}</span>
+                    </div>
+
+                    {canManageAcademics && departments.length > 0 && (
+                      <div className="pt-1.5 border-t border-[#F1F1ED]">
+                        <select
+                          defaultValue=""
+                          disabled={isPending}
+                          onChange={(e) => {
+                            const targetDeptId = e.target.value;
+                            if (targetDeptId) {
+                              handleAssignSubject(sub.id, targetDeptId);
+                            }
+                          }}
+                          className="w-full text-[11px] px-2 py-1.5 rounded border border-[#D5D5CF] bg-[#FAFAF8] text-[#142010] focus:outline-none cursor-pointer"
+                        >
+                          <option value="">Assign to Department...</option>
+                          {departments.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name} ({d.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -612,13 +708,13 @@ export function DepartmentsSubjectsManager({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#444444] mb-1">
-                    Code
+                    Code <span className="text-[10px] text-[#788470] font-normal">(optional)</span>
                   </label>
                   <input
                     type="text"
-                    required
                     value={editCode}
                     onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+                    placeholder="Optional"
                     className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white uppercase focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
@@ -629,9 +725,9 @@ export function DepartmentsSubjectsManager({
                   </label>
                   <input
                     type="number"
-                    step="0.5"
-                    min="0.5"
-                    max="15"
+                    step="1"
+                    min="1"
+                    max="20"
                     required
                     value={editCoef}
                     onChange={(e) => setEditCoef(e.target.value)}

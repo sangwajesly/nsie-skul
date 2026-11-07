@@ -20,11 +20,15 @@ function ActionMessage({ state }: { state: { error: string } | { success: true; 
   );
 }
 
-export function DepartmentCreateForm() {
+export function DepartmentCreateForm({
+  unassignedSubjects = [],
+}: {
+  unassignedSubjects?: Array<{ id: string; name: string; code: string }>;
+}) {
   const [state, formAction, isPending] = useActionState(createDepartmentAction, null);
 
   return (
-    <form action={formAction} className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2.5 text-[12px]">
+    <form action={formAction} className="p-3.5 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-3 text-[12px]">
       <div className="text-[11px] font-bold uppercase tracking-wider text-[#777777]">Add a Department</div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <input
@@ -43,10 +47,41 @@ export function DepartmentCreateForm() {
           className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] uppercase font-mono focus:outline-none focus:border-[#191919]"
         />
       </div>
+
+      {unassignedSubjects.length > 0 && (
+        <div className="pt-2 border-t border-[#E5E5DF] space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold text-[#142010]">
+            <span>Attach Existing Subjects to this Department (optional):</span>
+            <span className="text-[10px] text-[#788470]">
+              {unassignedSubjects.length} unassigned
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto p-2 rounded-[5px] bg-white border border-[#E5E5DF]">
+            {unassignedSubjects.map((sub) => (
+              <label
+                key={sub.id}
+                className="flex items-center gap-2 p-1 rounded hover:bg-[#FAFAF8] cursor-pointer text-xs"
+              >
+                <input
+                  type="checkbox"
+                  name="subjectIds"
+                  value={sub.id}
+                  className="rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13]"
+                />
+                <span className="font-semibold text-[#142010]">{sub.name}</span>
+                <span className="text-[10px] font-mono text-[#788470] bg-[#F0EFEA] px-1 rounded">
+                  {sub.code}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
       <button
         type="submit"
         disabled={isPending}
-        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#191919] hover:bg-[#333333] text-white rounded-[5px] text-[12px] font-semibold transition-colors disabled:opacity-50 cursor-pointer"
       >
         <Plus className="w-3.5 h-3.5" />
         <span>{isPending ? "Adding..." : "Add Department"}</span>
@@ -77,8 +112,7 @@ export function SubjectCreateForm({
         <input
           type="text"
           name="code"
-          placeholder="Short code (PHY)"
-          required
+          placeholder="Short code (optional, e.g. PHY)"
           className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] uppercase font-mono focus:outline-none focus:border-[#191919]"
         />
         <select
@@ -96,9 +130,10 @@ export function SubjectCreateForm({
           <input
             type="number"
             name="defaultCoefficient"
-            aria-label="Subject weight"
-            placeholder="Weight (2)"
-            step="0.5"
+            aria-label="Subject coefficient"
+            placeholder="Coefficient (Whole number, e.g. 2)"
+            min="1"
+            step="1"
             defaultValue="2"
             className="px-3 py-1.5 rounded-[5px] border border-[#D5D5CF] bg-white text-[12px] font-mono focus:outline-none focus:border-[#191919]"
           />

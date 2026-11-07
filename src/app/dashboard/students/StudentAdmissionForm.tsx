@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { registerStudentAction } from "@/app/academics/actions";
+import {
+  registerStudentAction,
+  getNextStudentMatriculeAction,
+} from "@/app/academics/actions";
 import {
   UserPlus,
   Sparkles,
@@ -36,6 +39,8 @@ export function StudentAdmissionForm({
 }: Props) {
   const [isOpen, setIsOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentSuggestedMatricule, setCurrentSuggestedMatricule] = useState(suggestedMatricule);
+  const [isRefreshingMatricule, setIsRefreshingMatricule] = useState(false);
 
   const [formData, setFormData] = useState({
     classStreamId: "",
@@ -71,15 +76,28 @@ export function StudentAdmissionForm({
     if (generalError) setGeneralError(null);
   };
 
-  const handleResetToAuto = () => {
-    setFormData((prev) => ({ ...prev, matricule: suggestedMatricule }));
-    setIsManualMatricule(false);
-    if (fieldErrors.matricule) {
-      setFieldErrors((prev) => {
-        const next = { ...prev };
-        delete next.matricule;
-        return next;
-      });
+  const handleResetToAuto = async () => {
+    setIsRefreshingMatricule(true);
+    try {
+      const res = await getNextStudentMatriculeAction(academicYearId);
+      if (res && res.success && res.matricule) {
+        setFormData((prev) => ({ ...prev, matricule: res.matricule }));
+        setCurrentSuggestedMatricule(res.matricule);
+      } else {
+        setFormData((prev) => ({ ...prev, matricule: currentSuggestedMatricule }));
+      }
+    } catch {
+      setFormData((prev) => ({ ...prev, matricule: currentSuggestedMatricule }));
+    } finally {
+      setIsRefreshingMatricule(false);
+      setIsManualMatricule(false);
+      if (fieldErrors.matricule) {
+        setFieldErrors((prev) => {
+          const next = { ...prev };
+          delete next.matricule;
+          return next;
+        });
+      }
     }
   };
 
@@ -175,9 +193,26 @@ export function StudentAdmissionForm({
           res.message ||
             `Student "${studentDisplayName}" enrolled successfully.`
         );
-        // Reset form while keeping stream selection
+
+        // Calculate next sequential matricule for immediate auto-generation
+        let calculatedNext = res && "nextMatricule" in res && res.nextMatricule ? String(res.nextMatricule) : "";
+        if (!calculatedNext && formData.matricule) {
+          const match = formData.matricule.match(/^(.*?)(\d+)$/);
+          if (match) {
+            const prefix = match[1];
+            const numStr = match[2];
+            const nextNum = parseInt(numStr, 10) + 1;
+            calculatedNext = `${prefix}${String(nextNum).padStart(numStr.length, "0")}`;
+          }
+        }
+
+        const nextMat = calculatedNext || currentSuggestedMatricule;
+        setCurrentSuggestedMatricule(nextMat);
+
+        // Reset form while keeping stream selection and auto-advancing the matricule
         setFormData((prev) => ({
           ...prev,
+          matricule: nextMat,
           firstName: "",
           lastName: "",
           gender: "M",
@@ -302,18 +337,29 @@ export function StudentAdmissionForm({
                     Student Matricule <span className="text-red-500">*</span>
                   </label>
                   {!isManualMatricule ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] text-[#2A7C13] font-medium">
-                      <Sparkles className="w-3 h-3" />
-                      Auto-generated
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleResetToAuto}
+                      disabled={isRefreshingMatricule}
+                      title="Next sequence number automatically generated. Click to refresh."
+                      className="inline-flex items-center gap-1 text-[10px] text-[#2A7C13] font-medium hover:underline cursor-pointer"
+                    >
+                      {isRefreshingMatricule ? (
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-3 h-3" />
+                      )}
+                      <span>Auto-incrementing</span>
+                    </button>
                   ) : (
                     <button
                       type="button"
                       onClick={handleResetToAuto}
+                      disabled={isRefreshingMatricule}
                       className="inline-flex items-center gap-1 text-[10px] text-[#555555] hover:text-[#191919] underline cursor-pointer"
                     >
-                      <RefreshCw className="w-2.5 h-2.5" />
-                      Reset to auto
+                      <RefreshCw className={`w-2.5 h-2.5 ${isRefreshingMatricule ? "animate-spin" : ""}`} />
+                      <span>Reset to auto</span>
                     </button>
                   )}
                 </div>

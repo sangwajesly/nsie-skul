@@ -520,32 +520,77 @@ export async function generateNextStudentMatricule(
   const fullYear = yearMatch ? yearMatch[0] : new Date().getFullYear().toString();
   const shortYear = fullYear.slice(-2);
 
-  // 3. Count total students in school to calculate sequential index
-  const { count } = await supabase
+  // 3. Inspect recent students to detect existing numbering pattern (e.g. FFOCAST001 -> FFOCAST002)
+  const { data: recentStudents } = await supabase
     .from("students")
-    .select("id", { count: "exact", head: true })
-    .eq("school_id", schoolId);
+    .select("matricule")
+    .eq("school_id", schoolId)
+    .order("created_at", { ascending: false })
+    .limit(100);
 
-  let nextIndex = (count || 0) + 1;
+  let detectedPrefix: string | null = null;
+  let detectedPadLength = 3;
+  let maxFoundSeq = 0;
 
-  // Pattern formatting
-  const format = (school?.matricule_format || "{CODE}-{YEAR}-{SEQ:4}").trim();
+  if (recentStudents && recentStudents.length > 0) {
+    for (const st of recentStudents) {
+      const mat = (st.matricule || "").trim().toUpperCase();
+      // Match patterns like "FFOCAST001", "BHS-2026-0042", "ST-015"
+      const match = mat.match(/^(.*?)(\d+)$/);
+      if (match) {
+        const prefix = match[1];
+        const numStr = match[2];
+        const numVal = parseInt(numStr, 10);
 
-  const buildMatricule = (idx: number) => {
-    return format
-      .replace(/{CODE}/gi, code)
-      .replace(/{YEAR:4}/gi, fullYear)
-      .replace(/{YEAR}/gi, shortYear)
-      .replace(/{SEQ:(\d+)}/gi, (_: string, pad: string) => String(idx).padStart(Number(pad) || 4, "0"))
-      .replace(/{SEQ}/gi, String(idx).padStart(4, "0"));
-  };
+        if (!isNaN(numVal)) {
+          if (!detectedPrefix) {
+            detectedPrefix = prefix;
+            detectedPadLength = Math.max(numStr.length, 3);
+          }
+          if (prefix === detectedPrefix && numVal > maxFoundSeq) {
+            maxFoundSeq = numVal;
+          }
+        }
+      }
+    }
+  }
 
-  let candidate = buildMatricule(nextIndex);
+  // 4. Determine format and initial candidate
+  const customFormat = (school?.matricule_format || "").trim();
+  let candidate = "";
+  let nextIndex = 1;
 
-  // Collision safety check
+  if (detectedPrefix && maxFoundSeq > 0 && !customFormat) {
+    // School already has an active convention (e.g. FFOCAST001)
+    nextIndex = maxFoundSeq + 1;
+    candidate = `${detectedPrefix}${String(nextIndex).padStart(detectedPadLength, "0")}`;
+  } else {
+    // Use custom format or default
+    const format = customFormat || "{CODE}-{YEAR}-{SEQ:4}";
+
+    const { count } = await supabase
+      .from("students")
+      .select("id", { count: "exact", head: true })
+      .eq("school_id", schoolId);
+
+    nextIndex = Math.max((count || 0) + 1, maxFoundSeq + 1);
+
+    const buildMatricule = (idx: number) => {
+      return format
+        .replace(/{CODE}/gi, code)
+        .replace(/{YEAR:4}/gi, fullYear)
+        .replace(/{YEAR}/gi, shortYear)
+        .replace(/{SEQ:(\d+)}/gi, (_: string, pad: string) => String(idx).padStart(Number(pad) || 3, "0"))
+        .replace(/{SEQ}/gi, String(idx).padStart(3, "0"));
+    };
+
+    candidate = buildMatricule(nextIndex);
+  }
+
+  // 5. Collision safety check: ensure candidate is strictly unique
   let exists = true;
   let attempts = 0;
-  while (exists && attempts < 50) {
+  while (exists && attempts < 100) {
     const { data: existing } = await supabase
       .from("students")
       .select("id")
@@ -557,7 +602,17 @@ export async function generateNextStudentMatricule(
       exists = false;
     } else {
       nextIndex++;
-      candidate = buildMatricule(nextIndex);
+      if (detectedPrefix && !customFormat) {
+        candidate = `${detectedPrefix}${String(nextIndex).padStart(detectedPadLength, "0")}`;
+      } else {
+        const format = customFormat || "{CODE}-{YEAR}-{SEQ:4}";
+        candidate = format
+          .replace(/{CODE}/gi, code)
+          .replace(/{YEAR:4}/gi, fullYear)
+          .replace(/{YEAR}/gi, shortYear)
+          .replace(/{SEQ:(\d+)}/gi, (_: string, pad: string) => String(nextIndex).padStart(Number(pad) || 3, "0"))
+          .replace(/{SEQ}/gi, String(nextIndex).padStart(3, "0"));
+      }
       attempts++;
     }
   }

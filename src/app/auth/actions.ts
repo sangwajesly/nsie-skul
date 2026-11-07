@@ -12,6 +12,7 @@ import {
   recordFailedLoginAttempt,
   resetLoginRateLimit,
 } from "@/lib/auth/rate-limiter";
+import { normalizePinForAuth, getPinAuthCandidates } from "@/lib/auth/pin-utils";
 
 const LoginSchema = z.object({
   email: z.string().email("Please provide a valid email address."),
@@ -216,12 +217,26 @@ export async function loginWithTeacherCodeAction(
     };
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: userEmail,
-    password: pin,
-  });
+  // Authenticate across candidate password variants (supports 4 to 6 digit PINs seamlessly)
+  const candidatePasswords = getPinAuthCandidates(pin);
+  let authData: { user: { id: string } } | null = null;
+  let authError: { message?: string } | null = null;
 
-  if (error) {
+  for (const candidate of candidatePasswords) {
+    const res = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: candidate,
+    });
+    if (!res.error && res.data?.user) {
+      authData = res.data;
+      authError = null;
+      break;
+    } else {
+      authError = res.error;
+    }
+  }
+
+  if (authError || !authData) {
     const attempt = recordFailedLoginAttempt(identifier);
     if (attempt.blocked) {
       return {
@@ -245,7 +260,7 @@ export async function loginWithTeacherCodeAction(
   const { data: memberships, error: membershipsError } = await supabase
     .from("school_memberships")
     .select("id, school_id")
-    .eq("user_id", data.user.id)
+    .eq("user_id", authData.user.id)
     .eq("status", "active");
 
   if (membershipsError || !memberships || memberships.length === 0) {
@@ -363,7 +378,7 @@ export async function signOutAction() {
 }
 
 /**
- * Updates a teacher's personal 4-digit PIN to replace the initial default PIN (123456),
+ * Updates a teacher's personal 4 to 6 digit PIN to replace the initial default PIN (123456),
  * protecting their marks and evaluations from student guessing.
  */
 export async function updateTeacherPinAction(
@@ -376,8 +391,8 @@ export async function updateTeacherPinAction(
     if (!newPin || newPin.length < 4) {
       return { success: false, error: "Please enter a PIN with at least 4 digits." };
     }
-    if (newPin.length > 8) {
-      return { success: false, error: "PIN must be 8 digits or fewer." };
+    if (newPin.length > 6) {
+      return { success: false, error: "PIN must be between 4 and 6 digits." };
     }
     if (!/^\d+$/.test(newPin)) {
       return { success: false, error: "PIN must contain only numbers (0 to 9)." };
@@ -396,8 +411,10 @@ export async function updateTeacherPinAction(
       return { success: false, error: "Your session has expired. Please sign in again." };
     }
 
+    const authPassword = normalizePinForAuth(newPin);
+
     const { error: updateError } = await supabase.auth.updateUser({
-      password: newPin,
+      password: authPassword,
       data: {
         needs_pin_setup: false,
         pin_updated_at: new Date().toISOString(),

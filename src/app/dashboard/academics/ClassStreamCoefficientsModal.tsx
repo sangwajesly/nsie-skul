@@ -279,14 +279,14 @@ export function ClassStreamCoefficientsModal({
                 <div className="sm:col-span-2">
                   <input
                     type="number"
-                    step="0.5"
-                    min="0.5"
-                    max="15"
+                    step="1"
+                    min="1"
+                    max="20"
                     required
                     value={newCoefficient}
                     onChange={(e) => setNewCoefficient(e.target.value)}
                     placeholder="Coef"
-                    title="Class Coefficient"
+                    title="Class Coefficient (Whole Number)"
                     className="w-full px-2 py-1.5 text-center font-bold rounded-[5px] border border-[#D5CBB2] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
@@ -386,9 +386,9 @@ export function ClassStreamCoefficientsModal({
                                 type="number"
                                 name={`coef_${sub.id}`}
                                 defaultValue={effectiveCoef}
-                                step="0.5"
-                                min="0.5"
-                                max="15"
+                                step="1"
+                                min="1"
+                                max="20"
                                 required
                                 aria-label={`Coefficient for ${sub.name}`}
                                 className="w-full px-2 py-1 text-xs font-mono font-bold rounded border border-[#D5CBB2] bg-white text-center focus:outline-none focus:border-[#2A7C13]"

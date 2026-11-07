@@ -583,9 +583,9 @@ export function ClassCurriculumManager({
                     </label>
                     <input
                       type="number"
-                      step="0.5"
-                      min="0.5"
-                      max="15"
+                      step="1"
+                      min="1"
+                      max="20"
                       required
                       value={newCoefficient}
                       onChange={(e) => setNewCoefficient(e.target.value)}

@@ -359,10 +359,10 @@ function LoginForm() {
                     name="pin"
                     type={showPin ? "text" : "password"}
                     inputMode="numeric"
-                    maxLength={8}
+                    maxLength={6}
                     disabled={isBusy}
                     value={pin}
-                    onChange={(e) => setPin(e.target.value)}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
                     placeholder="Leave blank for default (123456)"
                     className="w-full pl-3 pr-10 py-2.5 text-xs font-mono rounded-[6px] border border-[#D5CBB2] bg-white text-[#142010] placeholder-[#BBBBBB] focus:outline-none focus:border-[#2A7C13] focus:ring-1 focus:ring-[#2A7C13] transition-all disabled:opacity-60"
                   />

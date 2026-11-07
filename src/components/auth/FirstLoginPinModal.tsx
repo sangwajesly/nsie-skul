@@ -25,8 +25,8 @@ export function FirstLoginPinModal({ teacherName = "Teacher" }: FirstLoginPinMod
     e.preventDefault();
     setErrorMessage(null);
 
-    if (newPin.length < 4) {
-      setErrorMessage("Please enter at least 4 digits for your PIN.");
+    if (newPin.length < 4 || newPin.length > 6) {
+      setErrorMessage("Please enter a 4 to 6 digit PIN.");
       return;
     }
     if (newPin === "123456" || newPin === "0000" || newPin === "1234") {
@@ -90,7 +90,7 @@ export function FirstLoginPinModal({ teacherName = "Teacher" }: FirstLoginPinMod
               Protect Your Gradebook
             </h3>
             <p className="text-xs text-[#525E4B] mt-0.5 leading-snug">
-              Welcome {teacherName}! You are currently on the initial default PIN (123456). Set your personal 4-digit PIN so students cannot guess your access or change marks.
+              Welcome {teacherName}! You are currently on the initial default PIN (123456). Set your personal 4 to 6 digit PIN so students cannot guess your access or change marks.
             </p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export function FirstLoginPinModal({ teacherName = "Teacher" }: FirstLoginPinMod
                   id="new-pin-input"
                   type={showPin ? "text" : "password"}
                   inputMode="numeric"
-                  maxLength={8}
+                  maxLength={6}
                   required
                   autoFocus
                   disabled={isSubmitting}
@@ -149,7 +149,7 @@ export function FirstLoginPinModal({ teacherName = "Teacher" }: FirstLoginPinMod
                 id="confirm-pin-input"
                 type={showPin ? "text" : "password"}
                 inputMode="numeric"
-                maxLength={8}
+                maxLength={6}
                 required
                 disabled={isSubmitting}
                 value={confirmPin}

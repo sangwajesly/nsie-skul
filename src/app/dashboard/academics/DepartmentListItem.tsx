@@ -22,6 +22,7 @@ import {
   createSubjectAction,
   updateSubjectAction,
   deleteSubjectAction,
+  assignSubjectToDepartmentAction,
 } from "@/app/academics/actions";
 
 export interface SubjectItem {
@@ -41,17 +42,26 @@ interface Props {
     description?: string | null;
   };
   subjects?: SubjectItem[];
+  unassignedSubjects?: SubjectItem[];
   hodName?: string | null;
   canManage: boolean;
 }
 
-export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: Props) {
+export function DepartmentListItem({
+  dept,
+  subjects = [],
+  unassignedSubjects = [],
+  hodName,
+  canManage,
+}: Props) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingDept, setIsEditingDept] = useState(false);
   const [isConfirmingDeleteDept, setIsConfirmingDeleteDept] = useState(false);
 
   // New subject addition state
   const [showAddSubject, setShowAddSubject] = useState(false);
+  const [showAttachSubject, setShowAttachSubject] = useState(false);
+  const [selectedAttachSubjectId, setSelectedAttachSubjectId] = useState("");
   const [subName, setSubName] = useState("");
   const [subCode, setSubCode] = useState("");
   const [subCoef, setSubCoef] = useState("2");
@@ -99,14 +109,16 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
   // Handle adding subject to this department
   const handleAddSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subName.trim() || !subCode.trim()) return;
+    if (!subName.trim()) return;
 
     setFeedback(null);
     startTransition(async () => {
       const fd = new FormData();
       fd.set("departmentId", dept.id);
       fd.set("name", subName.trim());
-      fd.set("code", subCode.trim().toUpperCase());
+      if (subCode.trim()) {
+        fd.set("code", subCode.trim().toUpperCase());
+      }
       fd.set("defaultCoefficient", subCoef);
       fd.set("defaultMaxMarks", subMaxMarks);
 
@@ -127,10 +139,32 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
     });
   };
 
+  // Handle attaching an existing unassigned subject to this department
+  const handleAttachSubject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAttachSubjectId) return;
+
+    setFeedback(null);
+    startTransition(async () => {
+      const res = await assignSubjectToDepartmentAction(selectedAttachSubjectId, dept.id);
+      if (res && "error" in res && res.error) {
+        setFeedback({ type: "error", text: res.error });
+      } else {
+        const attachedSub = unassignedSubjects.find((s) => s.id === selectedAttachSubjectId);
+        setFeedback({
+          type: "success",
+          text: `Subject "${attachedSub?.name || "Subject"}" assigned to ${dept.name}.`,
+        });
+        setSelectedAttachSubjectId("");
+        setShowAttachSubject(false);
+      }
+    });
+  };
+
   // Handle updating an existing subject
   const handleUpdateSubject = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!subjectToEdit || !editSubName.trim() || !editSubCode.trim()) return;
+    if (!subjectToEdit || !editSubName.trim()) return;
 
     setFeedback(null);
     startTransition(async () => {
@@ -138,7 +172,9 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
       fd.set("subjectId", subjectToEdit.id);
       fd.set("departmentId", dept.id);
       fd.set("name", editSubName.trim());
-      fd.set("code", editSubCode.trim().toUpperCase());
+      if (editSubCode.trim()) {
+        fd.set("code", editSubCode.trim().toUpperCase());
+      }
       fd.set("defaultCoefficient", editSubCoef);
       fd.set("defaultMaxMarks", editSubMaxMarks);
 
@@ -420,29 +456,97 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
             </div>
 
             {canManage && (
-              <button
-                type="button"
-                onClick={() => setShowAddSubject((p) => !p)}
-                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-[5px] text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0 ${
-                  showAddSubject
-                    ? "bg-stone-200 text-stone-800 hover:bg-stone-300"
-                    : "bg-[#2A7C13] hover:bg-[#20600E] text-white"
-                }`}
-              >
-                {showAddSubject ? (
-                  <>
-                    <X className="w-3.5 h-3.5" />
-                    <span>Close Form</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Add Subject to {dept.code}</span>
-                  </>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {unassignedSubjects.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAttachSubject((p) => !p);
+                      setShowAddSubject(false);
+                    }}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[5px] text-xs font-semibold transition-colors cursor-pointer border ${
+                      showAttachSubject
+                        ? "bg-amber-100 text-amber-900 border-amber-300"
+                        : "bg-white text-[#142010] border-[#D5D5CF] hover:bg-[#FAFAF8]"
+                    }`}
+                  >
+                    <span>Attach Existing ({unassignedSubjects.length})</span>
+                  </button>
                 )}
-              </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAddSubject((p) => !p);
+                    setShowAttachSubject(false);
+                  }}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-[5px] text-xs font-bold transition-colors cursor-pointer shadow-2xs shrink-0 ${
+                    showAddSubject
+                      ? "bg-stone-200 text-stone-800 hover:bg-stone-300"
+                      : "bg-[#2A7C13] hover:bg-[#20600E] text-white"
+                  }`}
+                >
+                  {showAddSubject ? (
+                    <>
+                      <X className="w-3.5 h-3.5" />
+                      <span>Close Form</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Subject to {dept.code}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             )}
           </div>
+
+          {/* Inline Attach Existing Subject Drawer */}
+          {showAttachSubject && canManage && unassignedSubjects.length > 0 && (
+            <div className="p-3.5 rounded-[6px] bg-white border border-amber-300 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-amber-700" />
+                  <h6 className="text-xs font-bold text-[#142010]">
+                    Attach Existing Unassigned Subject to {dept.name}
+                  </h6>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAttachSubject(false)}
+                  className="text-stone-400 hover:text-stone-700"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleAttachSubject} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <select
+                  required
+                  value={selectedAttachSubjectId}
+                  onChange={(e) => setSelectedAttachSubjectId(e.target.value)}
+                  className="flex-1 px-2.5 py-1.5 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
+                >
+                  <option value="">Select an unassigned subject...</option>
+                  {unassignedSubjects.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.name} ({sub.code}) &middot; Coef {sub.default_coefficient}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="submit"
+                  disabled={isPending || !selectedAttachSubjectId}
+                  className="px-3.5 py-1.5 bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-bold rounded-[5px] transition-colors disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1 shrink-0"
+                >
+                  {isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  <span>Attach to {dept.code}</span>
+                </button>
+              </form>
+            </div>
+          )}
 
           {/* Inline Add Subject Form Card */}
           {showAddSubject && canManage && (
@@ -481,14 +585,13 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
 
                   <div className="sm:col-span-3">
                     <label className="block text-[11px] font-bold text-[#444444] mb-1">
-                      Subject Code
+                      Subject Code <span className="text-[10px] text-[#788470] font-normal">(optional)</span>
                     </label>
                     <input
                       type="text"
-                      required
                       value={subCode}
                       onChange={(e) => setSubCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. CSC"
+                      placeholder="e.g. CSC (optional)"
                       className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white uppercase focus:outline-none focus:border-[#2A7C13]"
                     />
                   </div>
@@ -499,9 +602,9 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
                     </label>
                     <input
                       type="number"
-                      step="0.5"
-                      min="0.5"
-                      max="15"
+                      step="1"
+                      min="1"
+                      max="20"
                       required
                       value={subCoef}
                       onChange={(e) => setSubCoef(e.target.value)}
@@ -685,13 +788,13 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-[#444444] mb-1">
-                    Subject Code
+                    Subject Code <span className="text-[10px] text-[#788470] font-normal">(optional)</span>
                   </label>
                   <input
                     type="text"
-                    required
                     value={editSubCode}
                     onChange={(e) => setEditSubCode(e.target.value.toUpperCase())}
+                    placeholder="Optional"
                     className="w-full px-2.5 py-1.5 text-center font-mono font-bold text-xs rounded-[5px] border border-[#D5CBB2] text-[#142010] bg-white uppercase focus:outline-none focus:border-[#2A7C13]"
                   />
                 </div>
@@ -702,9 +805,9 @@ export function DepartmentListItem({ dept, subjects = [], hodName, canManage }: 
                   </label>
                   <input
                     type="number"
-                    step="0.5"
-                    min="0.5"
-                    max="15"
+                    step="1"
+                    min="1"
+                    max="20"
                     required
                     value={editSubCoef}
                     onChange={(e) => setEditSubCoef(e.target.value)}

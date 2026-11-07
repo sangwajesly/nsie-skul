@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/tenancy/context";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { initiateFapshiPayment, getFapshiPaymentStatus } from "@/lib/payments/fapshi";
+import { normalizePinForAuth } from "@/lib/auth/pin-utils";
 
 const AddStaffSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -132,14 +133,20 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
       accessCode = `${schoolCode}-${accessCode}`;
     }
 
-    // Ensure initial PIN meets minimum 6 characters for Supabase Auth
-    if (!pin) {
-      pin = "123456";
-    } else if (pin.length < 4) {
+    // Handle initial PIN (supports 4 to 6 digits)
+    const rawPin = pin ? pin.trim() : "";
+    let effectivePin = rawPin;
+    if (!effectivePin) {
+      effectivePin = "123456";
+    } else if (effectivePin.length < 4) {
       return { success: false, error: "PIN must be at least 4 digits." };
-    } else if (pin.length < 6) {
-      pin = pin.padEnd(6, "0");
+    } else if (effectivePin.length > 6) {
+      return { success: false, error: "PIN must be 6 digits or fewer." };
+    } else if (!/^\d+$/.test(effectivePin)) {
+      return { success: false, error: "PIN must contain only numbers (0 to 9)." };
     }
+
+    const authPassword = normalizePinForAuth(effectivePin);
 
     // 1. Check if user already exists with this phone number
     const { data: existingProfile } = await admin
@@ -174,13 +181,13 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
       const syntheticEmail = `teacher_${cleanDigits}@staff.nseisukul.internal`;
       const { data: newAuth, error: authError } = await admin.auth.admin.createUser({
         email: syntheticEmail,
-        password: pin,
+        password: authPassword,
         email_confirm: true,
         user_metadata: {
           full_name: fullName,
           phone: cleanDigits,
           created_by_school: context.school.id,
-          needs_pin_setup: !pin || pin === "123456",
+          needs_pin_setup: !rawPin || effectivePin === "123456",
         },
       });
 
@@ -255,7 +262,7 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
       teacherName: resolvedName,
       phone: cleanDigits,
       accessCode,
-      pin: isExistingUser ? "(Teacher's existing PIN)" : pin,
+      pin: isExistingUser ? "(Teacher's existing PIN)" : effectivePin,
       isExistingUser,
       schoolName: context.school.name,
       schoolCode,

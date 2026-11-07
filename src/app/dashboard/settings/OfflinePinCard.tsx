@@ -57,8 +57,8 @@ export function OfflinePinCard() {
 
     // If changing existing PIN, verify old PIN first
     if (status.hasPin) {
-      if (currentPin.length !== 4) {
-        setMessage({ type: "error", text: "Please enter your current 4-digit PIN." });
+      if (currentPin.length < 4 || currentPin.length > 6) {
+        setMessage({ type: "error", text: "Please enter your current 4 to 6 digit PIN." });
         return;
       }
       const isValid = await verifyOfflinePin(currentPin);
@@ -68,8 +68,8 @@ export function OfflinePinCard() {
       }
     }
 
-    if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-      setMessage({ type: "error", text: "New PIN must be exactly 4 numeric digits." });
+    if (newPin.length < 4 || newPin.length > 6 || !/^\d{4,6}$/.test(newPin)) {
+      setMessage({ type: "error", text: "New PIN must be 4 to 6 numeric digits." });
       return;
     }
 
@@ -86,7 +86,7 @@ export function OfflinePinCard() {
           type: "success",
           text: status.hasPin
             ? "Offline PIN updated successfully."
-            : "4-Digit Offline PIN configured and activated on this device.",
+            : "Offline PIN configured and activated on this device.",
         });
         setCurrentPin("");
         setNewPin("");
@@ -255,22 +255,21 @@ export function OfflinePinCard() {
       {showForm ? (
         <form onSubmit={handleSetOrUpdatePin} className="p-5 rounded-[8px] bg-[#FFFDF5] border border-[#E8DFC9] space-y-4">
           <h4 className="text-xs font-bold text-[#142010] uppercase tracking-wider">
-            {status.hasPin ? "Change 4-Digit Offline PIN" : "Configure 4-Digit Offline PIN"}
+            {status.hasPin ? "Change Offline PIN" : "Configure Offline PIN (4 to 6 Digits)"}
           </h4>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {status.hasPin && (
               <div>
                 <label className="block text-xs font-semibold text-[#525E4B] mb-1">
-                  Current 4-Digit PIN
+                  Current PIN
                 </label>
                 <input
                   type="password"
                   inputMode="numeric"
-                  maxLength={4}
-                  pattern="[0-9]{4}"
+                  maxLength={6}
                   value={currentPin}
-                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   placeholder="••••"
                   required
                   className="w-full text-center text-lg tracking-widest font-mono py-2 rounded-[5px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
@@ -280,15 +279,14 @@ export function OfflinePinCard() {
 
             <div>
               <label className="block text-xs font-semibold text-[#525E4B] mb-1">
-                New 4-Digit PIN
+                New PIN (4-6 digits)
               </label>
               <input
                 type="password"
                 inputMode="numeric"
-                maxLength={4}
-                pattern="[0-9]{4}"
+                maxLength={6}
                 value={newPin}
-                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="••••"
                 required
                 className="w-full text-center text-lg tracking-widest font-mono py-2 rounded-[5px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"
@@ -297,15 +295,14 @@ export function OfflinePinCard() {
 
             <div>
               <label className="block text-xs font-semibold text-[#525E4B] mb-1">
-                Confirm New PIN
+                Confirm PIN
               </label>
               <input
                 type="password"
                 inputMode="numeric"
-                maxLength={4}
-                pattern="[0-9]{4}"
+                maxLength={6}
                 value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 placeholder="••••"
                 required
                 className="w-full text-center text-lg tracking-widest font-mono py-2 rounded-[5px] border border-[#D5CBB2] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13]"

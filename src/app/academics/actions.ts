@@ -31,8 +31,11 @@ const SubjectSchema = z.object({
       uuidSchema("Invalid department ID").nullish()
     ),
   name: z.string().min(2, "Subject name is required"),
-  code: z.string().min(2, "Subject code is required").toUpperCase(),
-  defaultCoefficient: z.coerce.number().min(0.5).max(10).default(2),
+  code: z
+    .string()
+    .nullish()
+    .transform((val) => (val ? val.trim().toUpperCase() : "")),
+  defaultCoefficient: z.coerce.number().int("Subject coefficient must be a whole number (e.g. 1, 2, 3, 4)").min(1, "Coefficient must be at least 1").max(20).default(2),
   defaultMaxMarks: z.coerce.number().min(5).max(100).default(20),
 });
 
@@ -89,7 +92,7 @@ const TeacherAssignmentSchema = z.object({
 const ClassSubjectConfigSchema = z.object({
   classStreamId: uuidSchema("Please select a class group"),
   subjectId: uuidSchema("Please select a subject"),
-  coefficient: z.coerce.number().min(0.5).max(10),
+  coefficient: z.coerce.number().int("Subject coefficient must be a whole number (e.g. 1, 2, 3, 4)").min(1, "Coefficient must be at least 1").max(20),
   maxMarks: z.coerce.number().min(5).max(100), // e.g. 20, 40, 100 for technical
 });
 
@@ -178,12 +181,16 @@ export async function createDepartmentAction(_state: unknown, formData: FormData
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("departments").insert({
-    school_id: context.school.id,
-    name: parsed.data.name,
-    code: parsed.data.code,
-    description: parsed.data.description,
-  });
+  const { data: dept, error } = await supabase
+    .from("departments")
+    .insert({
+      school_id: context.school.id,
+      name: parsed.data.name,
+      code: parsed.data.code,
+      description: parsed.data.description,
+    })
+    .select("id, name")
+    .single();
 
   if (error) {
     if (error.code === "23505") {
@@ -192,8 +199,21 @@ export async function createDepartmentAction(_state: unknown, formData: FormData
     return { error: error.message };
   }
 
+  // Check if any existing unassigned subjects were chosen to be assigned to this department
+  const subjectIds = formData.getAll("subjectIds").map(String).filter(Boolean);
+  if (subjectIds.length > 0 && dept) {
+    await supabase
+      .from("subjects")
+      .update({ department_id: dept.id })
+      .in("id", subjectIds)
+      .eq("school_id", context.school.id);
+  }
+
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: `Department "${parsed.data.name}" created.` };
+  return {
+    success: true as const,
+    message: `Department "${parsed.data.name}" created${subjectIds.length > 0 ? ` with ${subjectIds.length} subject(s) assigned.` : "."}`,
+  };
 }
 
 export async function updateDepartmentAction(_state: unknown, formData: FormData) {
@@ -352,24 +372,61 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
     };
   }
 
+  // Auto-generate code from subject name if not provided
+  let subjectCode = parsed.data.code ? parsed.data.code.trim().toUpperCase() : "";
+
+  if (!subjectCode) {
+    const cleaned = cleanName.toUpperCase().replace(/[^A-Z0-9\s]/g, "");
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    let baseCode = "SUB";
+    if (words.length > 1) {
+      baseCode = words.map((w: string) => w[0]).join("").slice(0, 5);
+      if (baseCode.length < 2) {
+        baseCode = (words[0].slice(0, 3) + words[1].slice(0, 2)).slice(0, 5);
+      }
+    } else if (words.length === 1) {
+      baseCode = words[0].slice(0, 4);
+    }
+
+    subjectCode = baseCode;
+
+    let exists = true;
+    let counter = 1;
+    while (exists && counter < 100) {
+      const { data: existingCode } = await supabase
+        .from("subjects")
+        .select("id")
+        .eq("school_id", context.school.id)
+        .eq("code", subjectCode)
+        .maybeSingle();
+
+      if (!existingCode) {
+        exists = false;
+      } else {
+        counter++;
+        subjectCode = `${baseCode}${counter}`;
+      }
+    }
+  }
+
   const { error } = await supabase.from("subjects").insert({
     school_id: context.school.id,
     department_id: parsed.data.departmentId || null,
     name: cleanName,
-    code: parsed.data.code.trim().toUpperCase(),
+    code: subjectCode,
     default_coefficient: parsed.data.defaultCoefficient,
     default_max_marks: parsed.data.defaultMaxMarks,
   });
 
   if (error) {
     if (error.code === "23505") {
-      return { error: `A subject with code "${parsed.data.code}" already exists in this school.` };
+      return { error: `A subject with code "${subjectCode}" already exists in this school.` };
     }
     return { error: error.message };
   }
 
   revalidatePath("/dashboard/academics");
-  return { success: true as const, message: `Subject "${cleanName}" created.` };
+  return { success: true as const, message: `Subject "${cleanName}" (${subjectCode}) created.` };
 }
 
 export async function updateSubjectAction(_state: unknown, formData: FormData) {
@@ -380,26 +437,42 @@ export async function updateSubjectAction(_state: unknown, formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   const code = String(formData.get("code") || "").trim().toUpperCase();
   const departmentId = formData.get("departmentId") ? String(formData.get("departmentId")) : null;
-  const defaultCoefficient = parseFloat(String(formData.get("defaultCoefficient") || "2"));
+  const defaultCoefficientRaw = parseFloat(String(formData.get("defaultCoefficient") || "2"));
+  const defaultCoefficient = isNaN(defaultCoefficientRaw)
+    ? 2
+    : Math.max(1, Math.round(defaultCoefficientRaw));
   const defaultMaxMarks = parseFloat(String(formData.get("defaultMaxMarks") || "20"));
 
-  if (!name || !code) return { error: "Subject name and code are required." };
+  if (!name) return { error: "Subject name is required." };
 
   const supabase = await createClient();
+
+  // If code was cleared or omitted, retain existing code
+  let finalCode = code;
+  if (!finalCode) {
+    const { data: existingSub } = await supabase
+      .from("subjects")
+      .select("code")
+      .eq("id", subjectId)
+      .eq("school_id", context.school.id)
+      .maybeSingle();
+    finalCode = existingSub?.code || name.slice(0, 4).toUpperCase();
+  }
+
   const { error } = await supabase
     .from("subjects")
     .update({
       name,
-      code,
+      code: finalCode,
       department_id: departmentId || null,
-      default_coefficient: isNaN(defaultCoefficient) ? 2 : defaultCoefficient,
+      default_coefficient: defaultCoefficient,
       default_max_marks: isNaN(defaultMaxMarks) ? 20 : defaultMaxMarks,
     })
     .eq("id", subjectId)
     .eq("school_id", context.school.id);
 
   if (error) {
-    if (error.code === "23505") return { error: `A subject with code "${code}" already exists.` };
+    if (error.code === "23505") return { error: `A subject with code "${finalCode}" already exists.` };
     return { error: error.message };
   }
 
@@ -1376,8 +1449,9 @@ export async function updateStreamCoefficientsBatchAction(
   for (const [key, val] of formData.entries()) {
     if (key.startsWith("coef_")) {
       const subjectId = key.replace("coef_", "");
-      const coef = parseFloat(String(val));
-      if (!isNaN(coef) && coef > 0) {
+      const coefRaw = parseFloat(String(val));
+      if (!isNaN(coefRaw) && coefRaw > 0) {
+        const coef = Math.max(1, Math.round(coefRaw));
         const maxMarksKey = `max_${subjectId}`;
         const maxMarksVal = parseFloat(String(formData.get(maxMarksKey) || "20"));
         upserts.push({
@@ -1509,13 +1583,61 @@ export async function registerStudentAction(
 
   if (enrolError) return { error: enrolError.message };
 
+  // Calculate next sequential matricule for immediate seamless form continuation
+  const nextMatricule = await generateNextStudentMatricule(
+    context.school.id,
+    parsed.data.academicYearId
+  );
+
   revalidatePath("/dashboard/students");
   revalidatePath("/dashboard/academics/report-cards");
   return {
     success: true as const,
     message: `Student "${parsed.data.firstName} ${parsed.data.lastName}" enrolled with Matricule ${matricule}.`,
     matricule,
+    nextMatricule,
   };
+}
+
+/**
+ * Fetches the next auto-generated matricule for the active school and year.
+ */
+export async function getNextStudentMatriculeAction(academicYearId?: string) {
+  try {
+    const context = await requirePermission("students.manage");
+    const nextMatricule = await generateNextStudentMatricule(context.school.id, academicYearId);
+    return { success: true as const, matricule: nextMatricule };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Failed to generate next matricule." };
+  }
+}
+
+/**
+ * Assigns or unassigns a subject to/from an academic department.
+ */
+export async function assignSubjectToDepartmentAction(
+  subjectId: string,
+  departmentId: string | null
+) {
+  try {
+    const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+    const supabase = await createClient();
+
+    const { error } = await supabase
+      .from("subjects")
+      .update({ department_id: departmentId || null })
+      .eq("id", subjectId)
+      .eq("school_id", context.school.id);
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    revalidatePath("/dashboard/academics");
+    return { success: true as const };
+  } catch (err: any) {
+    return { success: false as const, error: err?.message || "Failed to update subject department." };
+  }
 }
 
 /**
@@ -2863,14 +2985,15 @@ export async function addClassSubjectAction(formData: FormData) {
   const context = await requireAnyPermission(["academics.manage"]);
   const classStreamId = String(formData.get("classStreamId") || "");
   const subjectId = String(formData.get("subjectId") || "");
-  const coefficient = parseFloat(String(formData.get("coefficient") || "2"));
+  const coefRaw = parseFloat(String(formData.get("coefficient") || "2"));
+  const coefficient = Math.max(1, Math.round(isNaN(coefRaw) ? 2 : coefRaw));
   const maxMarks = parseFloat(String(formData.get("maxMarks") || "20"));
 
   if (!classStreamId || !subjectId) {
     return { error: "Class group and Subject are required." };
   }
-  if (isNaN(coefficient) || coefficient <= 0) {
-    return { error: "Coefficient must be greater than 0." };
+  if (coefficient <= 0) {
+    return { error: "Coefficient must be a whole number greater than 0." };
   }
 
   const supabase = await createClient();
