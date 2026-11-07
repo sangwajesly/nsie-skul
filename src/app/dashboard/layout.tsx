@@ -45,6 +45,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const isDemo =
     tenantContext.school.slug === "demo-bilingual-high-school" ||
     tenantContext.user.email === "demo@nsei-sukul.klarifypath.com";
+  const isAdmin =
+    tenantContext.isSuperAdmin ||
+    ["school_admin", "principal", "superadmin"].includes(tenantContext.role.code);
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#FAFAF8] text-[#191919] font-sans print:min-h-0 print:bg-white print:block">
@@ -140,8 +143,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Subtle trial badge in top header for continuous awareness */}
-            {tenantContext.subscription?.isTrial && !tenantContext.subscription.isExpired && (
+            {/* Subtle trial badge in top header for continuous awareness (Administrators only) */}
+            {isAdmin && tenantContext.subscription?.isTrial && !tenantContext.subscription.isExpired && (
               <Link
                 href="/dashboard/settings#billing"
                 title="View trial details and license options"
@@ -172,10 +175,10 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           </div>
         </div>
 
-        {/* Main content area with progressive trial awareness banners */}
+        {/* Main content area with progressive trial awareness banners (Administrators only) */}
         
         {/* 1. Trial Expired: Read-Only Grace & 90-Day Safe Preservation Banner */}
-        {tenantContext.subscription?.isExpired && (
+        {isAdmin && tenantContext.subscription?.isExpired && (
           <div className="bg-[#FFFDF5] border-b-2 border-red-300 px-4 py-3 text-xs text-[#142010] flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs print:hidden">
             <div className="flex items-start sm:items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse shrink-0 mt-0.5 sm:mt-0" />
@@ -201,7 +204,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
         )}
 
         {/* 2. Trial Final Countdown (< 4 days) */}
-        {tenantContext.subscription?.isTrial &&
+        {isAdmin &&
+          tenantContext.subscription?.isTrial &&
           !tenantContext.subscription.isExpired &&
           tenantContext.subscription.daysRemaining <= 3 && (
             <div className="bg-[#FEF2F2] border-b border-[#FECACA] px-4 py-2.5 text-xs text-[#991B1B] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 print:hidden">
@@ -221,7 +225,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           )}
 
         {/* 3. Trial 7-Day Warning (4 to 7 days remaining) */}
-        {tenantContext.subscription?.isTrial &&
+        {isAdmin &&
+          tenantContext.subscription?.isTrial &&
           !tenantContext.subscription.isExpired &&
           tenantContext.subscription.daysRemaining <= 7 &&
           tenantContext.subscription.daysRemaining > 3 && (
@@ -242,7 +247,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           )}
 
         {/* 4. Trial Midway Checkpoint (Day 15) */}
-        {tenantContext.subscription?.isTrial &&
+        {isAdmin &&
+          tenantContext.subscription?.isTrial &&
           !tenantContext.subscription.isExpired &&
           tenantContext.subscription.daysRemaining === 15 && (
             <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-4 py-2 text-xs text-[#1E40AF] flex flex-col sm:flex-row sm:items-center justify-between gap-2 print:hidden">

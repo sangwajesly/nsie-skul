@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
 import { ActiveTenantContext, UserSchoolOption, SchoolSubscriptionInfo } from "@/types/tenancy";
 import { School, UserProfile, Role, Permission } from "@/types/database";
@@ -225,6 +226,7 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   }
 
   // 5. Dynamic Dual-Role Resolution & Subscription Status:
+  const adminClient = createAdminClient();
   const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }] =
     await Promise.all([
       supabase
@@ -238,7 +240,7 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
         .eq("school_id", activeSchool.id)
         .eq("hod_user_id", authUser.id)
         .eq("status", "active"),
-      supabase
+      adminClient
         .from("school_subscriptions")
         .select("*")
         .eq("school_id", activeSchool.id)

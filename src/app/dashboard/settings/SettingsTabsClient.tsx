@@ -148,36 +148,38 @@ export function SettingsTabsClient({
 
         {/* Quick Action & Status Badges */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Quick License Status Button */}
-          <button
-            type="button"
-            onClick={() => handleTabChange("billing")}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold border transition-all shadow-2xs ${
-              isExpired
-                ? "bg-red-50 hover:bg-red-100 text-red-700 border-red-200 animate-pulse"
-                : subStatus === "active"
-                ? "bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]"
-                : "bg-[#FFF8CF]/60 hover:bg-[#FFF8CF] text-[#7A5B00] border-[#FBE6C2]"
-            }`}
-            title="Click to view subscription and payment options"
-          >
-            {isExpired ? (
-              <>
-                <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
-                <span>License Expired · Renew</span>
-              </>
-            ) : subStatus === "active" ? (
-              <>
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
-                <span>Active License</span>
-              </>
-            ) : (
-              <>
-                <Clock className="w-3.5 h-3.5 text-[#7A5B00]" />
-                <span>Trial · {daysRemaining}d left</span>
-              </>
-            )}
-          </button>
+          {/* Quick License Status Button (Administrators only) */}
+          {canManageStaff && (
+            <button
+              type="button"
+              onClick={() => handleTabChange("billing")}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[6px] text-xs font-semibold border transition-all shadow-2xs ${
+                isExpired
+                  ? "bg-red-50 hover:bg-red-100 text-red-700 border-red-200 animate-pulse"
+                  : subStatus === "active"
+                  ? "bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border-[#BBF7D0]"
+                  : "bg-[#FFF8CF]/60 hover:bg-[#FFF8CF] text-[#7A5B00] border-[#FBE6C2]"
+              }`}
+              title="Click to view subscription and payment options"
+            >
+              {isExpired ? (
+                <>
+                  <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                  <span>License Expired · Renew</span>
+                </>
+              ) : subStatus === "active" ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#166534]" />
+                  <span>Active License</span>
+                </>
+              ) : (
+                <>
+                  <Clock className="w-3.5 h-3.5 text-[#7A5B00]" />
+                  <span>Trial · {daysRemaining}d left</span>
+                </>
+              )}
+            </button>
+          )}
 
           {/* Quick Hub Status Button */}
           <button
