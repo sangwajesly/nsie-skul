@@ -268,7 +268,7 @@ export function SchoolHubSettings({
 
       {/* Register Hub Modal */}
       {showRegisterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="bg-white rounded-[10px] border border-[#E8DFC9] shadow-xl w-full max-w-md p-5 space-y-4 text-xs">
             <div className="flex items-center justify-between border-b border-[#E8DFC9] pb-3">
               <div className="flex items-center gap-2 font-bold text-sm text-[#142010]">

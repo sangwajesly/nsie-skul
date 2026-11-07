@@ -121,7 +121,7 @@ export function ReportCardSampleModal({
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-in fade-in-50 duration-150 print:hidden"
+        className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 overflow-y-auto animate-in fade-in-50 duration-150 print:hidden"
       >
         <div className="bg-[#FAF8F5] border border-[#D5CBB2] rounded-[12px] shadow-2xl w-full max-w-5xl flex flex-col max-h-[94vh] overflow-hidden">
           {/* Modal Header */}

@@ -91,7 +91,7 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
           
           {/* Header Banner */}
           <div className="bg-[#142010] text-white p-5 sm:p-6 text-center space-y-2">
-            <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center mx-auto border border-white/30">
+            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center mx-auto border border-white/30">
               <ShieldCheck className="w-7 h-7 text-white" />
             </div>
             <div className="space-y-0.5">

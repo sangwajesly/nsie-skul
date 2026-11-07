@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useTransition, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { getOfflineTeachingScope } from "@/lib/offline/offline-auth";
 import {
@@ -220,6 +221,24 @@ export function TimetableViewClient({
     }
   }, [initialSlots, school?.id, academicYear?.id]);
 
+  useEffect(() => {
+    const cleanup = () => {
+      document.body.classList.remove("nsei-print-portal-active");
+    };
+    window.addEventListener("afterprint", cleanup);
+    return () => {
+      window.removeEventListener("afterprint", cleanup);
+      document.body.classList.remove("nsei-print-portal-active");
+    };
+  }, []);
+
+  const handlePrintTimetable = () => {
+    document.body.classList.add("nsei-print-portal-active");
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  };
+
   // Map of slots for the selected stream: key = `${dayOfWeek}-${periodId}`
   const streamSlotsMap = useMemo(() => {
     const map = new Map<string, TimetableSlot>();
@@ -383,7 +402,8 @@ export function TimetableViewClient({
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      <div className="space-y-6 print:hidden">
       {/* ── Top Level Subsystem & Tab Navigation Bar ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#E8DFC9] pb-3">
         {/* Navigation Tabs */}
@@ -856,7 +876,7 @@ export function TimetableViewClient({
 
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={handlePrintTimetable}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white text-xs font-bold shadow-xs cursor-pointer"
             >
               <Printer className="w-4 h-4" />
@@ -871,7 +891,7 @@ export function TimetableViewClient({
                 {school?.name || "Nsei Sukul College"}
               </h3>
               <p className="text-[10px] text-[#525E4B]">
-                OFFICIAL CLASS TIMETABLE — {activeStream?.name} ({academicYear?.name || "2026/2027"})
+                OFFICIAL CLASS TIMETABLE : {activeStream?.name} ({academicYear?.name || "2026/2027"})
               </p>
             </div>
 
@@ -909,7 +929,7 @@ export function TimetableViewClient({
                                 </span>
                               </div>
                             ) : (
-                              <span className="text-[#999]">—</span>
+                              <span className="text-[#999]">-</span>
                             )}
                           </td>
                         );
@@ -925,7 +945,7 @@ export function TimetableViewClient({
 
       {/* ── MODAL: ASSIGN TIMETABLE SLOT ── */}
       {activeSlotModal && (
-        <div className="fixed inset-0 z-50 bg-[#142010]/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-[#142010]/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start justify-between border-b pb-3">
               <div>
@@ -933,7 +953,7 @@ export function TimetableViewClient({
                   Schedule: {DAYS_OF_WEEK.find((d) => d.day === activeSlotModal.dayOfWeek)?.name} ({activeSlotModal.period.name})
                 </h3>
                 <p className="text-[11px] text-[#525E4B]">
-                  {activeStream?.name} • {activeSlotModal.period.start_time.slice(0, 5)} – {activeSlotModal.period.end_time.slice(0, 5)}
+                  {activeStream?.name} • {activeSlotModal.period.start_time.slice(0, 5)} - {activeSlotModal.period.end_time.slice(0, 5)}
                 </p>
               </div>
               <button
@@ -1026,7 +1046,7 @@ export function TimetableViewClient({
 
       {/* ── MODAL: NEW TIMETABLE PROFILE ── */}
       {showProfileModal && (
-        <div className="fixed inset-0 z-50 bg-[#142010]/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-[#142010]/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start justify-between border-b pb-3">
               <div>
@@ -1111,7 +1131,7 @@ export function TimetableViewClient({
 
       {/* ── MODAL: AUTO-GENERATE PERIODS ── */}
       {showAutoPeriodsModal && (
-        <div className="fixed inset-0 z-50 bg-[#142010]/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-[#142010]/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-xl max-w-md w-full p-5 space-y-4">
             <div className="flex items-start justify-between border-b pb-3">
               <div>
@@ -1221,6 +1241,80 @@ export function TimetableViewClient({
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {/* ── PRINT PORTAL (Mounted to document.body, isolated from screen) ── */}
+      {typeof document !== "undefined" && (
+        createPortal(
+          <div id="nsei-print-portal" className="hidden print:block p-8 bg-white text-black font-sans max-w-5xl mx-auto">
+            <div className="text-center border-b-2 border-black pb-3 space-y-1">
+              <h2 className="font-extrabold text-base uppercase tracking-wider text-black">
+                {school?.name || "Nsei Sukul College"}
+              </h2>
+              <p className="text-xs text-gray-700 font-bold">
+                OFFICIAL CLASS TIMETABLE : {activeStream?.name} ({academicYear?.name || "2026/2027"})
+              </p>
+            </div>
+
+            <table className="w-full border-collapse border-2 border-black text-xs mt-4">
+              <thead>
+                <tr className="bg-gray-100 text-black font-bold">
+                  <th className="border border-black py-2 px-3 text-left w-28">Time</th>
+                  {DAYS_OF_WEEK.map((d) => (
+                    <th key={d.day} className="border border-black py-2 px-3 text-center">
+                      {d.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {activePeriods.map((period) => (
+                  <tr key={period.id}>
+                    <td className="border border-black py-2 px-3 font-mono font-bold">
+                      {period.start_time.slice(0, 5)} - {period.end_time.slice(0, 5)}
+                    </td>
+                    {period.is_break ? (
+                      <td colSpan={5} className="border border-black py-2 px-3 text-center font-bold bg-gray-100 uppercase tracking-wider text-xs">
+                        {period.name}
+                      </td>
+                    ) : (
+                      DAYS_OF_WEEK.map((d) => {
+                        const slot = streamSlotsMap.get(`${d.day}-${period.id}`);
+                        return (
+                          <td key={d.day} className="border border-black py-2 px-2 text-center align-top">
+                            {slot ? (
+                              <div>
+                                <strong className="block text-xs text-black">{slot.subject?.name}</strong>
+                                <span className="text-[10px] text-gray-600">
+                                  {slot.teacher?.full_name?.split(" ")[0]} {slot.room_name ? `(${slot.room_name})` : ""}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-300">-</span>
+                            )}
+                          </td>
+                        );
+                      })
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="mt-8 pt-4 border-t-2 border-black flex justify-between text-xs">
+              <div>
+                <p className="font-bold">Dean of Studies / Academic Registrar</p>
+                <p className="text-[10px] text-gray-600 mt-6">Signature: _______________________</p>
+              </div>
+              <div className="text-right">
+                <p className="font-bold">Principal / Head of Institution</p>
+                <p className="text-[10px] text-gray-600 mt-6">Signature &amp; Official Stamp: _______________________</p>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      )}
+    </>
   );
 }

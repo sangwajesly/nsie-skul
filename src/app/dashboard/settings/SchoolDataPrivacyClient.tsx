@@ -672,7 +672,7 @@ export default function SchoolDataPrivacyClient({ school }: Props) {
 
       {/* MULTI-STEP DELETION MODAL */}
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
           <div className="bg-white border border-[#E8DFC9] rounded-[12px] max-w-lg w-full p-6 space-y-5 shadow-xl">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-red-100 text-red-700 flex items-center justify-center shrink-0">

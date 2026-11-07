@@ -182,7 +182,7 @@ export function ClassListModal({
   return createPortal(
     <div
       id={PORTAL_ID}
-      className="fixed inset-0 z-[100] bg-[#142010]/60 backdrop-blur-xs overflow-y-auto print:static print:bg-white print:p-0"
+      className="fixed inset-0 z-[100] bg-[#142010]/70 overflow-y-auto print:static print:bg-white print:p-0"
     >
       <style>{`
         @media print {

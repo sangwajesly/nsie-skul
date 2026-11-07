@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { SchoolMembership, Role } from "@/types/database";
 import {
@@ -70,6 +71,24 @@ export default function StaffRolesClient({
   
   // Quick WhatsApp share modal for existing staff
   const [shareStaffMember, setShareStaffMember] = useState<SchoolMembership | null>(null);
+
+  useEffect(() => {
+    const cleanup = () => {
+      document.body.classList.remove("nsei-print-portal-active");
+    };
+    window.addEventListener("afterprint", cleanup);
+    return () => {
+      window.removeEventListener("afterprint", cleanup);
+      document.body.classList.remove("nsei-print-portal-active");
+    };
+  }, []);
+
+  const handlePrintSlip = () => {
+    document.body.classList.add("nsei-print-portal-active");
+    requestAnimationFrame(() => {
+      window.print();
+    });
+  };
 
   const schoolRoles = roles.filter((role) => role.code !== "superadmin");
 
@@ -630,7 +649,7 @@ export default function StaffRolesClient({
 
       {/* ── MODAL 1: REGISTRATION SUCCESS CREDENTIAL CARD ── */}
       {registeredResult && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 print:hidden">
           <div className="w-full max-w-md rounded-[10px] bg-white p-6 shadow-2xl space-y-4 border border-[#E8DFC9] animate-in fade-in-50 zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-3 border-b border-[#E8DFC9]">
               <div className="flex items-center gap-2">
@@ -722,7 +741,7 @@ export default function StaffRolesClient({
 
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintSlip}
                   className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[5px] border border-[#D5CBB2] bg-white hover:bg-[#F7F3E8] text-xs font-semibold text-[#444444] transition-colors cursor-pointer"
                 >
                   <Printer className="w-4 h-4" />
@@ -740,6 +759,55 @@ export default function StaffRolesClient({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Printable Staff Slip Portal (Mounted to document.body, isolated during print) */}
+      {typeof document !== "undefined" && registeredResult && createPortal(
+        <div id="nsei-print-portal" className="hidden print:block p-8 bg-white text-black font-sans max-w-md mx-auto">
+          <div className="border-2 border-dashed border-black p-6 rounded-[8px] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-black pb-3">
+              <div>
+                <h2 className="font-extrabold text-base uppercase text-black">{registeredResult.schoolName}</h2>
+                <p className="text-[11px] text-gray-700 font-medium">OFFICIAL TEACHER ACCESS SLIP</p>
+              </div>
+              <div className="text-right">
+                <span className="font-mono text-xs bg-black text-white px-2.5 py-1 rounded font-bold">
+                  CODE: {registeredResult.schoolCode}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 text-xs divide-y divide-gray-200">
+              <div className="flex justify-between py-1.5 first:pt-0">
+                <span className="text-gray-600 font-medium">Teacher Name:</span>
+                <strong className="text-black text-sm">{registeredResult.teacherName}</strong>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-gray-600 font-medium">Phone Number (WhatsApp):</span>
+                <strong className="font-mono text-black text-xs">+237 {registeredResult.phone}</strong>
+              </div>
+              <div className="flex justify-between py-1.5 items-center">
+                <span className="text-gray-600 font-medium">Teacher Access Code:</span>
+                <strong className="font-mono text-sm px-2 py-0.5 rounded border border-gray-400 bg-gray-50">{registeredResult.accessCode}</strong>
+              </div>
+              <div className="flex justify-between py-1.5 items-center">
+                <span className="text-gray-600 font-medium">Login PIN:</span>
+                <strong className="font-mono text-sm px-2 py-0.5 rounded border border-gray-400 bg-gray-50">{registeredResult.pin}</strong>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t-2 border-black space-y-1 text-[11px]">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Portal Website:</span>
+                <strong className="font-mono text-black">https://nsei-sukul.klarifypath.com/login</strong>
+              </div>
+              <p className="text-[10px] text-gray-600 italic pt-1">
+                Instructions: Log in on your phone or computer using your School Code, Teacher Code, and PIN. Keep this slip confidential.
+              </p>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* ── MODAL 2: QUICK SHARE EXISTING STAFF CREDENTIALS ── */}

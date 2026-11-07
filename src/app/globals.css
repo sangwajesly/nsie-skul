@@ -84,7 +84,13 @@ html {
     overflow: visible !important;
   }
 
-  /* When printing from the offline receipt portal overlay */
+  /* Universal Print Isolation Portal (for clean document printing without background chrome) */
+  body.nsei-print-portal-active {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
   body.nsei-print-portal-active > *:not(#nsei-print-portal) {
     display: none !important;
   }
@@ -92,6 +98,9 @@ html {
     display: block !important;
     position: static !important;
     overflow: visible !important;
+    width: 100% !important;
+    background: white !important;
+    box-sizing: border-box !important;
   }
 
   /* When printing a sample report card preview (from modal or showcase) */

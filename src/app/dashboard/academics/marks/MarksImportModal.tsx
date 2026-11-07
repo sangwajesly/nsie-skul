@@ -162,7 +162,7 @@ export function MarksImportModal({
       role="dialog"
       aria-modal="true"
       aria-labelledby="importModalTitle"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
     >
       <div className="bg-white rounded-[12px] border border-[#E5E5DF] shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         {/* Modal Header */}

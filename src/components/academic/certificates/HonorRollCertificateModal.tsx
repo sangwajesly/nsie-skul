@@ -375,7 +375,7 @@ export function HonorRollCertificateModal({
   return (
     <>
       {/* ── ON-SCREEN INTERACTIVE MODAL (COMPLETELY HIDDEN DURING PRINT) ──────── */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto print:hidden">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-2 sm:p-4 overflow-y-auto print:hidden">
         <div className="relative w-full max-w-6xl bg-[#FAF9F5] border border-[#E5E5DF] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
           
           {/* Top Header Bar */}

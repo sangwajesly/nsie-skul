@@ -1807,7 +1807,7 @@ export function MarksGridClient({
             : "translate-y-8 opacity-0 scale-95 pointer-events-none"
         }`}
       >
-        <div className="flex items-center gap-2.5 sm:gap-3.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full bg-[#142010]/95 backdrop-blur-md text-white border border-[#2A7C13]/40 shadow-2xl max-w-[calc(100vw-2rem)]">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-full bg-[#142010] text-white border border-[#2A7C13]/40 shadow-2xl max-w-[calc(100vw-2rem)]">
           {/* Progress & Sync Status Indicator */}
           <div className="flex items-center gap-2 pr-2.5 border-r border-white/20 text-xs shrink-0">
             {!isOnline ? (
@@ -1995,7 +1995,7 @@ export function MarksGridClient({
 
       {/* School Hub LAN Direct Transfer & Settings Modal */}
       {showHubModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-white rounded-[12px] border border-[#E8DFC9] shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-5 py-3.5 bg-[#FAF8F5] border-b border-[#E8DFC9]">

@@ -171,7 +171,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
       {/* 2-Day Recurring PWA Install Popup */}
       {showPromptModal && !isInstalled && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 animate-in fade-in duration-200">
           <div className="bg-white border border-[#E8DFC9] rounded-[14px] shadow-2xl max-w-sm w-full p-5 sm:p-6 space-y-4 animate-in slide-in-from-bottom-4 duration-300">
             {/* Header with App Icon */}
             <div className="flex items-start justify-between gap-3">
@@ -242,7 +242,7 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
 
       {/* iOS Installation Guide Modal */}
       {showIOSGuide && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60">
           <div className="bg-white border border-[#E8DFC9] rounded-[14px] shadow-2xl max-w-sm w-full p-5 sm:p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold text-[15px] text-[#142010] flex items-center gap-2">
