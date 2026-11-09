@@ -1190,197 +1190,6 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* ── Streamlined Evaluation Bar & Action Utilities ── */}
-      <div className="p-3 sm:p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-wrap items-center justify-between gap-3">
-        {/* Left: Subject, Coef, Class Stream & Workflow Status */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-extrabold text-[#142010]">
-            {subjectName}
-          </span>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]">
-            Coef {coefficient}
-          </span>
-          <span className="text-xs text-[#525E4B] hidden sm:inline">
-            {streamName} · <strong className="text-[#142010]">{sequenceName}</strong>
-          </span>
-
-          {/* Workflow Status Badge */}
-          {!isOpenForMarks ? (
-            isAdmin ? (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold">
-                <ShieldCheck className="w-3 h-3 text-[#1D4ED8]" />
-                <span>Admin Override</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] text-[11px] font-bold">
-                <Lock className="w-3 h-3 text-red-600" />
-                <span>Closed</span>
-              </span>
-            )
-          ) : isFinalApproved ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[11px] font-bold">
-              <Lock className="w-3 h-3 text-[#166534]" />
-              <span>Approved</span>
-            </span>
-          ) : isSubmitted ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold">
-              <Clock className="w-3 h-3 text-[#1D4ED8]" />
-              <span>{hasActiveHod ? "Under HOD Review" : "Under Admin Review"}</span>
-            </span>
-          ) : isReopened ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-[11px] font-bold">
-              <RotateCcw className="w-3 h-3 text-[#B45309]" />
-              <span>Reopened</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F5F5F0] text-[#555555] border border-[#D5D5CF] text-[11px] font-bold">
-              <Unlock className="w-3 h-3 text-[#2A7C13]" />
-              <span>Draft</span>
-            </span>
-          )}
-        </div>
-
-        {/* Right: Denominator Input + Excel Tools + CBA Competency Toggle */}
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="inline-flex items-center gap-1.5 text-[11px] text-[#525E4B]">
-            <label htmlFor="maxMarksInput" className="font-semibold">
-              Max:
-            </label>
-            <input
-              id="maxMarksInput"
-              type="number"
-              disabled={!canEdit}
-              value={maxMarks}
-              onChange={(e) => {
-                const val = parseFloat(e.target.value) || 20;
-                setMaxMarks(val);
-                scheduleLocalPersistAndSync(studentsRef.current, val, competencyRef.current);
-              }}
-              className="w-14 px-1.5 py-0.5 rounded border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
-            />
-          </div>
-
-          {/* Excel / CSV Tools Popover */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowExcelTools(!showExcelTools)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#FAFAF7] hover:bg-[#F5F5F0] text-[#142010] border border-[#D5D5CF] font-semibold text-xs transition-colors cursor-pointer"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2A7C13]" />
-              <span>Excel Tools</span>
-              <ChevronDown className={`w-3 h-3 transition-transform ${showExcelTools ? "rotate-180" : ""}`} />
-            </button>
-
-            {showExcelTools && (
-              <div className="absolute right-0 top-full mt-1.5 w-60 p-2 rounded-[8px] bg-white border border-[#E8DFC9] shadow-lg z-30 space-y-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleQuickDownloadTemplate();
-                    setShowExcelTools(false);
-                  }}
-                  className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] hover:bg-[#F5F5F0] text-left text-xs font-medium text-[#191919] cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>Download Roster CSV</span>
-                </button>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsImportModalOpen(true);
-                      setShowExcelTools(false);
-                    }}
-                    className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-left text-xs font-semibold text-[#166534] cursor-pointer"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
-                    <span>Import Excel / CSV</span>
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* CBA Competence Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setShowCompetency(!showCompetency)}
-            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] border font-semibold text-xs transition-colors cursor-pointer ${
-              competency.trim()
-                ? "bg-[#EAF7E4] text-[#2A7C13] border-[#76C457]/40"
-                : "bg-[#FAFAF7] text-[#525E4B] border-[#D5D5CF] hover:bg-[#F5F5F0]"
-            }`}
-          >
-            <span>{competency.trim() ? "✓ Competency" : "+ Competency"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Separate Line: Roster Status Bar & Table/Cards Switcher ──────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
-        <div className="flex flex-wrap items-center gap-2.5 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#2A7C13]" />
-            <span className="font-bold text-[#142010]">
-              {recordedStudentsCount}/{totalStudentsCount} entered
-            </span>
-            {pendingStudentsCount > 0 ? (
-              <span className="text-[#A16207] font-medium text-[11px]">({pendingStudentsCount} pending)</span>
-            ) : (
-              <span className="text-[#2A7C13] font-semibold text-[11px]">(Complete ✓)</span>
-            )}
-          </div>
-          <div className="h-3 w-px bg-[#E8DFC9] hidden sm:block" />
-          {/* Real-Time Device Storage & Cloud Sync Status Badge */}
-          <MarksSyncStatusBadge
-            isOnline={isOnline}
-            syncState={syncState}
-            pendingCount={pendingCount}
-            lastSyncedAt={lastSyncedAt}
-            onSyncNow={() => flushPendingSync(true)}
-            isSyncingManual={isSyncingManual}
-            isHubReachable={isHubReachable}
-            hubName={hubName}
-            onTransferToHub={handleTransferToHub}
-            isTransferringHub={isTransferringHub}
-            onOpenHubSettings={() => setShowHubModal(true)}
-          />
-        </div>
-
-        <div className="flex items-center justify-end gap-2 shrink-0">
-          {/* Mobile/Desktop View Switcher: Table is Default */}
-          <div className="inline-flex items-center rounded-[5px] border border-[#E8DFC9] p-0.5 bg-[#F5EFE0]/70 text-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("table")}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
-                viewMode === "table"
-                  ? "bg-white text-[#142010] shadow-xs"
-                  : "text-[#666666] hover:text-[#142010]"
-              }`}
-              title="Table view"
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Table</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
-                viewMode === "cards"
-                  ? "bg-white text-[#142010] shadow-xs"
-                  : "text-[#666666] hover:text-[#142010]"
-              }`}
-              title="Cards view"
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>Cards</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* State Workflow Banners */}
       {isReopened && (
         <div className="flex items-start gap-3 p-3.5 rounded-[8px] bg-[#FFF8CF] border border-[#FBE6C2] text-xs">
@@ -1468,52 +1277,6 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* CBA Competence Evaluated for this Class Stream (Collapsible) */}
-      {showCompetency && (
-        <div className="p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-2">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EBF5E9] text-[#2A7C13] text-xs font-bold">
-                ✓
-              </span>
-              <label className="text-xs font-bold text-[#142010]">
-                CBA Competence Tested / Evaluated <span className="text-[#888888] font-normal">(Compétence Évaluée)</span>
-              </label>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-[#777777]">
-                Applies to all students in <strong>{streamName}</strong>
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowCompetency(false)}
-                className="text-[11px] text-[#788470] hover:text-[#142010] font-semibold cursor-pointer ml-1"
-              >
-                Hide
-              </button>
-            </div>
-          </div>
-          <p className="text-[11px] text-[#666666]">
-            Set the pedagogical competence tested in this evaluation to be printed on report cards.
-          </p>
-          <div className="pt-1">
-            <input
-              type="text"
-              disabled={!canEdit}
-              value={competency}
-              onChange={(e) => {
-                const val = e.target.value;
-                setCompetency(val);
-                setIsDirty(true);
-                scheduleLocalPersistAndSync(studentsRef.current, maxMarksRef.current, val);
-              }}
-              placeholder="e.g. Résoudre un système de deux équations à deux inconnues / Express opinions on environmental preservation..."
-              className="w-full px-3 py-1.5 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60 disabled:bg-[#F9F9F7]"
-            />
-          </div>
-        </div>
-      )}
-
       {/* Bulk Action Toolbar */}
       {selectedIds.size > 0 && canEdit && (
         <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-[8px] bg-[#142010] text-white text-xs shadow-sm">
@@ -1557,107 +1320,302 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* ── 1. Mobile Touch Cards View (Optional alternative) ──────────── */}
-      <div
-        className={viewMode === "cards" ? "block space-y-3" : "hidden"}
-      >
-        {students.length === 0 ? (
-          <div className="p-8 text-center bg-white rounded-[8px] border border-[#E8DFC9] text-xs text-[#788470]">
-            No students are enrolled in this class group yet.
+      {/* ── Primary Mark Entry Interface (Single Unified Container) ── */}
+      <div className="bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden">
+        {/* Unified Top Toolbar */}
+        <div className="p-3 sm:px-4 sm:py-3 border-b border-[#E8DFC9] bg-white space-y-2.5">
+          {/* Row 1: Subject Title, Coefficient, Status, and View Mode Switcher */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm sm:text-base font-extrabold text-[#142010]">
+                {subjectName}
+              </h2>
+              <span className="text-[11px] font-semibold text-[#525E4B] bg-[#F5EFE0] px-2 py-0.5 rounded border border-[#E8DFC9]/60">
+                Coef {coefficient}
+              </span>
+              <span className="text-xs text-[#788470] hidden sm:inline">
+                {streamName} · {sequenceName}
+              </span>
+
+              {/* Workflow Status Badge */}
+              {!isOpenForMarks ? (
+                isAdmin ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[10px] font-bold">
+                    <ShieldCheck className="w-3 h-3 text-[#1D4ED8]" />
+                    <span>Admin Override</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] text-[10px] font-bold">
+                    <Lock className="w-3 h-3 text-red-600" />
+                    <span>Closed</span>
+                  </span>
+                )
+              ) : isFinalApproved ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[10px] font-bold">
+                  <Lock className="w-3 h-3 text-[#166534]" />
+                  <span>Approved</span>
+                </span>
+              ) : isSubmitted ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[10px] font-bold">
+                  <Clock className="w-3 h-3 text-[#1D4ED8]" />
+                  <span>Under Review</span>
+                </span>
+              ) : isReopened ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-[10px] font-bold">
+                  <RotateCcw className="w-3 h-3 text-[#B45309]" />
+                  <span>Reopened</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F5F5F0] text-[#555555] border border-[#D5D5CF] text-[10px] font-bold">
+                  <Unlock className="w-3 h-3 text-[#2A7C13]" />
+                  <span>Draft</span>
+                </span>
+              )}
+            </div>
+
+            {/* Segmented View Switcher: Table / Cards */}
+            <div className="inline-flex items-center rounded-[5px] border border-[#E8DFC9] p-0.5 bg-[#F5EFE0]/70 text-xs shrink-0">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white text-[#142010] shadow-xs"
+                    : "text-[#666666] hover:text-[#142010]"
+                }`}
+                title="Table view"
+              >
+                <LayoutGrid className="w-3 h-3" />
+                <span>Table</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("cards")}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
+                  viewMode === "cards"
+                    ? "bg-white text-[#142010] shadow-xs"
+                    : "text-[#666666] hover:text-[#142010]"
+                }`}
+                title="Cards view"
+              >
+                <List className="w-3 h-3" />
+                <span>Cards</span>
+              </button>
+            </div>
           </div>
-        ) : (
-          students.map((student, idx) => (
-            <StudentMarkCard
-              key={student.studentId}
-              student={student}
-              idx={idx}
-              maxMarks={maxMarks}
-              canEdit={canEdit}
-              isSelected={selectedIds.has(student.studentId)}
-              onToggleSelectRow={handleToggleSelectRow}
-              onScoreChange={handleScoreChange}
-              onScoreKeyDown={handleScoreKeyDown}
-              onStatusChange={handleStatusChange}
-              onRemarksChange={handleRemarksChange}
-              onFocusInput={() => setIsInputFocused(true)}
-              onBlurInput={() => setIsInputFocused(false)}
+
+          {/* Row 2: Progress, Sync Status, Max Denom, Excel Tools, Competency */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#F0EBE1] text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="font-bold text-[#142010] text-[11px]">
+                {recordedStudentsCount}/{totalStudentsCount} entered
+              </span>
+              {pendingStudentsCount > 0 ? (
+                <span className="text-[#A16207] text-[11px]">({pendingStudentsCount} pending)</span>
+              ) : (
+                <span className="text-[#2A7C13] font-semibold text-[11px]">(Complete ✓)</span>
+              )}
+              <div className="h-3 w-px bg-[#E8DFC9] hidden sm:block" />
+              <MarksSyncStatusBadge
+                isOnline={isOnline}
+                syncState={syncState}
+                pendingCount={pendingCount}
+                lastSyncedAt={lastSyncedAt}
+                onSyncNow={() => flushPendingSync(true)}
+                isSyncingManual={isSyncingManual}
+                isHubReachable={isHubReachable}
+                hubName={hubName}
+                onTransferToHub={handleTransferToHub}
+                isTransferringHub={isTransferringHub}
+                onOpenHubSettings={() => setShowHubModal(true)}
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0">
+              <div className="inline-flex items-center gap-1 text-[11px] text-[#525E4B]">
+                <span>Max:</span>
+                <input
+                  type="number"
+                  disabled={!canEdit}
+                  value={maxMarks}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value) || 20;
+                    setMaxMarks(val);
+                    scheduleLocalPersistAndSync(studentsRef.current, val, competencyRef.current);
+                  }}
+                  className="w-12 px-1 py-0.5 rounded border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+                />
+              </div>
+
+              {/* Excel Tools Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowExcelTools(!showExcelTools)}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-[4px] bg-[#FAFAF7] hover:bg-[#F5F5F0] text-[#142010] border border-[#D5D5CF] font-medium text-[11px] transition-colors cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3 h-3 text-[#2A7C13]" />
+                  <span>Excel</span>
+                  <ChevronDown className={`w-2.5 h-2.5 transition-transform ${showExcelTools ? "rotate-180" : ""}`} />
+                </button>
+                {showExcelTools && (
+                  <div className="absolute right-0 top-full mt-1 w-52 p-1.5 rounded-[6px] bg-white border border-[#E8DFC9] shadow-lg z-30 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleQuickDownloadTemplate();
+                        setShowExcelTools(false);
+                      }}
+                      className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] hover:bg-[#F5F5F0] text-left text-xs text-[#191919] cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      <span>Download CSV Template</span>
+                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsImportModalOpen(true);
+                          setShowExcelTools(false);
+                        }}
+                        className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-left text-xs font-semibold text-[#166534] cursor-pointer"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                        <span>Import Excel / CSV</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Competency Toggle */}
+              <button
+                type="button"
+                onClick={() => setShowCompetency(!showCompetency)}
+                className={`inline-flex items-center gap-1 px-2 py-1 rounded-[4px] border text-[11px] font-medium transition-colors cursor-pointer ${
+                  competency.trim()
+                    ? "bg-[#EAF7E4] text-[#2A7C13] border-[#76C457]/40 font-semibold"
+                    : "bg-[#FAFAF7] text-[#525E4B] border-[#D5D5CF] hover:bg-[#F5F5F0]"
+                }`}
+              >
+                <span>{competency.trim() ? "✓ Competence" : "+ Competence"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Collapsible Competency drawer inside the unified container */}
+        {showCompetency && (
+          <div className="px-4 py-2.5 border-b border-[#E8DFC9] bg-[#FFFDF5] space-y-1.5">
+            <div className="flex items-center justify-between text-xs font-bold text-[#142010]">
+              <span>CBA Competence Tested (Compétence Évaluée)</span>
+              <button
+                type="button"
+                onClick={() => setShowCompetency(false)}
+                className="text-[11px] text-[#788470] hover:text-[#142010] cursor-pointer"
+              >
+                Hide
+              </button>
+            </div>
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={competency}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCompetency(val);
+                setIsDirty(true);
+                scheduleLocalPersistAndSync(studentsRef.current, maxMarksRef.current, val);
+              }}
+              placeholder="e.g. Résoudre un système de deux équations à deux inconnues..."
+              className="w-full px-3 py-1.5 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
             />
-          ))
+          </div>
         )}
 
-        {/* Mobile Summary Card */}
-        <div className="p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] flex flex-wrap items-center justify-between gap-2 text-xs text-[#525E4B]">
-          <div>
-            Students: <strong className="text-[#142010]">{students.length}</strong> · Present:{" "}
-            <strong className="text-[#2A7C13]">{presentStudents.length}</strong> · Absent:{" "}
-            <strong>{students.filter((s) => s.status === "absent").length}</strong>
-          </div>
-          {avgOutOf20 && (
-            <div className="font-mono text-xs">
-              Class Average: <strong className="text-[#142010] font-bold">{avgOutOf20} / 20</strong>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── 2. Data Table View (Default on all screen sizes) ────── */}
-      <div
-        className={viewMode === "table" ? "block bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden" : "hidden"}
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-full sm:min-w-[580px] text-xs text-left">
-            <thead>
-              <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
-                <th className="py-2.5 px-3 w-14 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    <input
-                      type="checkbox"
-                      disabled={!canEdit || students.length === 0}
-                      aria-label="Select all students"
-                      checked={students.length > 0 && selectedIds.size === students.length}
-                      onChange={handleToggleSelectAll}
-                      className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13] cursor-pointer"
-                    />
-                    <span>#</span>
-                  </div>
-                </th>
-                <th className="py-2.5 px-3">Student Name</th>
-                <th className="py-2.5 px-3 w-28 text-center">Score (/{maxMarks})</th>
-                <th className="py-2.5 px-3 w-28">Status</th>
-                <th className="py-2.5 px-3 w-24 text-center">Score (/20)</th>
-                <th className="py-2.5 px-3 w-36 text-center">Grade</th>
-                <th className="py-2.5 px-3">Teacher&apos;s Note</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#F5EFE0]">
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-[#788470]">
-                    No students are enrolled in this class group yet.
-                  </td>
+        {/* View Mode: Data Table or Cards */}
+        {viewMode === "table" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-full sm:min-w-[580px] text-xs text-left">
+              <thead>
+                <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
+                  <th className="py-2.5 px-3 w-14 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <input
+                        type="checkbox"
+                        disabled={!canEdit || students.length === 0}
+                        aria-label="Select all students"
+                        checked={students.length > 0 && selectedIds.size === students.length}
+                        onChange={handleToggleSelectAll}
+                        className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13] cursor-pointer"
+                      />
+                      <span>#</span>
+                    </div>
+                  </th>
+                  <th className="py-2.5 px-3">Student Name</th>
+                  <th className="py-2.5 px-3 w-28 text-center">Score (/{maxMarks})</th>
+                  <th className="py-2.5 px-3 w-28">Status</th>
+                  <th className="py-2.5 px-3 w-24 text-center">Score (/20)</th>
+                  <th className="py-2.5 px-3 w-36 text-center">Grade</th>
+                  <th className="py-2.5 px-3">Teacher&apos;s Note</th>
                 </tr>
-              ) : (
-                students.map((student, idx) => (
-                  <StudentMarkRow
-                    key={student.studentId}
-                    student={student}
-                    idx={idx}
-                    maxMarks={maxMarks}
-                    canEdit={canEdit}
-                    isSelected={selectedIds.has(student.studentId)}
-                    onToggleSelectRow={handleToggleSelectRow}
-                    onScoreChange={handleScoreChange}
-                    onScoreKeyDown={handleScoreKeyDown}
-                    onStatusChange={handleStatusChange}
-                    onRemarksChange={handleRemarksChange}
-                    onFocusInput={() => setIsInputFocused(true)}
-                    onBlurInput={() => setIsInputFocused(false)}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[#F5EFE0]">
+                {students.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-[#788470]">
+                      No students are enrolled in this class group yet.
+                    </td>
+                  </tr>
+                ) : (
+                  students.map((student, idx) => (
+                    <StudentMarkRow
+                      key={student.studentId}
+                      student={student}
+                      idx={idx}
+                      maxMarks={maxMarks}
+                      canEdit={canEdit}
+                      isSelected={selectedIds.has(student.studentId)}
+                      onToggleSelectRow={handleToggleSelectRow}
+                      onScoreChange={handleScoreChange}
+                      onScoreKeyDown={handleScoreKeyDown}
+                      onStatusChange={handleStatusChange}
+                      onRemarksChange={handleRemarksChange}
+                      onFocusInput={() => setIsInputFocused(true)}
+                      onBlurInput={() => setIsInputFocused(false)}
+                    />
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-3.5 space-y-3 bg-[#FAF8F3]">
+            {students.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-[8px] border border-[#E8DFC9] text-xs text-[#788470]">
+                No students are enrolled in this class group yet.
+              </div>
+            ) : (
+              students.map((student, idx) => (
+                <StudentMarkCard
+                  key={student.studentId}
+                  student={student}
+                  idx={idx}
+                  maxMarks={maxMarks}
+                  canEdit={canEdit}
+                  isSelected={selectedIds.has(student.studentId)}
+                  onToggleSelectRow={handleToggleSelectRow}
+                  onScoreChange={handleScoreChange}
+                  onScoreKeyDown={handleScoreKeyDown}
+                  onStatusChange={handleStatusChange}
+                  onRemarksChange={handleRemarksChange}
+                  onFocusInput={() => setIsInputFocused(true)}
+                  onBlurInput={() => setIsInputFocused(false)}
+                />
+              ))
+            )}
+          </div>
+        )}
 
         {/* Mark Sheet Summary Footer */}
         <div className="p-3 border-t border-[#E8DFC9] bg-[#FFFDF5] flex flex-wrap items-center justify-between text-xs text-[#525E4B]">
@@ -1704,7 +1662,7 @@ export function MarksGridClient({
         </div>
       </div>
 
-      {/* Review & Approval Gate Panel — accessible to HODs and School Administrators */}
+      {/* Review & Approval Gate Panel - accessible to HODs and School Administrators */}
       {canApprove && (
         <div className="p-5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#E8DFC9]">
