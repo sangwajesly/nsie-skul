@@ -7,6 +7,7 @@ import { signOutAction } from "@/app/auth/actions";
 import { redirect } from "next/navigation";
 import DashboardNavigation from "./DashboardNavigation";
 import { MobileNavDrawer } from "./MobileNavDrawer";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 import { GlobalSystemStateMonitor } from "@/components/ui/states";
 import { OfflineVaultSynchronizer } from "@/components/offline/OfflineVaultSynchronizer";
@@ -293,9 +294,12 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
           <FirstLoginPinModal teacherName={userFullName} />
         )}
 
-        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
+        <main className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8 pb-20 md:pb-8 print:p-0 print:m-0 print:overflow-visible print:w-full print:block">
           {children}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (Home, Marks, Students, Attendance) */}
+        <MobileBottomNav />
       </div>
     </div>
   );

@@ -51,7 +51,7 @@ export function FloatingPwaInstallPrompt() {
   return (
     <aside
       aria-label="Install Nsei Sukul App"
-      className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40 max-w-[350px] w-[calc(100vw-2rem)] bg-white text-[#142010] rounded-[12px] p-4 shadow-2xl border border-[#2A7C13]/30 animate-in slide-in-from-bottom-5 fade-in duration-300 print:hidden"
+      className="fixed bottom-16 right-4 sm:bottom-6 sm:right-6 z-40 max-w-[350px] w-[calc(100vw-2rem)] bg-white text-[#142010] rounded-[12px] p-4 shadow-2xl border border-[#2A7C13]/30 animate-in slide-in-from-bottom-5 fade-in duration-300 print:hidden"
     >
       <div className="flex items-start justify-between gap-3">
         {/* App Logo & Details */}
