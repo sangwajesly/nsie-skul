@@ -595,13 +595,13 @@
     // Get appreciation based on score
     function getAppreciation(score) {
       if (score === null || score === undefined || isNaN(score)) return "";
-      if (score >= 18) return "Excellent";
       if (score >= 16) return "Very Good";
       if (score >= 14) return "Good";
       if (score >= 12) return "Fairly Good";
-      if (score >= 10) return "Average";
-      if (score >= 8) return "Below Average";
-      return "Fail";
+      if (score >= 10) return "Pass";
+      // Marks under 10/20 are not automatically forced to "Fail".
+      // Teachers manually input specific remarks for low scores if desired.
+      return "";
     }
 
     // Mark input change handler
@@ -620,8 +620,9 @@
       }
       currentMarksMap[studentId].score = score;
 
-      // Auto-set appreciation if remarks is empty
-      if (score !== null && !currentMarksMap[studentId].remarks) {
+      // Auto-set appreciation if remarks is empty or was previously auto-set to Pass/Fail
+      const currentRemark = currentMarksMap[studentId].remarks || "";
+      if (score !== null && (!currentRemark || currentRemark === "Pass" || currentRemark === "Fail")) {
         const app = getAppreciation(score);
         currentMarksMap[studentId].remarks = app;
         const row = inputEl.closest("tr");

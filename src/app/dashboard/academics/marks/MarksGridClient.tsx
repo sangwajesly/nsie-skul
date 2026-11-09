@@ -135,7 +135,9 @@ export function MarksGridClient({
   const [reopenJustification, setReopenJustification] = useState("");
   const [showFloatingDock, setShowFloatingDock] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [viewMode, setViewMode] = useState<"auto" | "cards" | "table">("auto");
+  const [viewMode, setViewMode] = useState<"cards" | "table">("table");
+  const [showExcelTools, setShowExcelTools] = useState(false);
+  const [showCompetency, setShowCompetency] = useState(Boolean(initialCompetency && initialCompetency.trim().length > 0));
   const bottomCardRef = useRef<HTMLDivElement>(null);
 
   // ── Offline-First & Local Storage State ───────────────────────────────
@@ -640,12 +642,25 @@ export function MarksGridClient({
   const handleScoreChange = useCallback(
     (index: number, val: string) => {
       const num = val === "" ? null : parseFloat(val);
+      const validNum = num !== null && !isNaN(num) ? num : null;
       setStudents((prev) => {
         const updated = [...prev];
+        const student = updated[index];
+        const halfMax = (maxMarksRef.current || 20) / 2;
+        let autoRemarks = student.remarks;
+        // If remark is empty or was previously auto-set to Pass or Fail:
+        if (!student.remarks || student.remarks === "Pass" || student.remarks === "Fail") {
+          if (validNum !== null) {
+            autoRemarks = validNum >= halfMax ? "Pass" : "";
+          } else {
+            autoRemarks = "";
+          }
+        }
         updated[index] = {
-          ...updated[index],
-          score: isNaN(num as number) ? null : num,
-          status: num !== null && num > 0 ? "present" : updated[index].status,
+          ...student,
+          score: validNum,
+          status: validNum !== null && validNum > 0 ? "present" : student.status,
+          remarks: autoRemarks,
         };
         scheduleLocalPersistAndSync(updated, maxMarksRef.current, competencyRef.current);
         return updated;
@@ -1175,67 +1190,61 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* ── Top Header: 2 Distinct Columns (Details vs Offline Tools) ──────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        {/* Column 1 (Left 7 cols): Subject Details & Denominator Settings */}
-        <div className="lg:col-span-7 p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-col justify-between gap-3">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-            <div>
-              <span className="text-[10px] font-bold text-[#525E4B] uppercase tracking-wider block">
-                Target Evaluation &amp; Subject
+      {/* ── Streamlined Evaluation Bar & Action Utilities ── */}
+      <div className="p-3 sm:p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        {/* Left: Subject, Coef, Class Stream & Workflow Status */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-extrabold text-[#142010]">
+            {subjectName}
+          </span>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]">
+            Coef {coefficient}
+          </span>
+          <span className="text-xs text-[#525E4B] hidden sm:inline">
+            {streamName} · <strong className="text-[#142010]">{sequenceName}</strong>
+          </span>
+
+          {/* Workflow Status Badge */}
+          {!isOpenForMarks ? (
+            isAdmin ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold">
+                <ShieldCheck className="w-3 h-3 text-[#1D4ED8]" />
+                <span>Admin Override</span>
               </span>
-              <h2 className="text-base font-extrabold text-[#142010] flex flex-wrap items-center gap-2 mt-0.5">
-                <span>{subjectName}</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#FFF8CF] text-[#4A3D00] border border-[#FBE6C2]">
-                  Weight: Coef {coefficient}
-                </span>
-              </h2>
-              <p className="text-xs text-[#525E4B] mt-0.5">
-                {streamName} · <strong className="text-[#142010]">{sequenceName}</strong>
-              </p>
-            </div>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] text-[11px] font-bold">
+                <Lock className="w-3 h-3 text-red-600" />
+                <span>Closed</span>
+              </span>
+            )
+          ) : isFinalApproved ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-[11px] font-bold">
+              <Lock className="w-3 h-3 text-[#166534]" />
+              <span>Approved</span>
+            </span>
+          ) : isSubmitted ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-[11px] font-bold">
+              <Clock className="w-3 h-3 text-[#1D4ED8]" />
+              <span>{hasActiveHod ? "Under HOD Review" : "Under Admin Review"}</span>
+            </span>
+          ) : isReopened ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-[11px] font-bold">
+              <RotateCcw className="w-3 h-3 text-[#B45309]" />
+              <span>Reopened</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F5F5F0] text-[#555555] border border-[#D5D5CF] text-[11px] font-bold">
+              <Unlock className="w-3 h-3 text-[#2A7C13]" />
+              <span>Draft</span>
+            </span>
+          )}
+        </div>
 
-            {/* Workflow Status Badge */}
-            <div>
-              {!isOpenForMarks ? (
-                isAdmin ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#1D4ED8]" />
-                    <span>Admin Override</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5] text-xs font-bold">
-                    <Lock className="w-3.5 h-3.5 text-red-600" />
-                    <span>Sequence Closed</span>
-                  </span>
-                )
-              ) : isFinalApproved ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#F0FDF4] text-[#166534] border border-[#BBF7D0] text-xs font-bold">
-                  <Lock className="w-3.5 h-3.5 text-[#166534]" />
-                  <span>Approved &amp; Locked</span>
-                </span>
-              ) : isSubmitted ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE] text-xs font-bold">
-                  <Clock className="w-3.5 h-3.5 text-[#1D4ED8]" />
-                  <span>{hasActiveHod ? "Under HOD Review" : "Under Admin Review"}</span>
-                </span>
-              ) : isReopened ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#FFF8CF] text-[#7A4A00] border border-[#FBE6C2] text-xs font-bold">
-                  <RotateCcw className="w-3.5 h-3.5 text-[#B45309]" />
-                  <span>Reopened for Revision</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#F5F5F0] text-[#555555] border border-[#D5D5CF] text-xs font-bold">
-                  <Unlock className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>Draft Mode</span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="pt-2.5 border-t border-[#E8DFC9]/70 flex flex-wrap items-center gap-2 text-xs">
-            <label htmlFor="maxMarksInput" className="font-semibold text-[#525E4B]">
-              Max Denominator:
+        {/* Right: Denominator Input + Excel Tools + CBA Competency Toggle */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="inline-flex items-center gap-1.5 text-[11px] text-[#525E4B]">
+            <label htmlFor="maxMarksInput" className="font-semibold">
+              Max:
             </label>
             <input
               id="maxMarksInput"
@@ -1247,78 +1256,82 @@ export function MarksGridClient({
                 setMaxMarks(val);
                 scheduleLocalPersistAndSync(studentsRef.current, val, competencyRef.current);
               }}
-              className="w-16 px-2 py-1 rounded-[5px] border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+              className="w-14 px-1.5 py-0.5 rounded border border-[#E8DFC9] text-center font-mono font-bold text-xs bg-[#FFFDF5] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
             />
-            <span className="text-[11px] text-[#788470]">
-              (Default /20 for general subjects, /40–/100 for technical subjects)
-            </span>
-          </div>
-        </div>
-
-        {/* Column 2 (Right 5 cols): Offline Spreadsheet Tools Section */}
-        <div className="lg:col-span-5 p-4 rounded-[8px] bg-[#FAFAF7] border border-[#E8DFC9] shadow-2xs flex flex-col justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileSpreadsheet className="w-4 h-4 text-[#2A7C13]" />
-              <h3 className="text-xs font-bold text-[#142010] uppercase tracking-wide">
-                Offline Spreadsheet Tools
-              </h3>
-            </div>
-            <p className="text-[11px] text-[#666666] mt-1 leading-snug">
-              Prefer grading offline? Download the official class roster CSV, enter marks in Excel or Google Sheets, and import back in one click.
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E8DFC9]/70">
-            {canEdit ? (
-              <>
+          {/* Excel / CSV Tools Popover */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowExcelTools(!showExcelTools)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#FAFAF7] hover:bg-[#F5F5F0] text-[#142010] border border-[#D5D5CF] font-semibold text-xs transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-[#2A7C13]" />
+              <span>Excel Tools</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${showExcelTools ? "rotate-180" : ""}`} />
+            </button>
+
+            {showExcelTools && (
+              <div className="absolute right-0 top-full mt-1.5 w-60 p-2 rounded-[8px] bg-white border border-[#E8DFC9] shadow-lg z-30 space-y-1">
                 <button
                   type="button"
-                  onClick={handleQuickDownloadTemplate}
-                  title="Download pre-filled CSV sheet with your class roster"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-white hover:bg-[#F5F5F0] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+                  onClick={() => {
+                    handleQuickDownloadTemplate();
+                    setShowExcelTools(false);
+                  }}
+                  className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] hover:bg-[#F5F5F0] text-left text-xs font-medium text-[#191919] cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5 text-[#2A7C13]" />
-                  <span>Download Template</span>
+                  <span>Download Roster CSV</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(true)}
-                  title="Import student scores from Excel or CSV file"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-[#166534] border border-[#BBF7D0] font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5" />
-                  <span>Import Excel / CSV</span>
-                </button>
-              </>
-            ) : (
-              <span className="text-[11px] text-[#788470] italic">
-                Spreadsheet import disabled while marks are locked.
-              </span>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsImportModalOpen(true);
+                      setShowExcelTools(false);
+                    }}
+                    className="w-full inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[4px] bg-[#F0FDF4] hover:bg-[#DCFCE7] text-left text-xs font-semibold text-[#166534] cursor-pointer"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Import Excel / CSV</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
+
+          {/* CBA Competence Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowCompetency(!showCompetency)}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] border font-semibold text-xs transition-colors cursor-pointer ${
+              competency.trim()
+                ? "bg-[#EAF7E4] text-[#2A7C13] border-[#76C457]/40"
+                : "bg-[#FAFAF7] text-[#525E4B] border-[#D5D5CF] hover:bg-[#F5F5F0]"
+            }`}
+          >
+            <span>{competency.trim() ? "✓ Competency" : "+ Competency"}</span>
+          </button>
         </div>
       </div>
 
-      {/* ── Separate Line: Online Mark Entry Grid Status & Top Actions ──────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#2A7C13]" />
-            <span className="font-bold text-[#142010]">Mark Entry Roster</span>
-          </div>
-          <div className="h-3.5 w-px bg-[#E8DFC9] hidden sm:block" />
-          <div className="text-[#525E4B]">
-            Progress: <strong className="text-[#142010]">{recordedStudentsCount}</strong> of{" "}
-            <strong className="text-[#142010]">{totalStudentsCount}</strong> entered
+      {/* ── Separate Line: Roster Status Bar & Table/Cards Switcher ──────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs">
+        <div className="flex flex-wrap items-center gap-2.5 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-[#2A7C13]" />
+            <span className="font-bold text-[#142010]">
+              {recordedStudentsCount}/{totalStudentsCount} entered
+            </span>
             {pendingStudentsCount > 0 ? (
-              <span className="ml-1 text-[#A16207] font-semibold">({pendingStudentsCount} pending)</span>
+              <span className="text-[#A16207] font-medium text-[11px]">({pendingStudentsCount} pending)</span>
             ) : (
-              <span className="ml-1 text-[#2A7C13] font-semibold">(Complete ✓)</span>
+              <span className="text-[#2A7C13] font-semibold text-[11px]">(Complete ✓)</span>
             )}
           </div>
-          <div className="h-3.5 w-px bg-[#E8DFC9] hidden md:block" />
+          <div className="h-3 w-px bg-[#E8DFC9] hidden sm:block" />
           {/* Real-Time Device Storage & Cloud Sync Status Badge */}
           <MarksSyncStatusBadge
             isOnline={isOnline}
@@ -1335,39 +1348,35 @@ export function MarksGridClient({
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#E8DFC9]/70">
-          {/* Mobile/Desktop View Switcher */}
-          <div className="inline-flex items-center rounded-[6px] border border-[#E8DFC9] p-0.5 bg-[#F5EFE0]/70 text-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
-                viewMode === "cards" || (viewMode === "auto")
-                  ? "bg-white text-[#142010] shadow-xs"
-                  : "text-[#666666] hover:text-[#142010]"
-              } ${viewMode === "auto" ? "md:hidden" : ""}`}
-              title="Touch Cards view (recommended for smartphones)"
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>Cards</span>
-            </button>
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          {/* Mobile/Desktop View Switcher: Table is Default */}
+          <div className="inline-flex items-center rounded-[5px] border border-[#E8DFC9] p-0.5 bg-[#F5EFE0]/70 text-xs">
             <button
               type="button"
               onClick={() => setViewMode("table")}
               className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
-                viewMode === "table" || (viewMode === "auto")
+                viewMode === "table"
                   ? "bg-white text-[#142010] shadow-xs"
                   : "text-[#666666] hover:text-[#142010]"
-              } ${viewMode === "auto" ? "hidden md:inline-flex" : ""}`}
-              title="Table view (recommended for laptops & desktops)"
+              }`}
+              title="Table view"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
               <span>Table</span>
             </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {renderSaveAndSubmitButtons("normal")}
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-[4px] font-bold text-[11px] transition-colors cursor-pointer ${
+                viewMode === "cards"
+                  ? "bg-white text-[#142010] shadow-xs"
+                  : "text-[#666666] hover:text-[#142010]"
+              }`}
+              title="Cards view"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>Cards</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1459,40 +1468,51 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* CBA Competence Evaluated for this Class Stream */}
-      <div className="p-4 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-2">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EBF5E9] text-[#2A7C13] text-xs font-bold">
-              ✓
-            </span>
-            <label className="text-xs font-bold text-[#142010]">
-              CBA Competence Tested / Evaluated <span className="text-[#888888] font-normal">(Compétence Évaluée)</span>
-            </label>
+      {/* CBA Competence Evaluated for this Class Stream (Collapsible) */}
+      {showCompetency && (
+        <div className="p-3.5 rounded-[8px] bg-white border border-[#E8DFC9] shadow-2xs space-y-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#EBF5E9] text-[#2A7C13] text-xs font-bold">
+                ✓
+              </span>
+              <label className="text-xs font-bold text-[#142010]">
+                CBA Competence Tested / Evaluated <span className="text-[#888888] font-normal">(Compétence Évaluée)</span>
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-[#777777]">
+                Applies to all students in <strong>{streamName}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCompetency(false)}
+                className="text-[11px] text-[#788470] hover:text-[#142010] font-semibold cursor-pointer ml-1"
+              >
+                Hide
+              </button>
+            </div>
           </div>
-          <span className="text-[11px] text-[#777777]">
-            Applies to all students in <strong>{streamName}</strong>
-          </span>
+          <p className="text-[11px] text-[#666666]">
+            Set the pedagogical competence tested in this evaluation to be printed on report cards.
+          </p>
+          <div className="pt-1">
+            <input
+              type="text"
+              disabled={!canEdit}
+              value={competency}
+              onChange={(e) => {
+                const val = e.target.value;
+                setCompetency(val);
+                setIsDirty(true);
+                scheduleLocalPersistAndSync(studentsRef.current, maxMarksRef.current, val);
+              }}
+              placeholder="e.g. Résoudre un système de deux équations à deux inconnues / Express opinions on environmental preservation..."
+              className="w-full px-3 py-1.5 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60 disabled:bg-[#F9F9F7]"
+            />
+          </div>
         </div>
-        <p className="text-[11px] text-[#666666]">
-          Set the pedagogical competence tested in this evaluation. This competence will be automatically printed on the official report cards of all students in this class.
-        </p>
-        <div className="pt-1">
-          <input
-            type="text"
-            disabled={!canEdit}
-            value={competency}
-            onChange={(e) => {
-              const val = e.target.value;
-              setCompetency(val);
-              setIsDirty(true);
-              scheduleLocalPersistAndSync(studentsRef.current, maxMarksRef.current, val);
-            }}
-            placeholder="e.g. Résoudre un système de deux équations à deux inconnues / Express opinions on environmental preservation..."
-            className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white text-[#191919] placeholder:text-[#999999] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60 disabled:bg-[#F9F9F7]"
-          />
-        </div>
-      </div>
+      )}
 
       {/* Bulk Action Toolbar */}
       {selectedIds.size > 0 && canEdit && (
@@ -1537,11 +1557,9 @@ export function MarksGridClient({
         </div>
       )}
 
-      {/* ── 1. Mobile Touch Cards View (Default for smartphones) ──────────── */}
+      {/* ── 1. Mobile Touch Cards View (Optional alternative) ──────────── */}
       <div
-        className={`${
-          viewMode === "table" ? "hidden" : viewMode === "cards" ? "block" : "block md:hidden"
-        } space-y-3`}
+        className={viewMode === "cards" ? "block space-y-3" : "hidden"}
       >
         {students.length === 0 ? (
           <div className="p-8 text-center bg-white rounded-[8px] border border-[#E8DFC9] text-xs text-[#788470]">
@@ -1582,17 +1600,15 @@ export function MarksGridClient({
         </div>
       </div>
 
-      {/* ── 2. Desktop Data Table View (Default for laptops & desktops) ────── */}
+      {/* ── 2. Data Table View (Default on all screen sizes) ────── */}
       <div
-        className={`${
-          viewMode === "cards" ? "hidden" : viewMode === "table" ? "block" : "hidden md:block"
-        } bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden`}
+        className={viewMode === "table" ? "block bg-white rounded-[8px] border border-[#E8DFC9] shadow-2xs overflow-hidden" : "hidden"}
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-xs text-left">
+          <table className="w-full min-w-full sm:min-w-[580px] text-xs text-left">
             <thead>
               <tr className="border-b border-[#E8DFC9] bg-[#FFFDF5] text-[#525E4B] font-semibold text-[11px]">
-                <th className="py-2.5 px-3 w-16 text-center">
+                <th className="py-2.5 px-3 w-14 text-center">
                   <div className="flex items-center justify-center gap-1">
                     <input
                       type="checkbox"
@@ -1605,19 +1621,18 @@ export function MarksGridClient({
                     <span>#</span>
                   </div>
                 </th>
-                <th className="py-2.5 px-3">Admission No.</th>
                 <th className="py-2.5 px-3">Student Name</th>
-                <th className="py-2.5 px-3 w-32">Status</th>
                 <th className="py-2.5 px-3 w-28 text-center">Score (/{maxMarks})</th>
+                <th className="py-2.5 px-3 w-28">Status</th>
                 <th className="py-2.5 px-3 w-24 text-center">Score (/20)</th>
-                <th className="py-2.5 px-3 w-40 text-center">Grade</th>
+                <th className="py-2.5 px-3 w-36 text-center">Grade</th>
                 <th className="py-2.5 px-3">Teacher&apos;s Note</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5EFE0]">
               {students.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-[#788470]">
+                  <td colSpan={7} className="py-8 text-center text-[#788470]">
                     No students are enrolled in this class group yet.
                   </td>
                 </tr>
@@ -1811,7 +1826,7 @@ export function MarksGridClient({
 
       {/* ── Persistent Floating Action Island (Scroll-Aware for 60-120 students) ── */}
       <div
-        className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 ease-out ${
+        className={`fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 ease-out ${
           showFloatingDock && !isInputFocused
             ? "translate-y-0 opacity-100 scale-100 pointer-events-auto"
             : "translate-y-8 opacity-0 scale-95 pointer-events-none"
@@ -2206,29 +2221,8 @@ const StudentMarkRow = memo(function StudentMarkRow({
           </span>
         </div>
       </td>
-      <td className="py-2 px-3 font-mono font-semibold text-[#142010]">
-        {student.matricule}
-      </td>
-      <td className="py-2 px-3 font-medium text-[#142010]">
+      <td className="py-2 px-3 font-semibold text-[#142010]">
         {student.fullName}
-      </td>
-      <td className="py-2 px-3">
-        <select
-          disabled={!canEdit}
-          value={student.status}
-          aria-label={`Attendance status for ${student.fullName}`}
-          onChange={(e) =>
-            onStatusChange(
-              idx,
-              e.target.value as "present" | "absent" | "exempt"
-            )
-          }
-          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
-        >
-          <option value="present">Present</option>
-          <option value="absent">Absent (ABS)</option>
-          <option value="exempt">Exempt (EXC)</option>
-        </select>
       </td>
       <td className="py-2 px-3 text-center">
         <input
@@ -2249,6 +2243,24 @@ const StudentMarkRow = memo(function StudentMarkRow({
           className="w-20 px-2 py-1 text-center font-mono font-bold rounded-[4px] border border-[#E8DFC9] bg-white text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:bg-[#F5EFE0] disabled:text-[#788470]"
           style={{ fontSize: "16px" }}
         />
+      </td>
+      <td className="py-2 px-3">
+        <select
+          disabled={!canEdit}
+          value={student.status}
+          aria-label={`Attendance status for ${student.fullName}`}
+          onChange={(e) =>
+            onStatusChange(
+              idx,
+              e.target.value as "present" | "absent" | "exempt"
+            )
+          }
+          className="w-full px-2 py-1 rounded-[4px] border border-[#E8DFC9] bg-white text-xs text-[#142010] focus:outline-none focus:border-[#2A7C13] disabled:opacity-60"
+        >
+          <option value="present">Present</option>
+          <option value="absent">Absent (ABS)</option>
+          <option value="exempt">Exempt (EXC)</option>
+        </select>
       </td>
       <td className="py-2 px-3 text-center font-mono font-bold text-[#142010]">
         {student.status === "present" && normalized20 !== null
