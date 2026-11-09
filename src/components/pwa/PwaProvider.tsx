@@ -120,15 +120,9 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Prompt user on the dashboard when they reach their workspace
-    if (pathname?.startsWith("/dashboard")) {
-      if (shouldShowPrompt() && (deferredPrompt || isIOS)) {
-        const timer = setTimeout(() => {
-          setShowPromptModal(true);
-        }, 1500);
-        return () => clearTimeout(timer);
-      }
-    }
+    // The floating prompt at the bottom-right corner handles non-intrusive installation now.
+    // We intentionally keep showPromptModal false to never block dashboard navigation.
+    setShowPromptModal(false);
   }, [pathname, isInstalled, isAuthPage, deferredPrompt, isIOS, shouldShowPrompt]);
 
   const dismissModal = useCallback(() => {

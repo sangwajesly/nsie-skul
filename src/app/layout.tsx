@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { PwaProvider } from "@/components/pwa/PwaProvider";
+import { FloatingPwaInstallPrompt } from "@/components/pwa/FloatingPwaInstallPrompt";
 import { SITE_CONFIG } from "@/lib/seo/site-config";
 import { OrganizationJsonLd, WebSiteJsonLd } from "@/lib/seo/structured-data";
 
@@ -108,6 +109,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <PwaProvider>{children}</PwaProvider>
+        <FloatingPwaInstallPrompt />
 
         {SITE_CONFIG.gaId && (
           <>

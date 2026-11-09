@@ -103,7 +103,7 @@ function StreamRow({
   }, [updateState]);
 
   return (
-    <div className="p-2.5 rounded-[4px] bg-white border border-[#E5E5DF] space-y-1.5 text-[11px]">
+    <div className="p-2.5 rounded-[6px] bg-white border border-[#E5E5DF] hover:border-[#D5D5CF] space-y-2 text-[11px] shadow-2xs transition-colors">
       {isEditing ? (
         <form action={updateFormAction} className="space-y-1.5">
           <input type="hidden" name="classStreamId" value={stream.id} />
@@ -139,9 +139,9 @@ function StreamRow({
         </form>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-1">
-            <span className="font-bold text-[#191919] truncate">{stream.name}</span>
-            <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="font-bold text-xs text-[#142010] truncate">{stream.name}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
               {stream.class_master?.full_name && (
                 <span className="text-[10px] text-[#2A7C13] font-semibold bg-[#EAF7E4] px-1.5 py-0.5 rounded border border-[#76C457]/30 max-w-[120px] truncate">
                   {stream.class_master.full_name}
@@ -154,11 +154,12 @@ function StreamRow({
                     streamName={stream.name}
                     subjects={subjects}
                     currentConfigs={classSubjects.filter((cs) => cs.class_stream_id === stream.id)}
+                    buttonClassName="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EAF7E4] text-[#1F5C0E] hover:bg-[#DCFCE7] border border-[#76C457]/40 shadow-2xs transition-colors cursor-pointer select-none"
                   />
                   <button
                     type="button"
                     onClick={() => setIsEditing(true)}
-                    className="p-1 rounded text-[#777777] hover:text-[#191919] hover:bg-[#EAEAE6] transition-colors"
+                    className="p-1 rounded text-[#788470] hover:text-[#142010] hover:bg-[#EAEAE6] transition-colors"
                     title={`Rename ${stream.name}`}
                   >
                     <Pencil className="w-3 h-3" />
@@ -166,7 +167,7 @@ function StreamRow({
                   <button
                     type="button"
                     onClick={() => setIsConfirmingDelete(true)}
-                    className="p-1 rounded text-[#777777] hover:text-red-600 hover:bg-red-50 transition-colors"
+                    className="p-1 rounded text-[#788470] hover:text-red-600 hover:bg-red-50 transition-colors"
                     title={`Delete ${stream.name}`}
                   >
                     <Trash2 className="w-3 h-3" />
@@ -263,80 +264,92 @@ export function ClassCardItem({
   }, [updateClassState]);
 
   return (
-    <div className="p-3.5 rounded-[6px] border border-[#E5E5DF] bg-[#FAFAF8] space-y-2.5 flex flex-col justify-between">
-      <div className="space-y-2.5">
+    <div className="rounded-[10px] border border-[#E2E8F0] bg-white shadow-2xs hover:shadow-xs transition-shadow flex flex-col justify-between overflow-hidden">
+      <div>
         {/* Class Header */}
         {isEditingClass ? (
-          <form action={updateClassFormAction} className="space-y-2 p-2 rounded bg-white border border-[#D5D5CF] text-xs">
-            <input type="hidden" name="classId" value={cls.id} />
-            <div className="space-y-1.5">
-              <input
-                type="text"
-                name="name"
-                defaultValue={cls.name}
-                placeholder="Class name"
-                required
-                className="w-full px-2.5 py-1 text-xs rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
-              />
-              <div className="grid grid-cols-2 gap-1.5">
+          <div className="p-3 bg-[#FAFAF8] border-b border-[#EEEEEC]">
+            <form action={updateClassFormAction} className="space-y-2 p-2.5 rounded bg-white border border-[#D5D5CF] text-xs shadow-2xs">
+              <input type="hidden" name="classId" value={cls.id} />
+              <div className="space-y-1.5">
                 <input
-                  type="number"
-                  name="levelOrder"
-                  defaultValue={cls.level_order}
-                  min="1"
-                  max="12"
+                  type="text"
+                  name="name"
+                  defaultValue={cls.name}
+                  placeholder="Class name"
                   required
-                  placeholder="Order (1-12)"
-                  className="px-2 py-1 text-xs font-mono rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                  className="w-full px-2.5 py-1 text-xs rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
                 />
-                <select
-                  name="cycle"
-                  defaultValue={cls.cycle}
-                  className="px-2 py-1 text-xs rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                <div className="grid grid-cols-2 gap-1.5">
+                  <input
+                    type="number"
+                    name="levelOrder"
+                    defaultValue={cls.level_order}
+                    min="1"
+                    max="12"
+                    required
+                    placeholder="Order (1-12)"
+                    className="px-2 py-1 text-xs font-mono rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                  />
+                  <select
+                    name="cycle"
+                    defaultValue={cls.cycle}
+                    className="px-2 py-1 text-xs rounded border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                  >
+                    <option value="cycle_1">O-Level (Cycle 1)</option>
+                    <option value="cycle_2">A-Level (Cycle 2)</option>
+                  </select>
+                </div>
+              </div>
+              {updateClassState && "error" in updateClassState && (
+                <p className="text-[11px] text-red-600 font-medium">{updateClassState.error}</p>
+              )}
+              <div className="flex items-center justify-end gap-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingClass(false)}
+                  disabled={isUpdateClassPending}
+                  className="px-2 py-1 rounded text-[11px] text-[#666666] hover:bg-[#EAEAE6]"
                 >
-                  <option value="cycle_1">O-Level (Cycle 1)</option>
-                  <option value="cycle_2">A-Level (Cycle 2)</option>
-                </select>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdateClassPending}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-[#191919] hover:bg-[#333333] text-white rounded text-[11px] font-semibold transition-colors disabled:opacity-50"
+                >
+                  {isUpdateClassPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                  <span>Save</span>
+                </button>
               </div>
-            </div>
-            {updateClassState && "error" in updateClassState && (
-              <p className="text-[11px] text-red-600 font-medium">{updateClassState.error}</p>
-            )}
-            <div className="flex items-center justify-end gap-1.5 pt-1">
-              <button
-                type="button"
-                onClick={() => setIsEditingClass(false)}
-                disabled={isUpdateClassPending}
-                className="px-2 py-1 rounded text-[11px] text-[#666666] hover:bg-[#EAEAE6]"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isUpdateClassPending}
-                className="inline-flex items-center gap-1 px-3 py-1 bg-[#191919] hover:bg-[#333333] text-white rounded text-[11px] font-semibold transition-colors disabled:opacity-50"
-              >
-                {isUpdateClassPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
-                <span>Save</span>
-              </button>
-            </div>
-          </form>
+            </form>
+          </div>
         ) : (
-          <div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-[13px] text-[#191919]">{cls.name}</span>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[4px] bg-[#EAEAE6] text-[#555555]">
-                  {cls.cycle === "cycle_1" ? "O-Level" : "A-Level"}
-                </span>
-              </div>
+          <div className="bg-[#FAFAF8] border-b border-[#EEEEEC] p-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-extrabold text-sm text-[#142010] truncate">{cls.name}</span>
+              <span
+                className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border shrink-0 ${
+                  cls.cycle === "cycle_1"
+                    ? "bg-[#EAF7E4] text-[#1F5C0E] border-[#76C457]/40"
+                    : "bg-[#EFF6FF] text-[#1E40AF] border-[#93C5FD]/40"
+                }`}
+              >
+                {cls.cycle === "cycle_1" ? "O-Level" : "A-Level"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[10.5px] font-semibold text-[#788470]">
+                {cls.streams.length} {cls.streams.length === 1 ? "group" : "groups"}
+              </span>
 
               {canManageAcademics && (
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 ml-0.5">
                   <button
                     type="button"
                     onClick={() => setIsEditingClass(true)}
-                    className="p-1 rounded text-[#777777] hover:text-[#191919] hover:bg-[#EAEAE6] transition-colors"
+                    className="p-1 rounded text-[#788470] hover:text-[#142010] hover:bg-[#EAEAE6] transition-colors"
                     title={`Edit ${cls.name}`}
                   >
                     <Pencil className="w-3.5 h-3.5" />
@@ -344,7 +357,7 @@ export function ClassCardItem({
                   <button
                     type="button"
                     onClick={() => setIsConfirmingDeleteClass(true)}
-                    className="p-1 rounded text-[#777777] hover:text-red-600 hover:bg-red-50 transition-colors"
+                    className="p-1 rounded text-[#788470] hover:text-red-600 hover:bg-red-50 transition-colors"
                     title={`Delete ${cls.name}`}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -352,61 +365,63 @@ export function ClassCardItem({
                 </div>
               )}
             </div>
+          </div>
+        )}
 
-            {isConfirmingDeleteClass && (
-              <div className="mt-2 p-2 rounded bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5 animate-in fade-in">
-                <div className="flex items-start gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
-                  <p className="font-semibold text-[11px]">
-                    Delete class &ldquo;{cls.name}&rdquo;?
-                  </p>
-                </div>
-                {cls.streams.length > 0 ? (
-                  <p className="text-[11px] text-red-700">
-                    Cannot delete this class while it contains {cls.streams.length} class group(s). Delete or reassign the groups below first.
-                  </p>
-                ) : (
-                  <p className="text-[10.5px] text-red-700">
-                    This class level has 0 groups and can be safely removed.
-                  </p>
-                )}
-                {deleteClassState && "error" in deleteClassState && (
-                  <p className="text-[11px] text-red-700 font-medium bg-red-100 p-1.5 rounded">
-                    {deleteClassState.error}
-                  </p>
-                )}
-                <div className="flex items-center gap-2 pt-0.5">
-                  {cls.streams.length === 0 && (
-                    <form action={deleteClassFormAction}>
-                      <input type="hidden" name="classId" value={cls.id} />
-                      <button
-                        type="submit"
-                        disabled={isDeleteClassPending}
-                        className="px-2.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 inline-flex items-center gap-1"
-                      >
-                        {isDeleteClassPending && <Loader2 className="w-3 h-3 animate-spin" />}
-                        <span>{isDeleteClassPending ? "Deleting..." : "Yes, Delete Class"}</span>
-                      </button>
-                    </form>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setIsConfirmingDeleteClass(false)}
-                    disabled={isDeleteClassPending}
-                    className="px-2 py-0.5 rounded bg-white hover:bg-gray-100 text-[#555555] text-[11px] border border-gray-300"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
+        {isConfirmingDeleteClass && (
+          <div className="m-3 p-2.5 rounded bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5 animate-in fade-in">
+            <div className="flex items-start gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0 mt-0.5" />
+              <p className="font-semibold text-[11px]">
+                Delete class &ldquo;{cls.name}&rdquo;?
+              </p>
+            </div>
+            {cls.streams.length > 0 ? (
+              <p className="text-[11px] text-red-700">
+                Cannot delete this class while it contains {cls.streams.length} class group(s). Delete or reassign the groups below first.
+              </p>
+            ) : (
+              <p className="text-[10.5px] text-red-700">
+                This class level has 0 groups and can be safely removed.
+              </p>
             )}
+            {deleteClassState && "error" in deleteClassState && (
+              <p className="text-[11px] text-red-700 font-medium bg-red-100 p-1.5 rounded">
+                {deleteClassState.error}
+              </p>
+            )}
+            <div className="flex items-center gap-2 pt-0.5">
+              {cls.streams.length === 0 && (
+                <form action={deleteClassFormAction}>
+                  <input type="hidden" name="classId" value={cls.id} />
+                  <button
+                    type="submit"
+                    disabled={isDeleteClassPending}
+                    className="px-2.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-semibold transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                  >
+                    {isDeleteClassPending && <Loader2 className="w-3 h-3 animate-spin" />}
+                    <span>{isDeleteClassPending ? "Deleting..." : "Yes, Delete Class"}</span>
+                  </button>
+                </form>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsConfirmingDeleteClass(false)}
+                disabled={isDeleteClassPending}
+                className="px-2 py-0.5 rounded bg-white hover:bg-gray-100 text-[#555555] text-[11px] border border-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
         {/* Streams List */}
-        <div className="space-y-1">
+        <div className="p-3 space-y-2">
           {cls.streams.length === 0 ? (
-            <div className="text-[11px] italic text-[#888888] py-1">No class groups added yet</div>
+            <div className="text-[11px] italic text-[#888888] py-2 text-center bg-[#FAFAF8] rounded-[6px] border border-dashed border-[#D5D5CF]">
+              No class groups added yet
+            </div>
           ) : (
             cls.streams.map((st) => (
               <StreamRow
@@ -424,13 +439,13 @@ export function ClassCardItem({
         </div>
       </div>
 
-      {/* Add Class Group Form (Collapsible) */}
+      {/* Add Class Group Form (Footer) */}
       {canManageAcademics && (
-        <div className="pt-2 border-t border-[#EEEEEC]">
+        <div className="p-3 pt-0">
           {showAddStream ? (
-            <div className="space-y-1.5">
+            <div className="p-3 rounded-[6px] bg-[#FAFAF8] border border-[#E5E5DF] space-y-2">
               <div className="flex items-center justify-between text-[11px] text-[#555555]">
-                <span className="font-semibold">New group in {cls.name}</span>
+                <span className="font-bold text-[#142010]">New Group in {cls.name}</span>
                 <button
                   type="button"
                   onClick={() => setShowAddStream(false)}
@@ -449,10 +464,10 @@ export function ClassCardItem({
             <button
               type="button"
               onClick={() => setShowAddStream(true)}
-              className="w-full py-1.5 px-2 text-[11px] font-semibold text-[#555555] hover:text-[#191919] hover:bg-[#EAEAE6] rounded-[4px] border border-dashed border-[#D5D5CF] transition-colors flex items-center justify-center gap-1 cursor-pointer"
+              className="w-full py-2 px-3 text-xs font-bold text-[#2A7C13] bg-[#F4FAF1] hover:bg-[#EAF7E4] hover:text-[#1F5C0E] rounded-[6px] border border-[#2A7C13]/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              <Plus className="w-3 h-3" />
-              <span>Add Class Group</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>+ Add Class Group</span>
             </button>
           )}
         </div>

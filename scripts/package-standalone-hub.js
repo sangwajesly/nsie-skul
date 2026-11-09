@@ -1,8 +1,9 @@
 /**
  * Nsei Sukul: Standalone School Hub Packager
  * 
- * Bundles Next.js standalone output, public assets, and Windows service runner
- * into a production distribution folder (dist-hub/) ready for installer wrapping.
+ * Bundles Next.js standalone output, public assets, embedded Node.js runtime,
+ * launcher engine, and native Windows executable launcher into dist-hub/
+ * ready for Inno Setup compilation.
  */
 
 const fs = require("fs");
@@ -11,75 +12,115 @@ const { execSync } = require("child_process");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const DIST_DIR = path.join(ROOT_DIR, "dist-hub");
+const INSTALLER_DIR = path.join(ROOT_DIR, "installer");
 
 console.log("======================================================");
 console.log("  NSEI SUKUL: PACKAGING STANDALONE SCHOOL HUB (.EXE)  ");
 console.log("======================================================\n");
 
-// 1. Verify build exists or trigger build
-const standaloneDir = path.join(ROOT_DIR, ".next", "standalone");
-if (!fs.existsSync(standaloneDir)) {
-  console.log("Running Next.js standalone production build...");
-  execSync("npm run build", { stdio: "inherit", cwd: ROOT_DIR });
-} else {
-  console.log("Found existing .next/standalone bundle.");
+// 1. Generate multi-resolution app icons
+console.log("1. Generating branded app icons (app-icon.ico)...");
+try {
+  execSync("node scripts/generate-app-icon.js", { stdio: "inherit", cwd: ROOT_DIR });
+} catch (e) {
+  console.warn("Warning: Could not run generate-app-icon.js:", e.message);
 }
 
-// 2. Prepare clean distribution directory
-console.log("Preparing distribution directory:", DIST_DIR);
+// 2. Compile native C# Windows executable launcher (NseiSukulHub.exe)
+console.log("2. Compiling native Windows launcher (NseiSukulHub.exe)...");
+const cscPath = "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe";
+const csSource = path.join(INSTALLER_DIR, "NseiSukulHub.cs");
+const iconPath = path.join(INSTALLER_DIR, "app-icon.ico");
+const exeTarget = path.join(INSTALLER_DIR, "NseiSukulHub.exe");
+
+if (fs.existsSync(cscPath) && fs.existsSync(csSource)) {
+  const cscCmd = `"${cscPath}" /nologo /target:winexe /win32icon:"${iconPath}" /out:"${exeTarget}" "${csSource}"`;
+  execSync(cscCmd, { stdio: "inherit", cwd: INSTALLER_DIR });
+  console.log("Successfully compiled native launcher:", exeTarget);
+} else {
+  console.warn("CSC compiler or source not found; skipping native compilation.");
+}
+
+// 3. Verify standalone Next.js build
+const standaloneDir = path.join(ROOT_DIR, ".next", "standalone");
+if (!fs.existsSync(standaloneDir)) {
+  console.log("3. Running Next.js standalone production build...");
+  execSync("npm run build", { stdio: "inherit", cwd: ROOT_DIR });
+} else {
+  console.log("3. Found existing .next/standalone bundle.");
+}
+
+// 4. Prepare clean distribution directory
+console.log("4. Preparing distribution directory:", DIST_DIR);
 if (fs.existsSync(DIST_DIR)) {
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
 }
 fs.mkdirSync(DIST_DIR, { recursive: true });
 
-// Helper to copy directory recursively with symlink safety
+// Helper to copy directory recursively
 function copyDirSync(src, dest) {
-  try {
-    fs.cpSync(src, dest, { recursive: true, verbatimSymlinks: true, errorOnExist: false });
-  } catch {
-    // Fallback iteration
-    fs.mkdirSync(dest, { recursive: true });
-    const entries = fs.readdirSync(src, { withFileTypes: true });
-    for (const entry of entries) {
-      const srcPath = path.join(src, entry.name);
-      const destPath = path.join(dest, entry.name);
+  fs.mkdirSync(dest, { recursive: true });
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, destPath);
+    } else if (entry.isSymbolicLink()) {
       try {
-        if (entry.isDirectory()) {
-          copyDirSync(srcPath, destPath);
-        } else if (entry.isSymbolicLink()) {
-          const target = fs.readlinkSync(srcPath);
-          try { fs.symlinkSync(target, destPath); } catch {}
-        } else {
-          fs.copyFileSync(srcPath, destPath);
-        }
-      } catch {
-        // Skip uncopyable symlink metadata
-      }
+        const target = fs.readlinkSync(srcPath);
+        fs.symlinkSync(target, destPath);
+      } catch {}
+    } else {
+      fs.copyFileSync(srcPath, destPath);
     }
   }
 }
 
-// 3. Copy standalone server files
-console.log("Copying standalone production server files...");
+// 5. Copy standalone server files
+console.log("5. Copying standalone production server files...");
 copyDirSync(standaloneDir, DIST_DIR);
 
-// 4. Copy static assets (.next/static into dist-hub/.next/static)
+// 6. Copy static assets (.next/static into dist-hub/.next/static)
 const staticSrc = path.join(ROOT_DIR, ".next", "static");
 const staticDest = path.join(DIST_DIR, ".next", "static");
 if (fs.existsSync(staticSrc)) {
-  console.log("Copying .next/static client bundles...");
+  console.log("6. Copying .next/static client bundles...");
   copyDirSync(staticSrc, staticDest);
 }
 
-// 5. Copy public directory assets
+// 7. Copy public directory assets
 const publicSrc = path.join(ROOT_DIR, "public");
 const publicDest = path.join(DIST_DIR, "public");
 if (fs.existsSync(publicSrc)) {
-  console.log("Copying public web assets...");
+  console.log("7. Copying public web assets...");
   copyDirSync(publicSrc, publicDest);
 }
 
-// 6. Create production environment template (.env.production)
+// 8. Bundle portable Node.js runtime into dist-hub/runtime/node.exe
+console.log("8. Bundling portable Node.js runtime...");
+const runtimeDir = path.join(DIST_DIR, "runtime");
+fs.mkdirSync(runtimeDir, { recursive: true });
+const hostNode = process.execPath;
+const destNode = path.join(runtimeDir, "node.exe");
+if (fs.existsSync(hostNode)) {
+  fs.copyFileSync(hostNode, destNode);
+  console.log(`Bundled node runtime (${Math.round(fs.statSync(destNode).size / 1024 / 1024)} MB) to runtime/node.exe`);
+} else {
+  console.warn("Could not find host node.exe to bundle!");
+}
+
+// 9. Copy native executable launcher and launcher engine
+console.log("9. Installing launcher engine and executables...");
+if (fs.existsSync(exeTarget)) {
+  fs.copyFileSync(exeTarget, path.join(DIST_DIR, "NseiSukulHub.exe"));
+}
+fs.copyFileSync(path.join(ROOT_DIR, "scripts", "launcher.js"), path.join(DIST_DIR, "launcher.js"));
+if (fs.existsSync(iconPath)) {
+  fs.copyFileSync(iconPath, path.join(DIST_DIR, "app-icon.ico"));
+}
+
+// 10. Create production environment template (.env.production)
 const envContent = [
   "# Nsei Sukul School Hub Production Configuration",
   "NODE_ENV=production",
@@ -92,28 +133,19 @@ const envContent = [
 ].join("\n");
 fs.writeFileSync(path.join(DIST_DIR, ".env.production"), envContent, "utf8");
 
-// 7. Create silent Windows Background Runner (VBScript to avoid black command prompt)
-const vbsRunner = [
-  'Set WshShell = CreateObject("WScript.Shell")',
-  'WshShell.CurrentDirectory = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)',
-  'WshShell.Run "cmd /c node server.js", 0, False',
-].join("\r\n");
-fs.writeFileSync(path.join(DIST_DIR, "run-silent.vbs"), vbsRunner, "utf8");
-
-// 8. Create Windows Service & Launcher Batch
-const launcherBat = [
+// 11. Create diagnostic batch launcher for manual console view
+const consoleBat = [
   "@echo off",
-  "title Nsei Sukul School Hub",
+  "title Nsei Sukul School Hub (Diagnostic Console)",
   "cd /d \"%~dp0\"",
-  "set PORT=3000",
-  "set NODE_ENV=production",
-  "set NEXT_PUBLIC_HUB_MODE=true",
-  "node server.js",
+  "runtime\\node.exe launcher.js",
+  "pause",
 ].join("\r\n");
-fs.writeFileSync(path.join(DIST_DIR, "start-server.bat"), launcherBat, "utf8");
+fs.writeFileSync(path.join(DIST_DIR, "debug-console.bat"), consoleBat, "utf8");
 
 console.log("\n======================================================");
 console.log("  STANDALONE SCHOOL HUB PACKAGE READY IN: dist-hub/");
 console.log("======================================================");
-console.log("To launch the server locally: node dist-hub/server.js");
+console.log("Direct Native Launcher: dist-hub/NseiSukulHub.exe");
+console.log("Diagnostic Launcher:   dist-hub/debug-console.bat");
 console.log("To package into .exe: Run Inno Setup on installer/NseiSukulHubSetup.iss\n");

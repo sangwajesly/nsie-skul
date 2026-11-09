@@ -797,17 +797,17 @@ export function StudentDirectoryClient({
                         <input
                           type="text"
                           value={editForm.lastName}
-                          onChange={(e) => updateEditField("lastName", e.target.value)}
+                          onChange={(e) => updateEditField("lastName", e.target.value.toUpperCase())}
                           placeholder="e.g. FOMBAN or EMMANUEL"
                           required
-                          className={`w-full px-3 py-2 text-xs font-semibold rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                          className={`w-full px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-[5px] border bg-white focus:outline-none transition-colors ${
                             editFieldErrors.lastName
                               ? "border-red-400 focus:border-red-600 bg-red-50/20"
                               : "border-[#D5D5CF] focus:border-[#191919]"
                           }`}
                         />
                         <p className="text-[10px] text-[#777777] mt-0.5">
-                          Enter as written on the birth certificate.
+                          Enter as written on the birth certificate (automatically stored in caps).
                         </p>
                         {editFieldErrors.lastName && (
                           <p className="text-[11px] text-red-600 font-medium mt-1">
@@ -822,17 +822,17 @@ export function StudentDirectoryClient({
                         <input
                           type="text"
                           value={editForm.firstName}
-                          onChange={(e) => updateEditField("firstName", e.target.value)}
-                          placeholder="e.g. Elvis Chi or Marie Paule"
+                          onChange={(e) => updateEditField("firstName", e.target.value.toUpperCase())}
+                          placeholder="e.g. ELVIS CHI or MARIE PAULE"
                           required
-                          className={`w-full px-3 py-2 text-xs rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                          className={`w-full px-3 py-2 text-xs uppercase tracking-wide rounded-[5px] border bg-white focus:outline-none transition-colors ${
                             editFieldErrors.firstName
                               ? "border-red-400 focus:border-red-600 bg-red-50/20"
                               : "border-[#D5D5CF] focus:border-[#191919]"
                           }`}
                         />
                         <p className="text-[10px] text-[#777777] mt-0.5">
-                          Remaining names as written on the birth certificate.
+                          Remaining names as written on the birth certificate (automatically stored in caps).
                         </p>
                         {editFieldErrors.firstName && (
                           <p className="text-[11px] text-red-600 font-medium mt-1">
@@ -883,9 +883,9 @@ export function StudentDirectoryClient({
                   <input
                     type="text"
                     value={editForm.placeOfBirth}
-                    onChange={(e) => updateEditField("placeOfBirth", e.target.value)}
-                    placeholder="e.g. Bamenda, Bafoussam"
-                    className="w-full px-3 py-2 text-xs rounded-[5px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
+                    onChange={(e) => updateEditField("placeOfBirth", e.target.value.toUpperCase())}
+                    placeholder="e.g. BAMENDA, BAFOUSSAM"
+                    className="w-full px-3 py-2 text-xs uppercase tracking-wide rounded-[5px] border border-[#D5D5CF] bg-white focus:outline-none focus:border-[#191919]"
                   />
                   <p className="text-[10px] text-[#777777] mt-0.5">e.g. Born at Bamenda.</p>
                 </div>

@@ -13,6 +13,7 @@ import {
   Users,
   BookOpen,
   Filter,
+  Sparkles,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -109,6 +110,28 @@ export default async function StudentsPage({ searchParams }: StudentsPageProps) 
           </span>
         </div>
       </div>
+
+      {/* Non-Blocking School Growth Banner */}
+      {canManageStudents && context?.subscription?.isOverTier && (
+        <div className="p-3.5 rounded-[8px] bg-[#FFFBEB] border border-[#FCD34D] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#B45309] shrink-0" />
+            <span className="text-[#78350F]">
+              <strong>School Growth Notice:</strong> You have {context.subscription.enrolledCount} enrolled students ({context.subscription.tierName}). Your system remains 100% operational with zero disruption.
+            </span>
+          </div>
+          <a
+            href={`https://wa.me/237682833601?text=${encodeURIComponent(
+              `Hello Nsei Sukul Team, our school ${context.school.name} (${context.school.code || ""}) currently has ${context.subscription.enrolledCount} students. We would like to discuss our plan.`
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shrink-0 cursor-pointer"
+          >
+            <span>Discuss on WhatsApp</span>
+          </a>
+        </div>
+      )}
 
       {/* Unassigned Teacher Empty State */}
       {isTeacher && teacherAssignments.length === 0 && (

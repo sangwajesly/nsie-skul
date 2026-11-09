@@ -16,6 +16,7 @@ import {
   Loader2,
   ExternalLink,
   Zap,
+  Users,
 } from "lucide-react";
 import {
   initiateSchoolLicensePaymentAction,
@@ -205,6 +206,20 @@ export function SchoolBillingSubscription({
   );
   const whatsappUrl = `https://wa.me/237682833601?text=${whatsappMessage}`;
 
+  // Student Enrollment Capacity & Soft-Cap Buffer calculation
+  const enrolledCount = subscription?.enrolledCount ?? 0;
+  const maxStudents = subscription?.maxStudents ?? 300;
+  const bufferLimit = subscription?.bufferLimit ?? 330;
+  const tierName = subscription?.tierName ?? "Tier 1: Up to 300 students";
+  const isOverTier = subscription?.isOverTier ?? (enrolledCount > maxStudents);
+  const isInBuffer = subscription?.isInBuffer ?? (enrolledCount > maxStudents && enrolledCount <= bufferLimit);
+  const capacityPercent = maxStudents > 0 ? Math.min(100, Math.round((enrolledCount / maxStudents) * 100)) : 0;
+
+  const whatsappDiscussionMessage = encodeURIComponent(
+    `Hello Nsei Sukul Team, our school ${schoolName} (Code: ${schoolCode}) currently has ${enrolledCount} enrolled students on ${tierName}. We would like to discuss our plan and options.`
+  );
+  const whatsappDiscussionUrl = `https://wa.me/237682833601?text=${whatsappDiscussionMessage}`;
+
   return (
     <div className="space-y-6">
       {/* Verification Feedback Banners */}
@@ -247,6 +262,106 @@ export function SchoolBillingSubscription({
           </div>
         </div>
       )}
+
+      {/* ── 0. Student Capacity & Growth Soft-Cap Status ── */}
+      <div className="p-5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#F0EFEA]">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-[8px] border ${
+              isOverTier
+                ? "bg-[#FFF8CF] border-[#FBE6C2] text-[#7A5B00]"
+                : "bg-[#EAF7E4] border-[#BBF7D0] text-[#2A7C13]"
+            }`}>
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#142010]">
+                  Student Enrollment &amp; Tier Capacity
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#FAFAF8] text-[#555555] border border-[#E5E5DF]">
+                  {tierName}
+                </span>
+              </div>
+              <p className="text-xs text-[#525E4B] mt-0.5">
+                Tracks active student registrations against your annual institutional package
+              </p>
+            </div>
+          </div>
+
+          <div className="text-left sm:text-right">
+            <span className="text-xs text-[#788470]">Enrolled Students:</span>
+            <div className="text-base font-extrabold font-mono text-[#142010]">
+              {enrolledCount} <span className="text-xs font-normal text-[#788470]">/ {maxStudents >= 99999 ? "Unlimited" : `${maxStudents} plan limit`}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress Bar with 10% Grace Buffer Indicator */}
+        {maxStudents < 99999 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[#525E4B] font-medium">
+                Capacity: <strong className="text-[#142010]">{capacityPercent}%</strong>
+              </span>
+              <span className="text-[11px] text-[#2A7C13] font-semibold flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Includes +10% Grace Buffer (up to {bufferLimit} students)</span>
+              </span>
+            </div>
+
+            <div className="w-full h-3 rounded-full bg-[#EFEFEA] overflow-hidden relative">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isOverTier
+                    ? "bg-[#D97706]"
+                    : capacityPercent >= 85
+                    ? "bg-[#EAB308]"
+                    : "bg-[#2A7C13]"
+                }`}
+                style={{ width: `${Math.min(100, (enrolledCount / bufferLimit) * 100)}%` }}
+              />
+            </div>
+
+            <p className="text-[11px] text-[#788470]">
+              Our soft-cap policy guarantees your school is never locked out or interrupted when adding new students.
+            </p>
+          </div>
+        )}
+
+        {/* Growth Banner: If School Reached or Exceeded Tier (e.g. 305 students) */}
+        {isOverTier && (
+          <div className="p-4 rounded-[8px] bg-[#FFFBEB] border border-[#FCD34D] space-y-3">
+            <div className="flex items-start gap-3">
+              <Sparkles className="w-5 h-5 text-[#B45309] shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <h4 className="text-xs font-bold text-[#92400E]">
+                  Congratulations on your school&apos;s growth!
+                </h4>
+                <p className="text-xs text-[#78350F] leading-relaxed">
+                  Your school currently has <strong>{enrolledCount} enrolled students</strong>, which is slightly above your plan allowance ({maxStudents} students).
+                  Don&apos;t worry: your platform remains <strong>100% operational</strong> with zero disruption to marks or report cards.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <a
+                href={whatsappDiscussionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Discuss Plan on WhatsApp</span>
+              </a>
+              <span className="text-[11px] text-[#92400E]">
+                We offer fair, prorated upgrades and custom allowances tailored to your school.
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 1. License Overview Banner */}
       <div className="p-5 rounded-[10px] bg-white border border-[#E8DFC9] shadow-2xs space-y-4">

@@ -8,6 +8,12 @@ export interface SchoolSubscriptionInfo {
   isExpired: boolean;
   isTrial: boolean;
   daysRemaining: number;
+  enrolledCount?: number;
+  maxStudents?: number;
+  bufferLimit?: number;
+  tierName?: string;
+  isOverTier?: boolean;
+  isInBuffer?: boolean;
 }
 
 export interface ActiveTenantContext {

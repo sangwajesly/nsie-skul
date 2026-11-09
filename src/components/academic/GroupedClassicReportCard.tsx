@@ -27,7 +27,7 @@ function formatRank(rank: number | null | undefined, total: number, subsystem?: 
   if (!rank) return "-";
   if (subsystem === "francophone") {
     const suffix = rank === 1 ? "er" : "e";
-    return `${rank}${suffix} / ${total}`;
+    return `${rank}${suffix}\u00A0/\u00A0${total}`;
   }
   const j = rank % 10;
   const k = rank % 100;
@@ -35,7 +35,7 @@ function formatRank(rank: number | null | undefined, total: number, subsystem?: 
   if (j === 1 && k !== 11) suffix = "st";
   else if (j === 2 && k !== 12) suffix = "nd";
   else if (j === 3 && k !== 13) suffix = "rd";
-  return `${rank}${suffix} / ${total}`;
+  return `${rank}${suffix}\u00A0/\u00A0${total}`;
 }
 
 export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps) {
@@ -522,17 +522,17 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
               </td>
               <td className="py-1 px-1 font-mono text-[10.5px]">{summary.totalCoef}</td>
               <td className="py-1 px-1 font-mono text-[10.5px]">{summary.totalWeightedScore.toFixed(1)}</td>
-              <td colSpan={5} className="py-1 px-2 text-left bg-zinc-300/80">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="uppercase text-[9px] font-bold">TERM AVERAGE / MOYENNE TRIMESTRIELLE:</span>{" "}
-                    <span className="font-extrabold text-[12px] font-mono text-black ml-1">
-                      {summary.studentAverage.toFixed(2)} / 20.00
+              <td colSpan={5} className="py-1 px-2 text-left bg-zinc-300/80 whitespace-nowrap">
+                <div className="flex items-center justify-between gap-1.5 whitespace-nowrap">
+                  <div className="flex items-center whitespace-nowrap shrink-0">
+                    <span className="uppercase text-[8.5px] font-extrabold tracking-tight">TERM AVERAGE / MOYENNE:</span>{" "}
+                    <span className="font-extrabold text-[11px] font-mono text-black ml-1 whitespace-nowrap">
+                      {summary.studentAverage.toFixed(2)}&nbsp;/&nbsp;20.00
                     </span>
                   </div>
                   {summary.rankingEnabled && summary.rank && summary.totalSubjects > 0 && (
-                    <span className="px-2 py-0.5 rounded bg-black text-white text-[9px] font-mono font-bold">
-                      RANK: {formatRank(summary.rank, totalCount, school.subsystem)}
+                    <span className="px-1.5 py-0.5 rounded bg-black text-white text-[8.5px] font-mono font-bold whitespace-nowrap shrink-0">
+                      RANK:&nbsp;{formatRank(summary.rank, totalCount, school.subsystem)}
                     </span>
                   )}
                 </div>
@@ -552,16 +552,16 @@ export function GroupedClassicReportCard({ data }: GroupedClassicReportCardProps
           <div className="space-y-1 divide-y divide-black/20 text-[9px]">
             <div className="flex justify-between pt-0.5">
               <span className="text-zinc-700">First sequence average:</span>
-              <span className="font-mono font-bold">
+              <span className="font-mono font-bold whitespace-nowrap">
                 {summary.seqAAverage !== null && summary.seqAAverage !== undefined
-                  ? `${summary.seqAAverage.toFixed(2)} / 20`
+                  ? `${summary.seqAAverage.toFixed(2)}\u00A0/\u00A020`
                   : "-"}
               </span>
             </div>
             <div className="flex justify-between pt-0.5 font-bold text-[10.5px] text-black">
               <span>Term average / Moyenne:</span>
-              <span className="font-mono underline font-extrabold">
-                {summary.studentAverage.toFixed(2)} / 20
+              <span className="font-mono underline font-extrabold whitespace-nowrap">
+                {summary.studentAverage.toFixed(2)}&nbsp;/&nbsp;20
               </span>
             </div>
             <div className="flex justify-between pt-0.5">

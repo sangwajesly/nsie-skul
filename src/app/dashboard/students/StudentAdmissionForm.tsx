@@ -485,17 +485,17 @@ export function StudentAdmissionForm({
                         type="text"
                         name="lastName"
                         value={formData.lastName}
-                        onChange={(e) => updateField("lastName", e.target.value)}
+                        onChange={(e) => updateField("lastName", e.target.value.toUpperCase())}
                         placeholder="e.g. FOMBAN or EMMANUEL"
                         required
-                        className={`w-full px-3 py-2 text-[12px] font-semibold rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                        className={`w-full px-3 py-2 text-[12px] font-semibold uppercase tracking-wide rounded-[5px] border bg-white focus:outline-none transition-colors ${
                           fieldErrors.lastName
                             ? "border-red-400 focus:border-red-600 bg-red-50/20"
                             : "border-[#D5D5CF] focus:border-[#191919]"
                         }`}
                       />
                       <p className="text-[10px] text-[#777777] mt-1">
-                        Enter as written on the student&apos;s birth certificate.
+                        Enter as written on the student&apos;s birth certificate (automatically stored in caps).
                       </p>
                       {fieldErrors.lastName && (
                         <p className="text-[11px] text-red-600 font-medium mt-1">
@@ -515,17 +515,17 @@ export function StudentAdmissionForm({
                         type="text"
                         name="firstName"
                         value={formData.firstName}
-                        onChange={(e) => updateField("firstName", e.target.value)}
-                        placeholder="e.g. Elvis Chi or Marie Paule"
+                        onChange={(e) => updateField("firstName", e.target.value.toUpperCase())}
+                        placeholder="e.g. ELVIS CHI or MARIE PAULE"
                         required
-                        className={`w-full px-3 py-2 text-[12px] rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                        className={`w-full px-3 py-2 text-[12px] uppercase tracking-wide rounded-[5px] border bg-white focus:outline-none transition-colors ${
                           fieldErrors.firstName
                             ? "border-red-400 focus:border-red-600 bg-red-50/20"
                             : "border-[#D5D5CF] focus:border-[#191919]"
                         }`}
                       />
                       <p className="text-[10px] text-[#777777] mt-1">
-                        Remaining names as written on the birth certificate.
+                        Remaining names as written on the birth certificate (automatically stored in caps).
                       </p>
                       {fieldErrors.firstName && (
                         <p className="text-[11px] text-red-600 font-medium mt-1">
@@ -638,9 +638,9 @@ export function StudentAdmissionForm({
                   type="text"
                   name="placeOfBirth"
                   value={formData.placeOfBirth}
-                  onChange={(e) => updateField("placeOfBirth", e.target.value)}
-                  placeholder="e.g. Bamenda, Bafoussam"
-                  className={`w-full px-3 py-2 text-[12px] rounded-[5px] border bg-white focus:outline-none transition-colors ${
+                  onChange={(e) => updateField("placeOfBirth", e.target.value.toUpperCase())}
+                  placeholder="e.g. BAMENDA, BAFOUSSAM"
+                  className={`w-full px-3 py-2 text-[12px] uppercase tracking-wide rounded-[5px] border bg-white focus:outline-none transition-colors ${
                     fieldErrors.placeOfBirth
                       ? "border-red-400 focus:border-red-600 bg-red-50/20"
                       : "border-[#D5D5CF] focus:border-[#191919]"

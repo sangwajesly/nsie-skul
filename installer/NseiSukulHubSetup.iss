@@ -1,11 +1,11 @@
 ; Nsei Sukul: School Hub Windows Installer Configuration
-; Created for Inno Setup (produces NseiSukulHubSetup.exe)
+; Created for Inno Setup 6 (produces NseiSukulHubSetup.exe)
 
 #define MyAppName "Nsei Sukul School Hub"
 #define MyAppVersion "1.2.0"
 #define MyAppPublisher "Nsei Sukul Technologies"
 #define MyAppURL "https://nsei-sukul.klarifypath.com"
-#define MyAppExeName "start-server.bat"
+#define MyAppExeName "NseiSukulHub.exe"
 
 [Setup]
 AppId={{D37E6B81-54E1-4FA3-899C-A2E8BC96DF41}
@@ -20,7 +20,7 @@ DisableProgramGroupPage=yes
 LicenseFile=
 OutputDir=..\public\downloads
 OutputBaseFilename=NseiSukulHubSetup
-SetupIconFile=..\public\favicon.ico
+SetupIconFile=app-icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -31,26 +31,27 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "autostart"; Description: "Start School Hub automatically when Windows turns on"; GroupDescription: "Startup Options:"; Flags: unchecked
 Name: "desktopicon"; Description: "Create a Desktop shortcut"; GroupDescription: "Additional Icons:"
+Name: "autostart"; Description: "Start School Hub automatically when Windows starts"; GroupDescription: "Startup Options:"; Flags: unchecked
 
 [Files]
-; Copy all files packaged in dist-hub
+; Distribute all files bundled in dist-hub
 Source: "..\dist-hub\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "app-icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\run-silent.vbs"; IconFilename: "{app}\public\favicon.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\run-silent.vbs"; IconFilename: "{app}\public\favicon.ico"; Tasks: desktopicon
-Name: "{autostartup}\{#MyAppName}"; Filename: "{app}\run-silent.vbs"; Tasks: autostart
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app-icon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app-icon.ico"; Tasks: desktopicon
+Name: "{autostartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: autostart
 
 [Run]
-; Add Windows Firewall rule for incoming Wi-Fi connections on Port 3000
-Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""Nsei Sukul School Hub"" dir=in action=allow protocol=TCP localport=3000"; Flags: runhidden
-; Launch the silent service upon installation finish
-Filename: "{app}\run-silent.vbs"; Description: "Launch Nsei Sukul School Hub now"; Flags: postinstall shellexec skipifsilent
+; Add Windows Firewall rule for incoming Wi-Fi / LAN connections on Ports 3000-3010
+Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""Nsei Sukul School Hub"" dir=in action=allow protocol=TCP localport=3000-3010"; Flags: runhidden
+; Launch the application upon installation finish
+Filename: "{app}\{#MyAppExeName}"; Description: "Launch Nsei Sukul School Hub now"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
-; Remove Windows Firewall rule upon uninstall
+; Clean up Windows Firewall rule upon uninstall
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""Nsei Sukul School Hub"""; Flags: runhidden; RunOnceId: "DelHubFwRule"
 
 [Code]

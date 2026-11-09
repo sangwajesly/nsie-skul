@@ -47,8 +47,13 @@ export function ClassListModal({
   const [mode, setMode] = useState<ListMode>("official");
   const [selectedStreamId, setSelectedStreamId] = useState<string>(defaultStreamId);
   const [genderFilter, setGenderFilter] = useState<"all" | "M" | "F">("all");
-  const [includeParentContact, setIncludeParentContact] = useState<boolean>(true);
-  const [includeDateOfBirth, setIncludeDateOfBirth] = useState<boolean>(true);
+  const [includeMatricule, setIncludeMatricule] = useState<boolean>(true);
+  const [includeSex, setIncludeSex] = useState<boolean>(true);
+  const [includeDateOfBirth, setIncludeDateOfBirth] = useState<boolean>(false);
+  const [includePlaceOfBirth, setIncludePlaceOfBirth] = useState<boolean>(false);
+  const [includeStatus, setIncludeStatus] = useState<boolean>(true);
+  const [includeRepeater, setIncludeRepeater] = useState<boolean>(true);
+  const [includeParentContact, setIncludeParentContact] = useState<boolean>(false);
   const [includeSignatures, setIncludeSignatures] = useState<boolean>(true);
 
   // Synchronize default stream when modal opens
@@ -124,37 +129,41 @@ export function ClassListModal({
   // CSV Export execution
   const handleExportCsv = () => {
     const streamName = activeStream ? activeStream.name : "All_Classes";
-    const headers = [
-      "No",
-      "Matricule",
-      "Last Name",
-      "First Name",
-      "Class Group",
-      "Gender",
-      "Date of Birth",
-      "Place of Birth",
-      "Residence",
-      "Repeater",
-      "Guardian Name",
-      "Guardian Phone",
-      "Status",
-    ];
+    const headers = ["No"];
+    if (includeMatricule) headers.push("Matricule");
+    headers.push("Last Name", "First Name", "Class Group");
+    if (includeSex) headers.push("Gender");
+    if (includeDateOfBirth) headers.push("Date of Birth");
+    if (includePlaceOfBirth) headers.push("Place of Birth");
+    if (includeStatus) headers.push("Residence");
+    if (includeRepeater) headers.push("Repeater");
+    if (includeParentContact && mode !== "notice_board") headers.push("Guardian Name", "Guardian Phone");
+    headers.push("Status");
 
-    const rows = filteredStudents.map((e, idx) => [
-      idx + 1,
-      `"${e.student?.matricule || ""}"`,
-      `"${(e.student?.last_name || "").replace(/"/g, '""')}"`,
-      `"${(e.student?.first_name || "").replace(/"/g, '""')}"`,
-      `"${(e.class_stream?.name || streamName).replace(/"/g, '""')}"`,
-      e.student?.gender || "M",
-      e.student?.date_of_birth || "",
-      `"${(e.student?.place_of_birth || "").replace(/"/g, '""')}"`,
-      e.student?.residence_status === "boarding" ? "Boarding" : "Day",
-      e.is_repeater || e.student?.is_repeater ? "Yes" : "No",
-      `"${(e.student?.guardian_name || "").replace(/"/g, '""')}"`,
-      `"${e.student?.guardian_phone || ""}"`,
-      e.student?.status || e.status || "active",
-    ]);
+    const rows = filteredStudents.map((e, idx) => {
+      const isRep = e.is_repeater || e.student?.is_repeater;
+      const isBoarder = e.student?.residence_status === "boarding";
+      const row: (string | number)[] = [idx + 1];
+      if (includeMatricule) row.push(`"${e.student?.matricule || ""}"`);
+      row.push(
+        `"${(e.student?.last_name || "").replace(/"/g, '""')}"`,
+        `"${(e.student?.first_name || "").replace(/"/g, '""')}"`,
+        `"${(e.class_stream?.name || streamName).replace(/"/g, '""')}"`
+      );
+      if (includeSex) row.push(e.student?.gender || "M");
+      if (includeDateOfBirth) row.push(e.student?.date_of_birth || "");
+      if (includePlaceOfBirth) row.push(`"${(e.student?.place_of_birth || "").replace(/"/g, '""')}"`);
+      if (includeStatus) row.push(isBoarder ? "Boarding" : "Day");
+      if (includeRepeater) row.push(isRep ? "Yes" : "No");
+      if (includeParentContact && mode !== "notice_board") {
+        row.push(
+          `"${(e.student?.guardian_name || "").replace(/"/g, '""')}"`,
+          `"${e.student?.guardian_phone || ""}"`
+        );
+      }
+      row.push(e.student?.status || e.status || "active");
+      return row;
+    });
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -326,40 +335,96 @@ export function ClassListModal({
           </div>
         </div>
 
-        {/* Options Row */}
-        <div className="max-w-6xl mx-auto mt-2 pt-2 border-t border-[#F5EFE0] flex flex-wrap items-center gap-4 text-[11px] text-[#525E4B]">
-          <span className="font-semibold text-[#142010]">Toggles:</span>
+        {/* Customizable Columns Toolbar */}
+        <div className="max-w-6xl mx-auto mt-2 pt-2 border-t border-[#F5EFE0] flex flex-wrap items-center gap-x-4 gap-y-2 text-[11px] text-[#525E4B]">
+          <span className="font-bold text-[#142010] shrink-0">Customize Columns:</span>
+          
+          <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeMatricule}
+              onChange={(e) => setIncludeMatricule(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+            />
+            <span>Matricule</span>
+          </label>
+
+          <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={includeSex}
+              onChange={(e) => setIncludeSex(e.target.checked)}
+              className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+            />
+            <span>Sex</span>
+          </label>
+
           {mode !== "attendance" && (
-            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeParentContact}
-                onChange={(e) => setIncludeParentContact(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
-              />
-              <span>Guardian Phone</span>
-            </label>
+            <>
+              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none" title="Compact date of birth column">
+                <input
+                  type="checkbox"
+                  checked={includeDateOfBirth}
+                  onChange={(e) => setIncludeDateOfBirth(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+                />
+                <span>Date of Birth</span>
+              </label>
+
+              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includePlaceOfBirth}
+                  onChange={(e) => setIncludePlaceOfBirth(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+                />
+                <span>Place of Birth</span>
+              </label>
+
+              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeStatus}
+                  onChange={(e) => setIncludeStatus(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+                />
+                <span>Residence (Statut)</span>
+              </label>
+
+              <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={includeRepeater}
+                  onChange={(e) => setIncludeRepeater(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+                />
+                <span>Repeater (Red.)</span>
+              </label>
+
+              {mode !== "notice_board" && (
+                <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={includeParentContact}
+                    onChange={(e) => setIncludeParentContact(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
+                  />
+                  <span>Guardian Contact</span>
+                </label>
+              )}
+            </>
           )}
-          {mode !== "attendance" && (
-            <label className="inline-flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={includeDateOfBirth}
-                onChange={(e) => setIncludeDateOfBirth(e.target.checked)}
-                className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
-              />
-              <span>Date &amp; Place of Birth</span>
-            </label>
-          )}
-          <label className="inline-flex items-center gap-1.5 cursor-pointer">
+
+          <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
             <input
               type="checkbox"
               checked={includeSignatures}
               onChange={(e) => setIncludeSignatures(e.target.checked)}
               className="w-3.5 h-3.5 rounded border-[#D5D5CF] text-[#2A7C13] focus:ring-[#2A7C13] accent-[#2A7C13]"
             />
-            <span>Official Signatures</span>
+            <span>Signatures</span>
           </label>
+
           <span className="ml-auto font-mono text-[#2A7C13] font-semibold">
             {totalCount} student{totalCount === 1 ? "" : "s"} listed (M: {maleCount}, F: {femaleCount})
           </span>
@@ -375,7 +440,7 @@ export function ClassListModal({
               {/* Left Column: English Header */}
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wider text-[10.5px]">Republic of Cameroon</p>
-                <p className="italic text-[9.5px]">Peace – Work – Fatherland</p>
+                <p className="italic text-[9.5px]">Peace - Work - Fatherland</p>
                 <p className="font-semibold uppercase text-[9px] text-[#525E4B]">Ministry of Secondary Education</p>
                 <p className="text-[9px] text-[#525E4B]">Regional Delegation</p>
               </div>
@@ -408,7 +473,7 @@ export function ClassListModal({
               {/* Right Column: French Header */}
               <div className="space-y-0.5">
                 <p className="font-extrabold uppercase tracking-wider text-[10.5px]">République du Cameroun</p>
-                <p className="italic text-[9.5px]">Paix – Travail – Patrie</p>
+                <p className="italic text-[9.5px]">Paix - Travail - Patrie</p>
                 <p className="font-semibold uppercase text-[9px] text-[#525E4B]">Ministère des Enseignements Secondaires</p>
                 <p className="text-[9px] text-[#525E4B]">Délégation Régionale</p>
               </div>
@@ -441,7 +506,7 @@ export function ClassListModal({
               <div>
                 <span className="text-[10px] uppercase font-bold text-[#788470] block">Class Master (Titulaire)</span>
                 <span className="text-[#142010]">
-                  {activeStream?.class_master?.full_name || "—"}
+                  {activeStream?.class_master?.full_name || "N/A"}
                 </span>
               </div>
               <div>
@@ -480,11 +545,15 @@ export function ClassListModal({
                 <thead>
                   <tr className="bg-[#F5EFE0] print:bg-gray-100 text-[#142010] font-bold border-b border-[#142010]">
                     <th className="border border-[#142010] py-1.5 px-1 w-8 text-center">#</th>
-                    <th className="border border-[#142010] py-1.5 px-2 w-24 text-left">Matricule</th>
+                    {includeMatricule && (
+                      <th className="border border-[#142010] py-1.5 px-2 w-24 text-left font-mono">Matricule</th>
+                    )}
                     <th className="border border-[#142010] py-1.5 px-2 text-left min-w-[160px]">
                       Student Name (Nom et Prénom)
                     </th>
-                    <th className="border border-[#142010] py-1.5 px-1 w-8 text-center">Sex</th>
+                    {includeSex && (
+                      <th className="border border-[#142010] py-1.5 px-1 w-8 text-center">Sex</th>
+                    )}
                     {/* 20 Checkbox / Daily test score columns */}
                     {Array.from({ length: 20 }).map((_, i) => (
                       <th
@@ -507,16 +576,20 @@ export function ClassListModal({
                       <td className="border border-[#142010] py-1 px-1 text-center font-semibold text-[#525E4B]">
                         {idx + 1}
                       </td>
-                      <td className="border border-[#142010] py-1 px-2 font-mono text-[9px] text-[#142010]">
-                        {enrol.student?.matricule || "N/A"}
-                      </td>
+                      {includeMatricule && (
+                        <td className="border border-[#142010] py-1 px-2 font-mono text-[9px] text-[#142010]">
+                          {enrol.student?.matricule || "N/A"}
+                        </td>
+                      )}
                       <td className="border border-[#142010] py-1 px-2 font-medium text-[#142010] truncate">
                         <strong className="uppercase">{enrol.student?.last_name}</strong>{" "}
                         <span>{enrol.student?.first_name}</span>
                       </td>
-                      <td className="border border-[#142010] py-1 px-1 text-center font-bold text-[#142010]">
-                        {enrol.student?.gender || "M"}
-                      </td>
+                      {includeSex && (
+                        <td className="border border-[#142010] py-1 px-1 text-center font-bold text-[#142010]">
+                          {enrol.student?.gender || "M"}
+                        </td>
+                      )}
                       {Array.from({ length: 20 }).map((_, i) => (
                         <td key={i} className="border border-[#142010] py-1 px-0.5 text-center">
                           &nbsp;
@@ -536,22 +609,35 @@ export function ClassListModal({
                 <thead>
                   <tr className="bg-[#F5EFE0] print:bg-gray-100 text-[#142010] font-bold border-b-2 border-[#142010]">
                     <th className="border border-[#142010] py-1.5 px-1.5 w-9 text-center">N°</th>
-                    <th className="border border-[#142010] py-1.5 px-2 w-28 text-left">Matricule</th>
-                    <th className="border border-[#142010] py-1.5 px-2 text-left">
+                    {includeMatricule && (
+                      <th className="border border-[#142010] py-1.5 px-2 w-24 text-left font-mono text-[9.5px]">Matricule</th>
+                    )}
+                    <th className="border border-[#142010] py-1.5 px-3 text-left w-auto min-w-[200px]">
                       Student Full Name (Noms et Prénoms)
                     </th>
-                    <th className="border border-[#142010] py-1.5 px-1.5 w-10 text-center">Sex</th>
+                    {includeSex && (
+                      <th className="border border-[#142010] py-1.5 px-1.5 w-10 text-center">Sex</th>
+                    )}
                     {includeDateOfBirth && (
-                      <th className="border border-[#142010] py-1.5 px-2 w-44 text-left">
-                        Date &amp; Place of Birth
+                      <th className="border border-[#142010] py-1.5 px-2 w-24 text-center">
+                        Date of Birth
                       </th>
                     )}
-                    <th className="border border-[#142010] py-1.5 px-1.5 w-16 text-center">Statut</th>
-                    <th className="border border-[#142010] py-1.5 px-1.5 w-12 text-center" title="Redoublant / Repeater">
-                      Red.
-                    </th>
+                    {includePlaceOfBirth && (
+                      <th className="border border-[#142010] py-1.5 px-2 w-28 text-left">
+                        Place of Birth
+                      </th>
+                    )}
+                    {includeStatus && (
+                      <th className="border border-[#142010] py-1.5 px-1.5 w-16 text-center">Statut</th>
+                    )}
+                    {includeRepeater && (
+                      <th className="border border-[#142010] py-1.5 px-1.5 w-12 text-center" title="Redoublant / Repeater">
+                        Red.
+                      </th>
+                    )}
                     {includeParentContact && mode !== "notice_board" && (
-                      <th className="border border-[#142010] py-1.5 px-2 w-48 text-left">
+                      <th className="border border-[#142010] py-1.5 px-2 w-44 text-left">
                         Guardian &amp; Phone Contact
                       </th>
                     )}
@@ -569,35 +655,44 @@ export function ClassListModal({
                         <td className="border border-[#142010] py-1.5 px-1.5 text-center font-bold text-[#525E4B]">
                           {idx + 1}
                         </td>
-                        <td className="border border-[#142010] py-1.5 px-2 font-mono text-[9.5px] font-semibold text-[#142010]">
-                          {enrol.student?.matricule || "N/A"}
-                        </td>
-                        <td className="border border-[#142010] py-1.5 px-2 text-[#142010]">
+                        {includeMatricule && (
+                          <td className="border border-[#142010] py-1.5 px-2 font-mono text-[9.5px] font-semibold text-[#142010]">
+                            {enrol.student?.matricule || "N/A"}
+                          </td>
+                        )}
+                        <td className="border border-[#142010] py-1.5 px-3 text-[#142010]">
                           <strong className="uppercase font-bold">{enrol.student?.last_name}</strong>{" "}
                           <span>{enrol.student?.first_name}</span>
                         </td>
-                        <td className="border border-[#142010] py-1.5 px-1.5 text-center font-bold text-[#142010]">
-                          {enrol.student?.gender || "M"}
-                        </td>
-                        {includeDateOfBirth && (
-                          <td className="border border-[#142010] py-1.5 px-2 text-[9.5px] text-[#525E4B]">
-                            {enrol.student?.date_of_birth
-                              ? `${enrol.student.date_of_birth}${
-                                  enrol.student.place_of_birth ? ` in ${enrol.student.place_of_birth}` : ""
-                                }`
-                              : "—"}
+                        {includeSex && (
+                          <td className="border border-[#142010] py-1.5 px-1.5 text-center font-bold text-[#142010]">
+                            {enrol.student?.gender || "M"}
                           </td>
                         )}
-                        <td className="border border-[#142010] py-1.5 px-1.5 text-center text-[9.5px] font-semibold">
-                          {isBoarder ? "Interne" : "Externe"}
-                        </td>
-                        <td className="border border-[#142010] py-1.5 px-1.5 text-center text-[9.5px] font-semibold">
-                          {isRep ? (
-                            <span className="text-[#B45309] font-bold">R</span>
-                          ) : (
-                            <span className="text-[#2A7C13]">N</span>
-                          )}
-                        </td>
+                        {includeDateOfBirth && (
+                          <td className="border border-[#142010] py-1.5 px-2 text-[9px] text-center font-mono text-[#525E4B]">
+                            {enrol.student?.date_of_birth || "-"}
+                          </td>
+                        )}
+                        {includePlaceOfBirth && (
+                          <td className="border border-[#142010] py-1.5 px-2 text-[9.5px] text-[#525E4B] truncate">
+                            {enrol.student?.place_of_birth || "-"}
+                          </td>
+                        )}
+                        {includeStatus && (
+                          <td className="border border-[#142010] py-1.5 px-1.5 text-center text-[9.5px] font-semibold">
+                            {isBoarder ? "Interne" : "Externe"}
+                          </td>
+                        )}
+                        {includeRepeater && (
+                          <td className="border border-[#142010] py-1.5 px-1.5 text-center text-[9.5px] font-semibold">
+                            {isRep ? (
+                              <span className="text-[#B45309] font-bold">R</span>
+                            ) : (
+                              <span className="text-[#2A7C13]">N</span>
+                            )}
+                          </td>
+                        )}
                         {includeParentContact && mode !== "notice_board" && (
                           <td className="border border-[#142010] py-1.5 px-2 text-[9.5px] text-[#142010]">
                             {enrol.student?.guardian_name ? (
@@ -608,7 +703,7 @@ export function ClassListModal({
                                 )}
                               </div>
                             ) : (
-                              <span className="text-[#788470]">—</span>
+                              <span className="text-[#788470]">-</span>
                             )}
                           </td>
                         )}

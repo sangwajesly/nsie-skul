@@ -225,9 +225,9 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     }
   }
 
-  // 5. Dynamic Dual-Role Resolution & Subscription Status:
+  // 5. Dynamic Dual-Role Resolution, Subscription Status & Student Capacity:
   const adminClient = createAdminClient();
-  const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }] =
+  const [{ data: masteredStreams }, { data: hodDepartments }, { data: subData }, { count: enrolledCount }] =
     await Promise.all([
       supabase
         .from("class_streams")
@@ -245,6 +245,11 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
         .select("*")
         .eq("school_id", activeSchool.id)
         .maybeSingle(),
+      adminClient
+        .from("enrolments")
+        .select("id", { count: "exact", head: true })
+        .eq("school_id", activeSchool.id)
+        .eq("status", "active"),
     ]);
 
   // Compute subscription state
@@ -283,14 +288,47 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
     daysRemaining = 0;
   }
 
+  // Tier student limits & grace buffer (10% overage allowed without disruption)
+  const activePlan = subData?.plan || "pilot";
+  let maxStudents = 300;
+  let tierName = "Tier 1: Up to 300 students";
+
+  if (activePlan === "tier_1") {
+    maxStudents = 300;
+    tierName = "Tier 1: Up to 300 students";
+  } else if (activePlan === "tier_2" || activePlan === "standard") {
+    maxStudents = 750;
+    tierName = "Tier 2: 301 to 750 students";
+  } else if (activePlan === "tier_3" || activePlan === "premium") {
+    maxStudents = 1500;
+    tierName = "Tier 3: 751 to 1,500 students";
+  } else if (activePlan === "tier_4" || activePlan === "custom") {
+    maxStudents = 99999;
+    tierName = "Tier 4: 1,501+ students";
+  } else {
+    maxStudents = 300;
+    tierName = subStatus === "trial" ? "30-Day Free Trial (Up to 300 students)" : "Pilot Plan (Up to 300 students)";
+  }
+
+  const actualEnrolled = enrolledCount || 0;
+  const bufferLimit = Math.round(maxStudents * 1.10); // 10% grace buffer (e.g. 330)
+  const isOverTier = actualEnrolled > maxStudents;
+  const isInBuffer = actualEnrolled > maxStudents && actualEnrolled <= bufferLimit;
+
   const subscription: SchoolSubscriptionInfo = {
     status: subStatus,
-    plan: subData?.plan || "pilot",
+    plan: activePlan,
     trialEndsAt,
     currentPeriodEnd,
     isExpired,
     isTrial: subStatus === "trial",
     daysRemaining,
+    enrolledCount: actualEnrolled,
+    maxStudents,
+    bufferLimit,
+    tierName,
+    isOverTier,
+    isInBuffer,
   };
 
   const isClassMaster = Boolean(masteredStreams && masteredStreams.length > 0);

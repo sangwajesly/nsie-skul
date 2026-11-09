@@ -31,7 +31,7 @@ function formatRank(rank: number | null | undefined, total: number, subsystem?: 
   if (!rank) return "-";
   if (subsystem === "francophone") {
     const suffix = rank === 1 ? "er" : "e";
-    return `${rank}${suffix} / ${total}`;
+    return `${rank}${suffix}\u00A0/\u00A0${total}`;
   }
   const j = rank % 10;
   const k = rank % 100;
@@ -39,7 +39,7 @@ function formatRank(rank: number | null | undefined, total: number, subsystem?: 
   if (j === 1 && k !== 11) suffix = "st";
   else if (j === 2 && k !== 12) suffix = "nd";
   else if (j === 3 && k !== 13) suffix = "rd";
-  return `${rank}${suffix} / ${total}`;
+  return `${rank}${suffix}\u00A0/\u00A0${total}`;
 }
 
 export function TraditionalReportCard({ data }: TraditionalReportCardProps) {

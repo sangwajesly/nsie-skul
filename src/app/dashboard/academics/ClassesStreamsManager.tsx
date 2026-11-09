@@ -192,10 +192,10 @@ export function ClassesStreamsManager({
             <button
               type="button"
               onClick={() => setShowAddClassForm((p) => !p)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-[5px] bg-[#191919] hover:bg-[#333333] text-white transition-colors shadow-2xs shrink-0 cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-all shadow-xs shrink-0 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>{showAddClassForm ? "Close Form" : "Add Class Level"}</span>
+              <span>{showAddClassForm ? "Close Form" : "+ Add Class Level"}</span>
             </button>
           )}
         </div>

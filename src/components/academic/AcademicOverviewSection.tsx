@@ -135,6 +135,25 @@ export function AcademicOverviewSection({ initialData, canPrintCertificates = fa
     return sorted[0];
   }, [subjectLaureates]);
 
+  // Best Male and Best Female Student across the entire school
+  const bestMale = useMemo(() => {
+    if (!data.allRankedStudents || data.allRankedStudents.length === 0) return null;
+    return (
+      data.allRankedStudents.find(
+        (s) => (s.gender || "").toUpperCase() === "M" || (s.gender || "").toUpperCase() === "MALE"
+      ) || null
+    );
+  }, [data.allRankedStudents]);
+
+  const bestFemale = useMemo(() => {
+    if (!data.allRankedStudents || data.allRankedStudents.length === 0) return null;
+    return (
+      data.allRankedStudents.find(
+        (s) => (s.gender || "").toUpperCase() === "F" || (s.gender || "").toUpperCase() === "FEMALE"
+      ) || null
+    );
+  }, [data.allRankedStudents]);
+
   return (
     <section className="bg-white border border-[#E5E5DF] rounded-[12px] p-5 sm:p-6 space-y-6 shadow-xs print:border-none print:shadow-none print:p-0">
       {/* ── Top Header & Sequence Switcher ─────────────────────────────────── */}
@@ -354,6 +373,162 @@ export function AcademicOverviewSection({ initialData, canPrintCertificates = fa
                   {overallKpis.lowestAverage.toFixed(1)} to {overallKpis.highestAverage.toFixed(1)} / 20
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* ── SCHOOL ACADEMIC CHAMPIONS & BEST PERFORMING SUBJECT ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            {/* 1. Best Performing Subject */}
+            <div className="rounded-[8px] border border-[#C5E8BB] bg-[#F7FCF5] p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#2A7C13] flex items-center gap-1.5">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>Best Performing Subject</span>
+                  </span>
+                  {topSubject && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EAF7E4] text-[#1E600E] border border-[#76C457]/40">
+                      {topSubject.passRate}% Pass Rate
+                    </span>
+                  )}
+                </div>
+
+                {topSubject ? (
+                  <>
+                    <div className="font-extrabold text-base text-[#142010] flex items-center gap-2">
+                      <span>{topSubject.subjectName}</span>
+                      {topSubject.subjectCode && (
+                        <span className="text-[11px] font-mono font-semibold px-1.5 py-0.2 rounded bg-white border border-[#C5E8BB] text-[#2A7C13]">
+                          {topSubject.subjectCode}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-[#525E4B] space-y-1.5">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span>Average: <strong className="text-[#142010] font-mono">{topSubject.averageScore} / 20</strong></span>
+                        <span>·</span>
+                        <span>Evaluated: <strong className="text-[#142010] font-mono">{topSubject.totalEvaluated}</strong></span>
+                      </div>
+                      {/* Teachers Teaching This Subject */}
+                      <div className="pt-2 border-t border-[#DDF0D6] flex items-start gap-1.5 text-[11px]">
+                        <span className="font-bold text-[#142010] shrink-0">
+                          {(topSubject.teachers && topSubject.teachers.length > 1) ? "Teachers:" : "Teacher:"}
+                        </span>
+                        <span className="text-[#2A7C13] font-bold">
+                          {(topSubject.teachers && topSubject.teachers.length > 0)
+                            ? topSubject.teachers.join(", ")
+                            : topSubject.topTeacher || "Assigned Department Staff"}
+                        </span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#788470]">No subject assessment scores recorded yet.</p>
+                )}
+              </div>
+
+              {topSubject && (
+                <div className="pt-2.5 border-t border-[#DDF0D6] flex items-center justify-between text-[11px] text-[#525E4B]">
+                  <span className="truncate">Top Student: <strong className="text-[#142010]">{topSubject.studentName}</strong></span>
+                  <span className="font-mono font-bold text-[#2A7C13] shrink-0 ml-1">{topSubject.bestMark} / 20</span>
+                </div>
+              )}
+            </div>
+
+            {/* 2. Best Male Student of the School */}
+            <div className="rounded-[8px] border border-[#BFDBFE] bg-[#F8FAFF] p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#1E40AF] flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-[#2563EB]" />
+                    <span>Best Male Student</span>
+                  </span>
+                  {bestMale && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE]">
+                      Rank #{bestMale.rank} in School
+                    </span>
+                  )}
+                </div>
+
+                {bestMale ? (
+                  <>
+                    <div className="font-extrabold text-base text-[#142010] truncate">
+                      {bestMale.name}
+                    </div>
+                    <div className="text-xs text-[#525E4B]">
+                      <span>{bestMale.fullClassName || bestMale.className}</span>
+                      <span className="text-[#888888]"> · </span>
+                      <span className="font-mono text-[#788470]">{resolveDisplayMatricule(bestMale.matricule, data.schoolInfo?.code)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#788470]">No male students ranked in this sequence.</p>
+                )}
+              </div>
+
+              {bestMale && (
+                <div className="pt-3 border-t border-[#DBEAFE] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-[#6B7280] block font-medium">Average Score</span>
+                    <div className="text-xl font-bold font-mono text-[#1E3A8A]">
+                      {bestMale.average.toFixed(2)}{" "}
+                      <span className="text-xs font-normal text-[#6B7280]">/ 20</span>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-[#1D4ED8]">
+                    {bestMale.appreciation.split("(")[0].trim()}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 3. Best Female Student of the School */}
+            <div className="rounded-[8px] border border-[#FBCFE8] bg-[#FFF5F8] p-4 sm:p-5 flex flex-col justify-between space-y-3 shadow-2xs">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-[#9D174D] flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5 text-[#DB2777]" />
+                    <span>Best Female Student</span>
+                  </span>
+                  {bestFemale && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[#FDF2F8] text-[#9D174D] border border-[#FBCFE8]">
+                      Rank #{bestFemale.rank} in School
+                    </span>
+                  )}
+                </div>
+
+                {bestFemale ? (
+                  <>
+                    <div className="font-extrabold text-base text-[#142010] truncate">
+                      {bestFemale.name}
+                    </div>
+                    <div className="text-xs text-[#525E4B]">
+                      <span>{bestFemale.fullClassName || bestFemale.className}</span>
+                      <span className="text-[#888888]"> · </span>
+                      <span className="font-mono text-[#788470]">{resolveDisplayMatricule(bestFemale.matricule, data.schoolInfo?.code)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#788470]">No female students ranked in this sequence.</p>
+                )}
+              </div>
+
+              {bestFemale && (
+                <div className="pt-3 border-t border-[#FCE7F3] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-[#6B7280] block font-medium">Average Score</span>
+                    <div className="text-xl font-bold font-mono text-[#831843]">
+                      {bestFemale.average.toFixed(2)}{" "}
+                      <span className="text-xs font-normal text-[#6B7280]">/ 20</span>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-bold text-[#BE185D]">
+                    {bestFemale.appreciation.split("(")[0].trim()}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useActionState, useEffect, useMemo, useRef } from "react";
+import { useState, useActionState, useEffect, useMemo, useRef, startTransition } from "react";
 import { assignTeacherAction } from "@/app/academics/actions";
 import {
   UserRoundPlus,
@@ -45,6 +45,7 @@ export default function TeacherAssignmentForm({
   const [assignmentMode, setAssignmentMode] = useState<"co_teach" | "replace">("co_teach");
   const [showConflictPromptModal, setShowConflictPromptModal] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const isConfirmedRef = useRef(false);
 
   // Natural alphabetical and numeric sorting of class groups (Form 1A, Form 1B, Form 2A...)
   const sortedClassGroups = useMemo(() => {
@@ -191,21 +192,37 @@ export default function TeacherAssignmentForm({
 
   // Intercept submit button click: prompt user if conflicting classes exist
   const handleInitialSubmit = (e: React.FormEvent) => {
-    if (conflictingSelectedStreams.length > 0 && !showConflictPromptModal) {
+    // If the user already confirmed their choice via the modal prompt, allow submission
+    if (isConfirmedRef.current) {
+      isConfirmedRef.current = false;
+      return;
+    }
+
+    if (conflictingSelectedStreams.length > 0) {
       e.preventDefault();
       setShowConflictPromptModal(true);
       return;
     }
   };
 
-  // Execute confirmed submission from prompt modal
+  // Execute confirmed submission from prompt modal (co-teaching or replace)
   const handleConfirmPrompt = (mode: "co_teach" | "replace") => {
-    setAssignmentMode(mode);
+    isConfirmedRef.current = true;
     setShowConflictPromptModal(false);
-    // Submit form after next tick when state/hidden input is synchronized
-    setTimeout(() => {
-      formRef.current?.requestSubmit();
-    }, 50);
+    setAssignmentMode(mode);
+
+    if (formRef.current) {
+      const formData = new FormData(formRef.current);
+      formData.set("assignmentMode", mode);
+      formData.delete("classStreamIds");
+      for (const streamId of selectedStreamIds) {
+        formData.append("classStreamIds", streamId);
+      }
+
+      startTransition(async () => {
+        await formAction(formData);
+      });
+    }
   };
 
   return (
@@ -569,7 +586,7 @@ export default function TeacherAssignmentForm({
               selectedStreamIds.length === 0 ||
               (selectedAlreadyAssigned.length > 0 && selectedNewStreams.length === 0)
             }
-            className="inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#142010] hover:bg-[#22361b] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed shrink-0"
+            className="inline-flex items-center justify-center gap-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed shrink-0"
           >
             <UserRoundPlus className="h-4 w-4" />
             <span>
@@ -657,15 +674,16 @@ export default function TeacherAssignmentForm({
               <div className="space-y-2 pt-1">
                 <button
                   type="button"
+                  disabled={isPending}
                   onClick={() => handleConfirmPrompt("co_teach")}
-                  className="w-full p-3 rounded-[6px] border border-[#2A7C13] bg-[#EAF7E4] hover:bg-[#D9F0D1] text-left transition-colors cursor-pointer group"
+                  className="w-full p-3 rounded-[6px] border border-[#2A7C13] bg-[#EAF7E4] hover:bg-[#D9F0D1] text-left transition-colors cursor-pointer group disabled:opacity-50"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-[#142010]">
                       1. Assign as Co-Teacher (Keep Both)
                     </span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#2A7C13] text-white font-bold">
-                      Co-Teach
+                      {isPending ? "Assigning..." : "Co-Teach"}
                     </span>
                   </div>
                   <p className="text-[11px] text-[#4F6849] mt-1 leading-normal">
@@ -675,15 +693,16 @@ export default function TeacherAssignmentForm({
 
                 <button
                   type="button"
+                  disabled={isPending}
                   onClick={() => handleConfirmPrompt("replace")}
-                  className="w-full p-3 rounded-[6px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer group"
+                  className="w-full p-3 rounded-[6px] border border-amber-300 bg-amber-50 hover:bg-amber-100 text-left transition-colors cursor-pointer group disabled:opacity-50"
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-xs text-amber-950">
                       2. Replace Existing Teacher
                     </span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-600 text-white font-bold">
-                      Replace
+                      {isPending ? "Reassigning..." : "Replace"}
                     </span>
                   </div>
                   <p className="text-[11px] text-amber-800 mt-1 leading-normal">

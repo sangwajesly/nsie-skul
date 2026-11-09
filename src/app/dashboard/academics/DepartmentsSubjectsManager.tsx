@@ -346,10 +346,10 @@ export function DepartmentsSubjectsManager({
                 <button
                   type="button"
                   onClick={() => setShowAddSubjectForm((p) => !p)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-[4px] border border-[#D5D5CF] bg-white hover:bg-[#FAFAF8] text-[#191919] transition-colors shadow-2xs cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white transition-all shadow-xs cursor-pointer"
                 >
-                  <Plus className="w-3 h-3 text-[#2A7C13]" />
-                  <span>{showAddSubjectForm ? "Close Subject Form" : "Add Subject"}</span>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{showAddSubjectForm ? "Close Subject Form" : "+ Add Subject"}</span>
                 </button>
               </>
             )}
