@@ -95,6 +95,8 @@ export function MobileNavDrawer({
                     availableSchools={availableSchools}
                     variant="mobile"
                     onSwitch={() => setIsOpen(false)}
+                    isAdmin={["school_admin", "principal", "superadmin"].includes(roleCode || "") || Boolean(isSuperAdmin)}
+                    isSuperAdmin={Boolean(isSuperAdmin)}
                   />
                 ) : (
                   <div className="flex items-center gap-2.5 overflow-hidden">

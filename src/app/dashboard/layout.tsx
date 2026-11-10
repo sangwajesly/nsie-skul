@@ -62,6 +62,8 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               currentRole={tenantContext.role}
               availableSchools={userSchools}
               variant="sidebar"
+              isAdmin={isAdmin}
+              isSuperAdmin={tenantContext.isSuperAdmin}
             />
           </div>
 

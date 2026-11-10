@@ -36,6 +36,8 @@ interface SchoolSwitcherProps {
   availableSchools: SchoolOption[];
   variant?: "sidebar" | "mobile";
   onSwitch?: () => void;
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export function SchoolSwitcher({
@@ -44,6 +46,8 @@ export function SchoolSwitcher({
   availableSchools,
   variant = "sidebar",
   onSwitch,
+  isAdmin = false,
+  isSuperAdmin = false,
 }: SchoolSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -119,6 +123,13 @@ export function SchoolSwitcher({
       }
     });
   };
+
+  const userIsSuper = Boolean(isSuperAdmin || currentRole?.code === "superadmin");
+  const userIsAdmin = Boolean(
+    isAdmin ||
+    userIsSuper ||
+    (currentRole?.code && ["school_admin", "principal", "superadmin"].includes(currentRole.code))
+  );
 
   // Single school: render clean static header without dropdown
   if (!hasMultipleSchools) {
@@ -261,28 +272,33 @@ export function SchoolSwitcher({
             })}
           </div>
 
-          <div className="p-2 border-t border-[#E8DFC9] bg-[#FAF8F5] space-y-1">
-            <Link
-              href="/dashboard/schools"
-              onClick={() => setIsOpen(false)}
-              className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#166534] bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#BBF7D0] flex items-center justify-between transition-colors"
-            >
-              <span className="flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Platform Schools Network</span>
-              </span>
-              <ArrowRight className="w-3 h-3 text-[#166534]" />
-            </Link>
+          {/* Administrative actions footer: strictly visible only to Admins / Super Admin */}
+          {(userIsSuper || userIsAdmin) && (
+            <div className="p-2 border-t border-[#E8DFC9] bg-[#FAF8F5] space-y-1">
+              {userIsSuper && (
+                <Link
+                  href="/dashboard/schools"
+                  onClick={() => setIsOpen(false)}
+                  className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#166534] bg-[#F0FDF4] hover:bg-[#DCFCE7] border border-[#BBF7D0] flex items-center justify-between transition-colors"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5" />
+                    <span>Platform Schools Network</span>
+                  </span>
+                  <ArrowRight className="w-3 h-3 text-[#166534]" />
+                </Link>
+              )}
 
-            <Link
-              href="/onboarding?mode=new"
-              onClick={() => setIsOpen(false)}
-              className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#525E4B] hover:text-[#142010] hover:bg-white border border-transparent hover:border-[#D5CBB2] flex items-center justify-between transition-colors"
-            >
-              <span>+ Register New School Tenancy</span>
-              <ArrowRight className="w-3 h-3 text-[#777777]" />
-            </Link>
-          </div>
+              <Link
+                href="/onboarding?mode=new"
+                onClick={() => setIsOpen(false)}
+                className="w-full py-1.5 px-2.5 rounded-[5px] text-[11px] font-semibold text-[#525E4B] hover:text-[#142010] hover:bg-white border border-transparent hover:border-[#D5CBB2] flex items-center justify-between transition-colors"
+              >
+                <span>+ Register New School Tenancy</span>
+                <ArrowRight className="w-3 h-3 text-[#777777]" />
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>
