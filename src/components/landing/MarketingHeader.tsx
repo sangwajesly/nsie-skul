@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { BRAND } from "@/lib/design-tokens";
 import { createClient } from "@/lib/supabase/client";
+import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
 
 const BTN_PRIMARY =
   "inline-flex items-center justify-center px-4 py-2 rounded-[7px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-semibold text-[13px] shadow-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2A7C13] focus-visible:ring-offset-2";
@@ -218,6 +219,9 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
         {/* Action CTAs */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+          {/* PWA Install Button (Desktop & Tablet) */}
+          <PwaInstallButton variant="nav" className="hidden lg:inline-flex" />
+
           {/* Live Demo button is permanently visible across both authenticated and public states */}
           <Link
             href="/demo"
@@ -450,6 +454,7 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
 
               {/* Bottom Actions Bar */}
               <div className="p-4 border-t border-[#E8DFC9] bg-white space-y-2 shrink-0">
+                <PwaInstallButton variant="drawer" className="mb-2" />
                 {isAuthenticated ? (
                   <Link
                     href="/dashboard"

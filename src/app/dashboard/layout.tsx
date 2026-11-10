@@ -156,6 +156,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
               </Link>
             )}
 
+            {/* Install PWA Button in Top Header */}
+            <PwaInstallButton variant="nav" className="hidden sm:inline-flex text-[11px] py-1 px-2.5" />
+
             <Link
               href="/"
               title="Explore Public Site & Features"
