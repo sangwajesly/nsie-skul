@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Calendar,
   Sparkles,
   ArrowRight,
   CheckCircle2,
@@ -11,19 +10,23 @@ import {
   AlertCircle,
   Users,
   Search,
-  Filter,
   Loader2,
   Plus,
-  RefreshCw,
   Layers,
-  Award,
-  ChevronRight,
   Check,
+  GitMerge,
+  Split,
+  Sliders,
+  CheckSquare,
+  Square,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import {
   createAcademicYearAction,
   previewAnnualPromotionAction,
   executeAnnualPromotionRolloverAction,
+  createQuickTargetStreamAction,
 } from "@/app/academics/actions";
 import { AcademicYear } from "@/types/database";
 
@@ -34,6 +37,13 @@ interface StreamOption {
   class_id: string;
   class_name: string;
   level_order: number;
+}
+
+interface SchoolClass {
+  id: string;
+  name: string;
+  level_order: number;
+  cycle: string;
 }
 
 interface CandidateRow {
@@ -57,6 +67,22 @@ interface CandidateRow {
   targetStreamId: string;
 }
 
+interface StreamTopologyItem {
+  sourceStreamId: string;
+  sourceStreamName: string;
+  currentLevel: number;
+  tag: string;
+  totalCandidates: number;
+  passingCount: number;
+  repeatingCount: number;
+  targetLevel: number;
+  targetClass: SchoolClass | null;
+  proposedStreamName: string;
+  matchingTargetStream: StreamOption | null;
+  availableTargetStreamsAtLevel: StreamOption[];
+  status: "matched" | "missing_senior_stream" | "cycle_exit";
+}
+
 interface Props {
   academicYears: AcademicYear[];
   currentAcademicYearId: string;
@@ -66,7 +92,7 @@ interface Props {
 export function AcademicRolloverWizard({
   academicYears,
   currentAcademicYearId,
-  canManage,
+  canManage: _canManage,
 }: Props) {
   const router = useRouter();
   const [sourceYearId, setSourceYearId] = useState(currentAcademicYearId || (academicYears[0]?.id ?? ""));
@@ -78,11 +104,23 @@ export function AcademicRolloverWizard({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CandidateRow[]>([]);
   const [targetStreams, setTargetStreams] = useState<StreamOption[]>([]);
+  const [schoolClasses, setSchoolClasses] = useState<SchoolClass[]>([]);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStreamFilter, setSelectedStreamFilter] = useState("all");
   const [selectedDecisionFilter, setSelectedDecisionFilter] = useState("all");
+
+  // Selection & Bulk Actions
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
+  const [bulkTargetStreamId, setBulkTargetStreamId] = useState("");
+  const [bulkDecision, setBulkDecision] = useState<CandidateRow["userDecision"]>("promoted");
+
+  // Stream Reconciliation State
+  const [isCreatingStream, setIsCreatingStream] = useState(false);
+  const [streamActionMessage, setStreamActionMessage] = useState<string | null>(null);
+  const [mergeDestinations, setMergeDestinations] = useState<Record<string, string>>({});
+  const [showTopologyHub, setShowTopologyHub] = useState(true);
 
   // New Academic Year Modal State
   const [isNewYearModalOpen, setIsNewYearModalOpen] = useState(false);
@@ -103,7 +141,6 @@ export function AcademicRolloverWizard({
   // Automatically suggest a target academic year when academicYears changes
   useEffect(() => {
     if (academicYears.length > 0 && !targetYearId) {
-      // Find a year that is different from sourceYearId, ideally later start_date
       const other = academicYears.find((y) => y.id !== sourceYearId);
       if (other) {
         setTargetYearId(other.id);
@@ -117,6 +154,8 @@ export function AcademicRolloverWizard({
     setLoadingPreview(true);
     setPreviewError(null);
     setExecutionResult(null);
+    setStreamActionMessage(null);
+    setSelectedCandidateIds(new Set());
 
     try {
       const pThresh = parseFloat(promotionThreshold) || 10.0;
@@ -134,6 +173,9 @@ export function AcademicRolloverWizard({
         setCandidates([]);
       } else if (res.candidates) {
         setTargetStreams(res.targetStreams || []);
+        if (res.classes) {
+          setSchoolClasses(res.classes as SchoolClass[]);
+        }
         const rows: CandidateRow[] = res.candidates.map((c) => ({
           ...c,
           userDecision: c.recommendedDecision,
@@ -155,10 +197,196 @@ export function AcademicRolloverWizard({
     }
   }, [sourceYearId, targetYearId]);
 
-  // Handle Threshold Form Submit
-  const handleApplyThresholds = (e: React.FormEvent) => {
-    e.preventDefault();
-    loadPreview();
+  // Compute Topology Reconciliation between current streams and target streams
+  const topologyReconciliation = useMemo(() => {
+    if (!targetYearId || candidates.length === 0) return [];
+
+    const map = new Map<string, CandidateRow[]>();
+    for (const c of candidates) {
+      if (!map.has(c.currentStreamId)) {
+        map.set(c.currentStreamId, []);
+      }
+      map.get(c.currentStreamId)!.push(c);
+    }
+
+    const items: StreamTopologyItem[] = [];
+
+    for (const [streamId, cands] of map.entries()) {
+      const first = cands[0];
+      const sourceName = first.currentStreamName;
+      const currentLevel = first.currentClassLevel;
+      const passing = cands.filter((c) => c.userDecision === "promoted" || c.userDecision === "trial");
+      const repeating = cands.filter((c) => c.userDecision === "repeated");
+
+      // Extract tag / specialty code (e.g. "Form 4 EPS" -> "EPS"; "Form 1 C" -> "C"; "Form 4 BC" -> "BC")
+      const parts = sourceName.trim().split(/\s+/);
+      const tag = parts.length > 1 ? parts[parts.length - 1] : "";
+
+      const targetLevel = currentLevel + 1;
+      const targetClass = schoolClasses.find((cls) => cls.level_order === targetLevel) || null;
+      const availableTargetStreams = targetStreams.filter((ts) => ts.level_order === targetLevel);
+
+      // Check if candidate reached terminal level (e.g. Form 5 cycle 1 -> GCE O-Level exit, or Level 7 Upper 6th)
+      const isCycleExit = currentLevel >= 7 || (currentLevel === 5 && targetClass?.level_order !== 6);
+
+      let matchingTargetStream: StreamOption | null = null;
+      if (availableTargetStreams.length > 0 && tag) {
+        matchingTargetStream =
+          availableTargetStreams.find(
+            (ts) =>
+              (ts.stream_tag && ts.stream_tag.toLowerCase() === tag.toLowerCase()) ||
+              ts.name.toLowerCase().endsWith(tag.toLowerCase())
+          ) || null;
+      }
+
+      const proposedStreamName = targetClass
+        ? `${targetClass.name} ${tag}`.trim()
+        : `Level ${targetLevel} ${tag}`.trim();
+
+      let status: "matched" | "missing_senior_stream" | "cycle_exit" = "matched";
+      if (isCycleExit) {
+        status = "cycle_exit";
+      } else if (!matchingTargetStream && passing.length > 0) {
+        status = "missing_senior_stream";
+      }
+
+      items.push({
+        sourceStreamId: streamId,
+        sourceStreamName: sourceName,
+        currentLevel,
+        tag,
+        totalCandidates: cands.length,
+        passingCount: passing.length,
+        repeatingCount: repeating.length,
+        targetLevel,
+        targetClass,
+        proposedStreamName,
+        matchingTargetStream,
+        availableTargetStreamsAtLevel: availableTargetStreams,
+        status,
+      });
+    }
+
+    return items;
+  }, [candidates, targetStreams, schoolClasses, targetYearId]);
+
+  const discrepancyCount = topologyReconciliation.filter(
+    (item) => item.status === "missing_senior_stream"
+  ).length;
+
+  // Handle Auto-Creating Missing Senior Stream (Technical specialty or Grammar stream)
+  const handleAutoCreateStream = async (item: StreamTopologyItem) => {
+    if (!targetYearId || !item.targetClass) {
+      alert("Missing target year or class structure. Please check class definitions.");
+      return;
+    }
+
+    setIsCreatingStream(true);
+    setStreamActionMessage(null);
+
+    try {
+      const res = await createQuickTargetStreamAction({
+        academicYearId: targetYearId,
+        classId: item.targetClass.id,
+        name: item.proposedStreamName,
+        streamTag: item.tag,
+        copyCurriculumFromStreamId: item.sourceStreamId,
+      });
+
+      if (res.error) {
+        alert(res.error);
+      } else if (res.newStream) {
+        const createdStream = res.newStream;
+        // 1. Add to targetStreams list
+        setTargetStreams((prev) => [...prev, createdStream]);
+
+        // 2. Automatically assign all passing students from this source stream to the new stream
+        setCandidates((prev) =>
+          prev.map((c) => {
+            if (
+              c.currentStreamId === item.sourceStreamId &&
+              (c.userDecision === "promoted" || c.userDecision === "trial")
+            ) {
+              return { ...c, targetStreamId: createdStream.id };
+            }
+            return c;
+          })
+        );
+
+        setStreamActionMessage(
+          `Created "${createdStream.name}" and automatically routed ${item.passingCount} passing student(s) into it.`
+        );
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to create stream";
+      alert(msg);
+    } finally {
+      setIsCreatingStream(false);
+    }
+  };
+
+  // Handle Merging 100% of Passing Students from Source Stream into an Existing Target Stream
+  const handleMergeStream = (sourceStreamId: string, destinationStreamId: string) => {
+    if (!destinationStreamId) return;
+    const destStream = targetStreams.find((ts) => ts.id === destinationStreamId);
+
+    let count = 0;
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (
+          c.currentStreamId === sourceStreamId &&
+          (c.userDecision === "promoted" || c.userDecision === "trial")
+        ) {
+          count++;
+          return { ...c, targetStreamId: destinationStreamId };
+        }
+        return c;
+      })
+    );
+
+    const sourceName = candidates.find((c) => c.currentStreamId === sourceStreamId)?.currentStreamName || "stream";
+    setStreamActionMessage(
+      `Merged ${count} passing student(s) from "${sourceName}" into "${destStream?.name || "selected stream"}".`
+    );
+  };
+
+  // Handle Balanced 50/50 (or N-way) Equalizer Split across target streams
+  const handleSplitStream = (sourceStreamId: string, targetStreamIds: string[]) => {
+    if (targetStreamIds.length < 2) return;
+
+    const passingFromStream = candidates.filter(
+      (c) =>
+        c.currentStreamId === sourceStreamId &&
+        (c.userDecision === "promoted" || c.userDecision === "trial")
+    );
+
+    if (passingFromStream.length === 0) return;
+
+    // Distribute alternatingly to balance class sizes
+    const assignedStreamMap = new Map<string, string>();
+    passingFromStream.forEach((cand, idx) => {
+      const chosenTargetId = targetStreamIds[idx % targetStreamIds.length];
+      assignedStreamMap.set(cand.studentId, chosenTargetId);
+    });
+
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (assignedStreamMap.has(c.studentId)) {
+          return { ...c, targetStreamId: assignedStreamMap.get(c.studentId)! };
+        }
+        return c;
+      })
+    );
+
+    const streamNames = targetStreamIds
+      .map((id) => targetStreams.find((ts) => ts.id === id)?.name)
+      .filter(Boolean)
+      .join(" & ");
+
+    const sourceName = candidates.find((c) => c.currentStreamId === sourceStreamId)?.currentStreamName || "stream";
+    setStreamActionMessage(
+      `Split ${passingFromStream.length} passing student(s) from "${sourceName}" evenly across ${streamNames} to equalize class sizes.`
+    );
   };
 
   // Change individual candidate decision
@@ -171,7 +399,6 @@ export function AcademicRolloverWizard({
         if (c.studentId !== studentId) return c;
         let newTarget = c.targetStreamId;
 
-        // Auto-switch target stream based on new decision
         if (targetStreams.length > 0) {
           let targetLevel = c.currentClassLevel;
           if (newDecision === "promoted" || newDecision === "trial") {
@@ -197,6 +424,43 @@ export function AcademicRolloverWizard({
     setCandidates((prev) =>
       prev.map((c) => (c.studentId === studentId ? { ...c, targetStreamId: newStreamId } : c))
     );
+  };
+
+  // Bulk Apply Target Stream to Selected Candidates
+  const handleBulkApplyStream = () => {
+    if (!bulkTargetStreamId || selectedCandidateIds.size === 0) return;
+    const destStream = targetStreams.find((ts) => ts.id === bulkTargetStreamId);
+
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (selectedCandidateIds.has(c.studentId)) {
+          return { ...c, targetStreamId: bulkTargetStreamId };
+        }
+        return c;
+      })
+    );
+
+    setStreamActionMessage(
+      `Reassigned ${selectedCandidateIds.size} student(s) to "${destStream?.name || "selected stream"}".`
+    );
+    setSelectedCandidateIds(new Set());
+  };
+
+  // Bulk Apply Decision to Selected Candidates
+  const handleBulkApplyDecision = () => {
+    if (selectedCandidateIds.size === 0) return;
+
+    setCandidates((prev) =>
+      prev.map((c) => {
+        if (selectedCandidateIds.has(c.studentId)) {
+          return { ...c, userDecision: bulkDecision };
+        }
+        return c;
+      })
+    );
+
+    setStreamActionMessage(`Updated decision to "${bulkDecision}" for ${selectedCandidateIds.size} student(s).`);
+    setSelectedCandidateIds(new Set());
   };
 
   // Handle Create Academic Year Form Submit
@@ -317,6 +581,26 @@ export function AcademicRolloverWizard({
     (c) => c.userDecision === "transferred" || c.userDecision === "withdrawn"
   ).length;
 
+  // Projected Headcount in Target Streams
+  const projectedStreamSizes = useMemo(() => {
+    if (targetStreams.length === 0 || candidates.length === 0) return [];
+    const countMap = new Map<string, number>();
+
+    for (const c of candidates) {
+      if (
+        (c.userDecision === "promoted" || c.userDecision === "trial" || c.userDecision === "repeated") &&
+        c.targetStreamId
+      ) {
+        countMap.set(c.targetStreamId, (countMap.get(c.targetStreamId) || 0) + 1);
+      }
+    }
+
+    return targetStreams.map((ts) => ({
+      ...ts,
+      projectedCount: countMap.get(ts.id) || 0,
+    }));
+  }, [candidates, targetStreams]);
+
   return (
     <div className="space-y-6">
       {/* Overview Card */}
@@ -331,7 +615,7 @@ export function AcademicRolloverWizard({
               Annual Promotion &amp; Progression Council
             </h2>
             <p className="text-xs text-[#555555] mt-1 max-w-2xl leading-relaxed">
-              Seamlessly promote passing students, place borderline candidates on trial, record repeaters, and create next-session enrolments without re-registering existing students.
+              Promote passing students, resolve class stream mergers/splits, create missing technical specialty streams, and enroll candidates into the next session without manual re-admissions.
             </p>
           </div>
 
@@ -465,6 +749,23 @@ export function AcademicRolloverWizard({
         </div>
       )}
 
+      {/* Stream Action Toast Message */}
+      {streamActionMessage && (
+        <div className="p-3 rounded-[6px] bg-[#F0FDF4] border border-[#BBF7D0] text-[#166534] text-xs flex items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-[#2A7C13] shrink-0" />
+            <span className="font-medium">{streamActionMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStreamActionMessage(null)}
+            className="text-[#166534] hover:text-[#142010] font-bold text-xs"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Target Year Missing Warning */}
       {!targetYearId && (
         <div className="p-4 rounded-[8px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#854D0E] text-xs flex items-center justify-between gap-3">
@@ -510,6 +811,227 @@ export function AcademicRolloverWizard({
           <span className="text-lg font-black text-[#555555]">{graduateCount + departCount}</span>
         </div>
       </div>
+
+      {/* STREAM TOPOLOGY RECONCILIATION HUB */}
+      {targetYearId && topologyReconciliation.length > 0 && (
+        <div className="rounded-[8px] bg-white border border-[#D5CBB2] shadow-2xs overflow-hidden">
+          <div className="p-4 bg-[#FAF8F2] border-b border-[#E8DFC9] flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-[5px] bg-[#142010] text-[#4ADE80] flex items-center justify-center shrink-0">
+                <Sliders className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-[#142010] flex items-center gap-2">
+                  <span>Class Topology &amp; Progression Health Check</span>
+                  {discrepancyCount > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#F59E0B]/30">
+                      {discrepancyCount} stream discrepancy
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-[#EAF7E4] text-[#166534] border border-[#BBF7D0]">
+                      All streams matched
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-[#666666] mt-0.5">
+                  Verify automatic progression between technical specialties (EPS, BC, MM) and grammar streams (A, B, C).
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowTopologyHub(!showTopologyHub)}
+              className="p-1.5 text-[#777777] hover:text-[#142010] rounded-[4px] hover:bg-white/80 transition-colors"
+              title="Toggle Stream Hub"
+            >
+              {showTopologyHub ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
+
+          {showTopologyHub && (
+            <div className="p-4 space-y-3 divide-y divide-[#EFEFEA]">
+              {topologyReconciliation.map((item) => {
+                const isMatched = item.status === "matched";
+                const isExit = item.status === "cycle_exit";
+                const isDiscrepancy = item.status === "missing_senior_stream";
+
+                return (
+                  <div key={item.sourceStreamId} className="pt-3 first:pt-0 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                    {/* Source Stream Info */}
+                    <div className="flex items-center gap-2.5 min-w-[220px]">
+                      <span className="w-2.5 h-2.5 rounded-full shrink-0 bg-gray-300" style={{
+                        backgroundColor: isMatched ? "#2A7C13" : isDiscrepancy ? "#D97706" : "#2563EB"
+                      }} />
+                      <div>
+                        <div className="font-bold text-[#142010] text-xs">
+                          {item.sourceStreamName}
+                        </div>
+                        <div className="text-[10px] text-[#777777]">
+                          {item.passingCount} passing &middot; {item.repeatingCount} repeating &middot; Level {item.currentLevel}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Status & Match Details */}
+                    <div className="flex-1 min-w-0">
+                      {isMatched && (
+                        <div className="flex items-center gap-1.5 text-[#166534] text-[11.5px] font-semibold">
+                          <Check className="w-3.5 h-3.5 text-[#2A7C13] shrink-0" />
+                          <span>
+                            Direct match: Advances to <strong>{item.matchingTargetStream?.name}</strong> (Level {item.targetLevel})
+                          </span>
+                        </div>
+                      )}
+
+                      {isExit && (
+                        <div className="text-[11.5px] text-[#1E40AF] font-medium">
+                          Cycle completion (Terminal Class). Students graduate or take GCE O-Level/A-Level exams.
+                        </div>
+                      )}
+
+                      {isDiscrepancy && (
+                        <div className="space-y-1">
+                          <div className="text-[11px] text-[#B45309] font-bold flex items-center gap-1">
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[#D97706]" />
+                            <span>
+                              No senior class &ldquo;{item.proposedStreamName}&rdquo; exists in target academic year.
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-[#787870] leading-tight">
+                            Choose to auto-create this trade/specialty stream, merge all into an existing class, or split 50/50.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Resolution Actions */}
+                    {isDiscrepancy && (
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
+                        {/* Action 1: Auto-Create Missing Stream */}
+                        <button
+                          type="button"
+                          onClick={() => handleAutoCreateStream(item)}
+                          disabled={isCreatingStream}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-[5px] bg-[#142010] hover:bg-[#1f3319] text-white text-[11px] font-bold shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+                          title={`Create ${item.proposedStreamName} in target academic year`}
+                        >
+                          <Plus className="w-3 h-3 text-[#4ADE80]" />
+                          <span>Create &ldquo;{item.proposedStreamName}&rdquo;</span>
+                        </button>
+
+                        {/* Action 2: Merge into an existing class */}
+                        {item.availableTargetStreamsAtLevel.length > 0 && (
+                          <div className="flex items-center gap-1">
+                            <select
+                              value={mergeDestinations[item.sourceStreamId] || item.availableTargetStreamsAtLevel[0]?.id || ""}
+                              onChange={(e) =>
+                                setMergeDestinations((prev) => ({
+                                  ...prev,
+                                  [item.sourceStreamId]: e.target.value,
+                                }))
+                              }
+                              className="px-2 py-1 rounded-[4px] border border-[#D5D5CF] bg-white text-[11px] text-[#191919] focus:outline-none"
+                            >
+                              {item.availableTargetStreamsAtLevel.map((ts) => (
+                                <option key={ts.id} value={ts.id}>
+                                  Merge into {ts.name}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleMergeStream(
+                                  item.sourceStreamId,
+                                  mergeDestinations[item.sourceStreamId] || item.availableTargetStreamsAtLevel[0]?.id || ""
+                                )
+                              }
+                              className="px-2 py-1 rounded-[4px] bg-[#FAF8F2] hover:bg-[#F2ECE1] border border-[#D5CBB2] text-[#142010] text-[11px] font-semibold cursor-pointer"
+                              title="Merge all passing students into selected class"
+                            >
+                              <GitMerge className="w-3 h-3 inline mr-1 text-[#2A7C13]" />
+                              Merge
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Action 3: Split 50/50 across target streams */}
+                        {item.availableTargetStreamsAtLevel.length >= 2 && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleSplitStream(
+                                item.sourceStreamId,
+                                item.availableTargetStreamsAtLevel.map((ts) => ts.id)
+                              )
+                            }
+                            className="px-2.5 py-1.5 rounded-[5px] bg-[#FFF8CF] hover:bg-[#FEF08A] border border-[#FBE6C2] text-[#854D0E] text-[11px] font-bold cursor-pointer transition-colors"
+                            title="Split passing students evenly across available target streams"
+                          >
+                            <Split className="w-3 h-3 inline mr-1 text-[#B45309]" />
+                            Split 50/50
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PROJECTED TARGET CLASS SIZES & DENSITY */}
+      {targetYearId && projectedStreamSizes.length > 0 && (
+        <div className="p-4 rounded-[8px] bg-white border border-[#D5CBB2] shadow-2xs space-y-2.5 text-xs">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-[#142010] flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-[#2A7C13]" />
+              <span>Projected Class Sizes in Target Academic Year</span>
+            </span>
+            <span className="text-[11px] text-[#777777]">
+              Live preview based on current promotion &amp; stream assignments
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2 pt-1">
+            {projectedStreamSizes.map((st) => {
+              const isOvercrowded = st.projectedCount > 60;
+              const isEmpty = st.projectedCount === 0;
+
+              return (
+                <div
+                  key={st.id}
+                  className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-[6px] border text-xs font-semibold ${
+                    isOvercrowded
+                      ? "bg-[#FFF8CF] border-[#FBE6C2] text-[#854D0E]"
+                      : isEmpty
+                      ? "bg-[#FAF8F2] border-[#E8DFC9] text-[#888888]"
+                      : "bg-[#F0FDF4] border-[#BBF7D0] text-[#166534]"
+                  }`}
+                >
+                  <span>{st.name}:</span>
+                  <span className="font-bold font-mono">
+                    {st.projectedCount} {st.projectedCount === 1 ? "student" : "students"}
+                  </span>
+                  {isOvercrowded && (
+                    <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-[#FDE68A] text-[#92400E] font-bold">
+                      High Density
+                    </span>
+                  )}
+                  {isEmpty && (
+                    <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-gray-200 text-gray-600 font-bold">
+                      Empty
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Candidate Table & Filters */}
       <div className="rounded-[8px] bg-white border border-[#D5CBB2] shadow-2xs overflow-hidden">
@@ -580,6 +1102,76 @@ export function AcademicRolloverWizard({
           </div>
         </div>
 
+        {/* BULK SELECTION ACTION TOOLBAR */}
+        {selectedCandidateIds.size > 0 && (
+          <div className="p-3 bg-[#142010] text-white flex flex-wrap items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2 duration-150">
+            <div className="flex items-center gap-2">
+              <span className="w-5 h-5 rounded-full bg-[#2A7C13] text-white flex items-center justify-center font-bold text-[11px]">
+                {selectedCandidateIds.size}
+              </span>
+              <span className="font-semibold text-white/90">
+                candidates selected
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Batch Reassign Target Stream */}
+              <div className="flex items-center gap-1">
+                <select
+                  value={bulkTargetStreamId}
+                  onChange={(e) => setBulkTargetStreamId(e.target.value)}
+                  className="px-2 py-1 rounded-[4px] bg-white text-[#191919] text-xs focus:outline-none"
+                >
+                  <option value="">-- Batch Reassign Stream --</option>
+                  {targetStreams.map((ts) => (
+                    <option key={ts.id} value={ts.id}>
+                      {ts.name} (Level {ts.level_order})
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={handleBulkApplyStream}
+                  disabled={!bulkTargetStreamId}
+                  className="px-2.5 py-1 rounded-[4px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs disabled:opacity-50 cursor-pointer"
+                >
+                  Apply Stream
+                </button>
+              </div>
+
+              {/* Batch Change Council Decision */}
+              <div className="flex items-center gap-1 border-l border-white/20 pl-2">
+                <select
+                  value={bulkDecision}
+                  onChange={(e) => setBulkDecision(e.target.value as CandidateRow["userDecision"])}
+                  className="px-2 py-1 rounded-[4px] bg-white text-[#191919] text-xs focus:outline-none"
+                >
+                  <option value="promoted">Promote (Admis)</option>
+                  <option value="trial">Promote on Trial (À titre d&apos;essai)</option>
+                  <option value="repeated">Repeat (Redouble)</option>
+                  <option value="graduated">Graduated (Diplômé)</option>
+                  <option value="transferred">Transferred Out</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={handleBulkApplyDecision}
+                  className="px-2.5 py-1 rounded-[4px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs cursor-pointer"
+                >
+                  Apply Decision
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCandidateIds(new Set())}
+                className="px-2 py-1 rounded-[4px] text-white/70 hover:text-white hover:bg-white/10 text-xs transition-colors"
+              >
+                Clear Selection
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Candidate Table */}
         <div className="overflow-x-auto">
           {loadingPreview ? (
@@ -600,6 +1192,26 @@ export function AcademicRolloverWizard({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-[#FAF8F2] border-b border-[#E8DFC9] text-[10px] font-bold text-[#555555] uppercase tracking-wider">
+                  <th className="py-2.5 px-3 w-8">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (selectedCandidateIds.size === filteredCandidates.length) {
+                          setSelectedCandidateIds(new Set());
+                        } else {
+                          setSelectedCandidateIds(new Set(filteredCandidates.map((c) => c.studentId)));
+                        }
+                      }}
+                      className="text-[#777777] hover:text-[#142010]"
+                      title="Select all visible"
+                    >
+                      {selectedCandidateIds.size > 0 && selectedCandidateIds.size === filteredCandidates.length ? (
+                        <CheckSquare className="w-4 h-4 text-[#2A7C13]" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="py-2.5 px-3">Student &amp; Matricule</th>
                   <th className="py-2.5 px-2">Current Class</th>
                   <th className="py-2.5 px-2 text-center">Annual Mark (/20)</th>
@@ -609,106 +1221,130 @@ export function AcademicRolloverWizard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E8DFC9]">
-                {filteredCandidates.map((cand) => (
-                  <tr key={cand.studentId} className="hover:bg-[#FFFDF9] transition-colors">
-                    {/* Student */}
-                    <td className="py-2 px-3">
-                      <div className="font-bold text-[#191919]">{cand.fullName}</div>
-                      <div className="text-[10px] font-mono text-[#777777]">
-                        {cand.matricule} - {cand.gender === "M" ? "Male" : "Female"}
-                        {cand.isCurrentRepeater && (
-                          <span className="ml-1 text-amber-700 font-sans font-bold">(Repeater)</span>
-                        )}
-                      </div>
-                    </td>
+                {filteredCandidates.map((cand) => {
+                  const isChecked = selectedCandidateIds.has(cand.studentId);
 
-                    {/* Current Class */}
-                    <td className="py-2 px-2 text-[#555555] font-medium">
-                      {cand.currentStreamName}
-                    </td>
+                  return (
+                    <tr
+                      key={cand.studentId}
+                      className={`hover:bg-[#FFFDF9] transition-colors ${
+                        isChecked ? "bg-[#F0FDF4]/50" : ""
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-2 px-3">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const next = new Set(selectedCandidateIds);
+                            if (e.target.checked) next.add(cand.studentId);
+                            else next.delete(cand.studentId);
+                            setSelectedCandidateIds(next);
+                          }}
+                          className="rounded text-[#2A7C13] focus:ring-[#2A7C13]"
+                        />
+                      </td>
 
-                    {/* Annual Average */}
-                    <td className="py-2 px-2 text-center">
-                      <span
-                        className={`font-mono font-bold text-xs px-2 py-0.5 rounded-[4px] ${
-                          cand.annualAverage === null
-                            ? "bg-[#F0EFEA] text-[#777777]"
-                            : cand.annualAverage >= 10.0
-                            ? "bg-[#EAF7E4] text-[#1F5C0E] border border-[#76C457]/40"
-                            : cand.annualAverage >= 8.5
-                            ? "bg-[#FFF8CF] text-[#854D0E] border border-[#FBE6C2]"
-                            : "bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5]"
-                        }`}
-                      >
-                        {cand.annualAverage !== null ? `${cand.annualAverage.toFixed(2)}/20` : "No Marks"}
-                      </span>
-                    </td>
+                      {/* Student */}
+                      <td className="py-2 px-3">
+                        <div className="font-bold text-[#191919]">{cand.fullName}</div>
+                        <div className="text-[10px] font-mono text-[#777777]">
+                          {cand.matricule} - {cand.gender === "M" ? "Male" : "Female"}
+                          {cand.isCurrentRepeater && (
+                            <span className="ml-1 text-amber-700 font-sans font-bold">(Repeater)</span>
+                          )}
+                        </div>
+                      </td>
 
-                    {/* Class Rank */}
-                    <td className="py-2 px-2 text-center text-[#555555] font-mono text-[11px]">
-                      {cand.rank}/{cand.totalInStream}
-                    </td>
+                      {/* Current Class */}
+                      <td className="py-2 px-2 text-[#555555] font-medium">
+                        {cand.currentStreamName}
+                      </td>
 
-                    {/* Decision Selector */}
-                    <td className="py-2 px-2">
-                      <select
-                        value={cand.userDecision}
-                        onChange={(e) =>
-                          handleCandidateDecisionChange(
-                            cand.studentId,
-                            e.target.value as CandidateRow["userDecision"]
-                          )
-                        }
-                        className={`px-2 py-1 rounded-[4px] border text-xs font-semibold focus:outline-none ${
-                          cand.userDecision === "promoted"
-                            ? "bg-[#EAF7E4] border-[#76C457]/50 text-[#1F5C0E]"
-                            : cand.userDecision === "trial"
-                            ? "bg-[#FFF8CF] border-[#FBE6C2] text-[#854D0E]"
-                            : cand.userDecision === "repeated"
-                            ? "bg-[#FFF0F0] border-[#FCA5A5] text-[#991B1B]"
-                            : cand.userDecision === "graduated"
-                            ? "bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]"
-                            : "bg-gray-100 border-gray-300 text-gray-700"
-                        }`}
-                      >
-                        <option value="promoted">Promote (Admis)</option>
-                        <option value="trial">Promote on Trial (À titre d&apos;essai)</option>
-                        <option value="repeated">Repeat (Redouble)</option>
-                        <option value="graduated">Graduated (Diplômé)</option>
-                        <option value="transferred">Transferred Out / Left</option>
-                      </select>
-                    </td>
-
-                    {/* Target Stream */}
-                    <td className="py-2 px-3">
-                      {cand.userDecision === "graduated" ||
-                      cand.userDecision === "transferred" ||
-                      cand.userDecision === "withdrawn" ? (
-                        <span className="text-[11px] text-[#777777] italic">
-                          No enrolment needed ({cand.userDecision})
-                        </span>
-                      ) : targetStreams.length === 0 ? (
-                        <span className="text-[11px] text-[#B45309] font-medium">
-                          Select target year above to assign stream
-                        </span>
-                      ) : (
-                        <select
-                          value={cand.targetStreamId}
-                          onChange={(e) =>
-                            handleCandidateTargetStreamChange(cand.studentId, e.target.value)
-                          }
-                          className="w-full px-2 py-1 rounded-[4px] border border-[#D5D5CF] bg-white text-xs font-medium text-[#191919] focus:outline-none focus:ring-1 focus:ring-[#2A7C13]"
+                      {/* Annual Average */}
+                      <td className="py-2 px-2 text-center">
+                        <span
+                          className={`font-mono font-bold text-xs px-2 py-0.5 rounded-[4px] ${
+                            cand.annualAverage === null
+                              ? "bg-[#F0EFEA] text-[#777777]"
+                              : cand.annualAverage >= 10.0
+                              ? "bg-[#EAF7E4] text-[#1F5C0E] border border-[#76C457]/40"
+                              : cand.annualAverage >= 8.5
+                              ? "bg-[#FFF8CF] text-[#854D0E] border border-[#FBE6C2]"
+                              : "bg-[#FFF0F0] text-[#991B1B] border border-[#FCA5A5]"
+                          }`}
                         >
-                          {targetStreams.map((ts) => (
-                            <option key={ts.id} value={ts.id}>
-                              {ts.name} (Level {ts.level_order})
-                            </option>
-                          ))}
+                          {cand.annualAverage !== null ? `${cand.annualAverage.toFixed(2)}/20` : "No Marks"}
+                        </span>
+                      </td>
+
+                      {/* Class Rank */}
+                      <td className="py-2 px-2 text-center text-[#555555] font-mono text-[11px]">
+                        {cand.rank}/{cand.totalInStream}
+                      </td>
+
+                      {/* Decision Selector */}
+                      <td className="py-2 px-2">
+                        <select
+                          value={cand.userDecision}
+                          onChange={(e) =>
+                            handleCandidateDecisionChange(
+                              cand.studentId,
+                              e.target.value as CandidateRow["userDecision"]
+                            )
+                          }
+                          className={`px-2 py-1 rounded-[4px] border text-xs font-semibold focus:outline-none ${
+                            cand.userDecision === "promoted"
+                              ? "bg-[#EAF7E4] border-[#76C457]/50 text-[#1F5C0E]"
+                              : cand.userDecision === "trial"
+                              ? "bg-[#FFF8CF] border-[#FBE6C2] text-[#854D0E]"
+                              : cand.userDecision === "repeated"
+                              ? "bg-[#FFF0F0] border-[#FCA5A5] text-[#991B1B]"
+                              : cand.userDecision === "graduated"
+                              ? "bg-[#EFF6FF] border-[#BFDBFE] text-[#1E40AF]"
+                              : "bg-gray-100 border-gray-300 text-gray-700"
+                          }`}
+                        >
+                          <option value="promoted">Promote (Admis)</option>
+                          <option value="trial">Promote on Trial (À titre d&apos;essai)</option>
+                          <option value="repeated">Repeat (Redouble)</option>
+                          <option value="graduated">Graduated (Diplômé)</option>
+                          <option value="transferred">Transferred Out / Left</option>
                         </select>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+
+                      {/* Target Stream */}
+                      <td className="py-2 px-3">
+                        {cand.userDecision === "graduated" ||
+                        cand.userDecision === "transferred" ||
+                        cand.userDecision === "withdrawn" ? (
+                          <span className="text-[11px] text-[#777777] italic">
+                            No enrolment needed ({cand.userDecision})
+                          </span>
+                        ) : targetStreams.length === 0 ? (
+                          <span className="text-[11px] text-[#B45309] font-medium">
+                            Select target year above to assign stream
+                          </span>
+                        ) : (
+                          <select
+                            value={cand.targetStreamId}
+                            onChange={(e) =>
+                              handleCandidateTargetStreamChange(cand.studentId, e.target.value)
+                            }
+                            className="w-full px-2 py-1 rounded-[4px] border border-[#D5D5CF] bg-white text-xs font-medium text-[#191919] focus:outline-none focus:ring-1 focus:ring-[#2A7C13]"
+                          >
+                            {targetStreams.map((ts) => (
+                              <option key={ts.id} value={ts.id}>
+                                {ts.name} (Level {ts.level_order})
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

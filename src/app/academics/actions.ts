@@ -3598,9 +3598,97 @@ export async function previewAnnualPromotionAction(payload: {
   return {
     candidates: rawCandidates,
     targetStreams,
+    classes: sortedClasses,
     promotionThreshold,
     trialThreshold,
     totalCount: rawCandidates.length,
+  };
+}
+
+/**
+ * Quickly creates a missing class stream in the target academic year during rollover,
+ * optionally cloning curriculum subjects from a source stream.
+ */
+export async function createQuickTargetStreamAction(payload: {
+  academicYearId: string;
+  classId: string;
+  name: string;
+  streamTag?: string;
+  copyCurriculumFromStreamId?: string;
+}) {
+  const context = await requireAnyPermission(["academics.manage", "school.settings.manage"]);
+  const { academicYearId, classId, name, streamTag, copyCurriculumFromStreamId } = payload;
+
+  if (!academicYearId || !classId || !name) {
+    return { error: "Academic year, class, and stream name are required." };
+  }
+
+  const supabase = await createClient();
+
+  // 1. Insert class stream
+  const { data: newStream, error } = await supabase
+    .from("class_streams")
+    .insert({
+      school_id: context.school.id,
+      academic_year_id: academicYearId,
+      class_id: classId,
+      name,
+      stream_tag: streamTag || null,
+    })
+    .select(`
+      id,
+      name,
+      stream_tag,
+      class_id,
+      class:classes (
+        name,
+        level_order
+      )
+    `)
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      return { error: `A class stream named "${name}" already exists in this academic year.` };
+    }
+    return { error: error.message };
+  }
+
+  // 2. Optionally clone subjects/coefficients from another stream
+  if (copyCurriculumFromStreamId && newStream) {
+    const { data: existingSubjects } = await supabase
+      .from("class_subjects")
+      .select("subject_id, coefficient, max_marks, is_compulsory")
+      .eq("class_stream_id", copyCurriculumFromStreamId);
+
+    if (existingSubjects && existingSubjects.length > 0) {
+      const subjectsToInsert = existingSubjects.map((s) => ({
+        school_id: context.school.id,
+        class_stream_id: newStream.id,
+        subject_id: s.subject_id,
+        coefficient: s.coefficient,
+        max_marks: s.max_marks,
+        is_compulsory: s.is_compulsory,
+      }));
+      await supabase.from("class_subjects").insert(subjectsToInsert);
+    }
+  }
+
+  const cls = Array.isArray(newStream.class) ? newStream.class[0] : newStream.class;
+  const formattedStream = {
+    id: newStream.id,
+    name: newStream.name,
+    stream_tag: newStream.stream_tag,
+    class_id: newStream.class_id,
+    class_name: cls?.name || "",
+    level_order: cls?.level_order || 1,
+  };
+
+  revalidatePath("/dashboard/academics");
+  return {
+    success: true as const,
+    newStream: formattedStream,
+    message: `Stream "${name}" successfully created.`,
   };
 }
 
