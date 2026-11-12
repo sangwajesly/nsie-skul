@@ -3297,7 +3297,7 @@ export async function createAcademicYearAction(formData: FormData) {
             class_id: stream.class_id,
             name: stream.name,
             stream_tag: stream.stream_tag,
-            class_master_id: stream.class_master_id,
+            class_master_id: null, // Fresh slate: class masters and teachers are assigned anew each academic year
           })
           .select()
           .single();
