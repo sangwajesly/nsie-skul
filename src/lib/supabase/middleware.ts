@@ -50,24 +50,46 @@ export async function updateSession(request: NextRequest) {
   );
 
   if (isHubMode) {
-    // Root on School Hub redirects to station login or dashboard
-    if (pathname === "/") {
-      const url = request.nextUrl.clone();
-      url.pathname = hasHubSession ? "/dashboard" : "/hub/login";
-      return NextResponse.redirect(url);
-    }
-
-    // Already unlocked Hub station hitting /hub/login → send to dashboard
-    if (pathname.startsWith("/hub/login") && hasHubSession) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
-      return NextResponse.redirect(url);
-    }
-
-    // Unlocked Hub session accessing protected dashboard routes
-    if (hasHubSession && (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding"))) {
+    // 1. Static assets, Next internals, and Hub APIs pass straight through
+    if (
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/api/v1/hub") ||
+      pathname.startsWith("/favicon") ||
+      pathname.startsWith("/app-icon") ||
+      pathname.endsWith(".ico") ||
+      pathname.endsWith(".png") ||
+      pathname.endsWith(".svg") ||
+      pathname.endsWith(".jpg") ||
+      pathname.endsWith(".css") ||
+      pathname.endsWith(".js")
+    ) {
       return supabaseResponse;
     }
+
+    // 2. Unlocked Station Session
+    if (hasHubSession) {
+      if (
+        pathname === "/" ||
+        pathname === "/login" ||
+        pathname === "/hub/login" ||
+        pathname === "/register"
+      ) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/dashboard";
+        return NextResponse.redirect(url);
+      }
+      return supabaseResponse;
+    }
+
+    // 3. Station not unlocked yet: allow /hub/login
+    if (pathname.startsWith("/hub/login")) {
+      return supabaseResponse;
+    }
+
+    // 4. Any other page (/, /login, /dashboard, etc.) redirects cleanly to /hub/login
+    const url = request.nextUrl.clone();
+    url.pathname = "/hub/login";
+    return NextResponse.redirect(url);
   }
 
   // Refresh auth token

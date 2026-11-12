@@ -41,13 +41,14 @@ if (fs.existsSync(cscPath) && fs.existsSync(csSource)) {
   console.warn("CSC compiler or source not found; skipping native compilation.");
 }
 
-// 3. Verify standalone Next.js build
+// 3. Build fresh standalone Next.js production bundle
+const shouldSkipBuild = process.argv.includes("--skip-build");
 const standaloneDir = path.join(ROOT_DIR, ".next", "standalone");
-if (!fs.existsSync(standaloneDir)) {
-  console.log("3. Running Next.js standalone production build...");
+if (!shouldSkipBuild || !fs.existsSync(standaloneDir)) {
+  console.log("3. Compiling fresh Next.js standalone production build...");
   execSync("npm run build", { stdio: "inherit", cwd: ROOT_DIR });
 } else {
-  console.log("3. Found existing .next/standalone bundle.");
+  console.log("3. Using existing .next/standalone bundle (--skip-build requested).");
 }
 
 // 4. Prepare clean distribution directory
@@ -89,12 +90,16 @@ if (fs.existsSync(staticSrc)) {
   copyDirSync(staticSrc, staticDest);
 }
 
-// 7. Copy public directory assets
+// 7. Copy public directory assets (excluding public/downloads to avoid recursive bloat)
 const publicSrc = path.join(ROOT_DIR, "public");
 const publicDest = path.join(DIST_DIR, "public");
 if (fs.existsSync(publicSrc)) {
   console.log("7. Copying public web assets...");
   copyDirSync(publicSrc, publicDest);
+  const recursiveDownloads = path.join(publicDest, "downloads");
+  if (fs.existsSync(recursiveDownloads)) {
+    fs.rmSync(recursiveDownloads, { recursive: true, force: true });
+  }
 }
 
 // 8. Bundle portable Node.js runtime into dist-hub/runtime/node.exe
@@ -143,9 +148,42 @@ const consoleBat = [
 ].join("\r\n");
 fs.writeFileSync(path.join(DIST_DIR, "debug-console.bat"), consoleBat, "utf8");
 
+// 12. Locate Inno Setup Compiler and compile NseiSukulHubSetup.exe
+const isccCandidates = [
+  path.join(require("os").tmpdir(), "is_install", "bin", "ISCC.exe"),
+  "C:\\Program Files\\Inno Setup 7\\ISCC.exe",
+  "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe",
+  "C:\\Program Files\\Inno Setup 6\\ISCC.exe",
+];
+
+let foundIscc = null;
+for (const p of isccCandidates) {
+  if (fs.existsSync(p)) {
+    foundIscc = p;
+    break;
+  }
+}
+
+if (foundIscc) {
+  console.log("\n12. Compiling Windows Installer (NseiSukulHubSetup.exe) via Inno Setup...");
+  const issFile = path.join(INSTALLER_DIR, "NseiSukulHubSetup.iss");
+  try {
+    execSync(`"${foundIscc}" "${issFile}"`, { stdio: "inherit", cwd: INSTALLER_DIR });
+    const finalInstaller = path.join(ROOT_DIR, "public", "downloads", "NseiSukulHubSetup.exe");
+    if (fs.existsSync(finalInstaller)) {
+      const sizeMb = (fs.statSync(finalInstaller).size / 1024 / 1024).toFixed(2);
+      console.log(`\nInstaller compilation SUCCESS: ${finalInstaller} (${sizeMb} MB)`);
+    }
+  } catch (err) {
+    console.error("Warning: Inno Setup compilation failed:", err.message);
+  }
+} else {
+  console.log("\n12. Inno Setup (ISCC.exe) not found; skipping .exe installer compilation.");
+}
+
 console.log("\n======================================================");
 console.log("  STANDALONE SCHOOL HUB PACKAGE READY IN: dist-hub/");
 console.log("======================================================");
 console.log("Direct Native Launcher: dist-hub/NseiSukulHub.exe");
 console.log("Diagnostic Launcher:   dist-hub/debug-console.bat");
-console.log("To package into .exe: Run Inno Setup on installer/NseiSukulHubSetup.iss\n");
+console.log("Compiled Installer:    public/downloads/NseiSukulHubSetup.exe\n");

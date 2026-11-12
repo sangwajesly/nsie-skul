@@ -213,7 +213,7 @@ export function SchoolHubSettings({
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#2A7C13] text-[#DCFCE7]">v1.2.0</span>
             </div>
             <p className="text-xs text-[#CCECC0] max-w-xl leading-relaxed">
-              Download the compiled standalone installer to run your school server offline. Starts automatically on Windows boot with zero source code exposed.
+              Download the standalone Windows installer to run your on-premise School Hub server offline. Runs locally on campus with fast local Wi-Fi synchronization for teachers and administrators.
             </p>
           </div>
 

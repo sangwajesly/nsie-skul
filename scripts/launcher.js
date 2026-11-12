@@ -42,10 +42,20 @@ function isPortAvailable(port) {
   });
 }
 
-function checkHttp(port) {
+function checkHubHealth(port) {
   return new Promise((resolve) => {
-    const req = http.get(`http://127.0.0.1:${port}/`, { timeout: 2000 }, (res) => {
-      resolve(res.statusCode >= 200 && res.statusCode < 500);
+    const req = http.get(`http://127.0.0.1:${port}/api/v1/hub/lan-ping`, { timeout: 2500 }, (res) => {
+      if (res.statusCode !== 200) return resolve(false);
+      let data = "";
+      res.on("data", (chunk) => { data += chunk; });
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(data);
+          resolve(json && json.status === "ok");
+        } catch {
+          resolve(false);
+        }
+      });
     });
     req.on("error", () => resolve(false));
     req.on("timeout", () => {
@@ -53,6 +63,26 @@ function checkHttp(port) {
       resolve(false);
     });
   });
+}
+
+function cleanStaleZombiePid() {
+  try {
+    if (fs.existsSync(STATUS_FILE)) {
+      const status = JSON.parse(fs.readFileSync(STATUS_FILE, "utf8"));
+      if (status && status.pid) {
+        try {
+          process.kill(status.pid, 0); // Check if process is alive
+          // If alive, check if it's healthy. If not, kill it
+          log(`Cleaning up old hub background PID ${status.pid}...`);
+          try {
+            process.kill(status.pid);
+          } catch {}
+        } catch {
+          // Process not alive
+        }
+      }
+    }
+  } catch {}
 }
 
 function openDesktopApp(url) {
@@ -108,13 +138,16 @@ async function main() {
   log("==========================================");
   log(`App Directory: ${APP_DIR}`);
 
-  // 1. Check if an instance is already responding on port 3000
-  const is3000Running = await checkHttp(3000);
+  // 1. Check if a healthy instance is already running on port 3000
+  const is3000Running = await checkHubHealth(3000);
   if (is3000Running) {
-    log("Existing Nsei Sukul Hub service detected on port 3000. Opening standalone app window...");
+    log("Existing Nsei Sukul Hub service verified healthy on port 3000. Opening standalone app window...");
     openDesktopApp("http://localhost:3000/hub/login");
     return;
   }
+
+  // 1b. If port 3000 is blocked by a dead/unresponsive process, clean it up
+  cleanStaleZombiePid();
 
   // 2. Resolve port (preferred 3000, fallback to 3001..3010)
   let chosenPort = 3000;
@@ -198,9 +231,9 @@ async function main() {
   // 6. Poll for server readiness
   log("Waiting for server to become ready...");
   let ready = false;
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 45; i++) {
     await new Promise((r) => setTimeout(r, 600));
-    ready = await checkHttp(chosenPort);
+    ready = await checkHubHealth(chosenPort);
     if (ready) break;
   }
 
