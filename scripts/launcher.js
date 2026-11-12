@@ -55,11 +55,36 @@ function checkHttp(port) {
   });
 }
 
-function openBrowser(url) {
+function openDesktopApp(url) {
+  // Common paths for Microsoft Edge and Google Chrome on Windows
+  const candidateExecutables = [
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    path.join(process.env.LOCALAPPDATA || "", "Microsoft", "Edge", "Application", "msedge.exe"),
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    path.join(process.env.LOCALAPPDATA || "", "Google", "Chrome", "Application", "chrome.exe"),
+  ];
+
+  for (const exe of candidateExecutables) {
+    if (fs.existsSync(exe)) {
+      log(`Launching standalone Desktop App Window via: ${exe}`);
+      try {
+        const appCmd = `"${exe}" --app="${url}" --window-size=1280,820`;
+        exec(appCmd, { windowsHide: false });
+        return;
+      } catch (err) {
+        log(`Failed launching with ${exe}: ${err.message}`);
+      }
+    }
+  }
+
+  // Fallback: standard default browser
+  log(`Fallback: Opening default browser with ${url}`);
   try {
     exec(`start "" "${url}"`, { shell: true });
   } catch (err) {
-    log("Failed to launch browser: " + err.message);
+    log("Failed to launch default browser: " + err.message);
   }
 }
 
@@ -86,8 +111,8 @@ async function main() {
   // 1. Check if an instance is already responding on port 3000
   const is3000Running = await checkHttp(3000);
   if (is3000Running) {
-    log("Existing Nsei Sukul Hub service detected on port 3000. Opening browser...");
-    openBrowser("http://localhost:3000");
+    log("Existing Nsei Sukul Hub service detected on port 3000. Opening standalone app window...");
+    openDesktopApp("http://localhost:3000/hub/login");
     return;
   }
 
@@ -208,15 +233,15 @@ async function main() {
       );
     } catch {}
 
-    // Open user's default browser
-    openBrowser(`http://localhost:${chosenPort}`);
+    // Launch dedicated Desktop App Window
+    openDesktopApp(`http://localhost:${chosenPort}/hub/login`);
 
     // Show friendly Windows popup notification
     const bannerMsg =
-      `Nsei Sukul School Hub is running!\n\n` +
-      `Local URL: http://localhost:${chosenPort}\n` +
+      `Nsei Sukul School Hub is running in Desktop App Mode!\n\n` +
+      `Local Station: http://localhost:${chosenPort}/hub/login\n` +
       (lanUrls.length > 0 ? `Wi-Fi / LAN Hotspot URL:\n${lanUrls.join("\n")}\n\n` : "\n") +
-      `Other teachers on this Wi-Fi network or hotspot can open the Wi-Fi link on their phones or laptops.`;
+      `Other teachers on this school Wi-Fi network can open the Wi-Fi link on their phones or laptops.`;
 
     showWindowsPopup("Nsei Sukul School Hub", bannerMsg, false);
   } else {

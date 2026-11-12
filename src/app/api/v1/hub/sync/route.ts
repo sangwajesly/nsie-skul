@@ -1,39 +1,74 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
-  const hubKey = req.headers.get("x-hub-key");
-  if (!hubKey) {
-    return NextResponse.json({ error: "Missing x-hub-key header." }, { status: 401 });
-  }
-
-  const startTime = Date.now();
-  const supabase = createAdminClient();
-
-  // 1. Authenticate Hub Node
-  const { data: hub, error: hubError } = await supabase
-    .from("school_hubs")
-    .select("id, school_id, status, lease_expires_at, hub_name, local_ip")
-    .eq("node_key", hubKey)
-    .single();
-
-  if (hubError || !hub) {
-    return NextResponse.json({ error: "Invalid Hub authentication key." }, { status: 403 });
-  }
-
-  if (hub.status !== "active") {
-    return NextResponse.json(
-      { error: `This Hub node has been marked as ${hub.status}. Contact your school administrator.` },
-      { status: 403 }
-    );
-  }
-
-  const schoolId = hub.school_id;
   let body: any = {};
   try {
     body = await req.json();
   } catch {
     body = {};
+  }
+
+  const hubKey = req.headers.get("x-hub-key") || body.nodeKey;
+  const startTime = Date.now();
+  const supabase = createAdminClient();
+
+  let schoolId: string | null = null;
+  let hub: any = null;
+
+  // 1. Authenticate via Hub Node Key (Station mode)
+  if (hubKey) {
+    const { data: hubNode, error: hubError } = await supabase
+      .from("school_hubs")
+      .select("id, school_id, status, lease_expires_at, hub_name, local_ip")
+      .eq("node_key", hubKey)
+      .maybeSingle();
+
+    if (hubError || !hubNode) {
+      return NextResponse.json({ error: "Invalid Hub authentication key." }, { status: 403 });
+    }
+
+    if (hubNode.status !== "active") {
+      return NextResponse.json(
+        { error: `This Hub node has been marked as ${hubNode.status}. Contact your school administrator.` },
+        { status: 403 }
+      );
+    }
+
+    hub = hubNode;
+    schoolId = hubNode.school_id;
+  } else {
+    // 2. Fallback: Authenticate via Teacher/User session (Direct Cloud Auto-Sync)
+    try {
+      const userClient = await createClient();
+      const {
+        data: { user },
+      } = await userClient.auth.getUser();
+
+      if (user) {
+        const { data: mem } = await supabase
+          .from("school_memberships")
+          .select("school_id")
+          .eq("user_id", user.id)
+          .eq("status", "active")
+          .limit(1)
+          .maybeSingle();
+
+        if (mem?.school_id) {
+          schoolId = mem.school_id;
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+
+    if (!schoolId) {
+      return NextResponse.json(
+        { error: "Authentication required. Provide x-hub-key header or active user session." },
+        { status: 401 }
+      );
+    }
   }
 
   const { localIp, pushData, lastPulledAt } = body;
@@ -113,10 +148,27 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // 4. Process PUSH: Marks from Local Hub
-  if (pushData?.marks && Array.isArray(pushData.marks) && pushData.marks.length > 0) {
+  // 4. Process PUSH: Marks from Local Hub or Teacher Outbox
+  const marksToUpsert =
+    (pushData?.marks && Array.isArray(pushData.marks) ? pushData.marks : null) ||
+    (Array.isArray(body.marks)
+      ? body.marks.map((m: any) => ({
+          academicYearId: body.academicYearId,
+          termId: body.termId,
+          sequenceId: body.sequenceId,
+          classStreamId: body.classStreamId,
+          subjectId: body.subjectId,
+          studentId: m.studentId,
+          score: m.status === "present" ? m.score : null,
+          maxMarks: body.maxMarks || 20,
+          status: m.status || "present",
+          remarks: m.remarks || null,
+        }))
+      : []);
+
+  if (marksToUpsert.length > 0) {
     const { error: marksErr } = await supabase.from("assessment_marks").upsert(
-      pushData.marks.map((m: any) => ({
+      marksToUpsert.map((m: any) => ({
         school_id: schoolId,
         academic_year_id: m.academicYearId,
         term_id: m.termId,
@@ -134,7 +186,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (!marksErr) {
-      itemsPushed += pushData.marks.length;
+      itemsPushed += marksToUpsert.length;
     }
   }
 
@@ -165,32 +217,34 @@ export async function POST(req: NextRequest) {
 
   // 6. Update Hub Metadata & Log Sync Session
   const durationMs = Date.now() - startTime;
-  await Promise.all([
-    supabase
-      .from("school_hubs")
-      .update({
-        local_ip: localIp || hub.local_ip,
-        lease_expires_at: newLeaseExpiresAt,
-        last_heartbeat_at: new Date().toISOString(),
-        last_sync_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", hub.id),
+  if (hub?.id) {
+    await Promise.all([
+      supabase
+        .from("school_hubs")
+        .update({
+          local_ip: localIp || hub.local_ip,
+          lease_expires_at: newLeaseExpiresAt,
+          last_heartbeat_at: new Date().toISOString(),
+          last_sync_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", hub.id),
 
-    supabase.from("hub_sync_logs").insert({
-      school_id: schoolId,
-      hub_id: hub.id,
-      direction: "bidirectional",
-      items_pushed: itemsPushed,
-      items_pulled: itemsPulled,
-      status: "success",
-      duration_ms: durationMs,
-    }),
-  ]);
+      supabase.from("hub_sync_logs").insert({
+        school_id: schoolId,
+        hub_id: hub.id,
+        direction: "bidirectional",
+        items_pushed: itemsPushed,
+        items_pulled: itemsPulled,
+        status: "success",
+        duration_ms: durationMs,
+      }),
+    ]);
+  }
 
   return NextResponse.json({
     success: true,
-    hubName: hub.hub_name,
+    hubName: hub?.hub_name || "Direct Sync Station",
     leaseExpiresAt: newLeaseExpiresAt,
     isSubscriptionActive: isSubActive,
     itemsPushed,

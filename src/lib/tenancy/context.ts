@@ -4,6 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { cookies } from "next/headers";
 import { ActiveTenantContext, UserSchoolOption, SchoolSubscriptionInfo } from "@/types/tenancy";
 import { School, UserProfile, Role, Permission } from "@/types/database";
+import {
+  isSchoolHubMode,
+  verifyHubSessionToken,
+  HUB_SESSION_COOKIE,
+} from "@/lib/hub/hub-node-store";
 
 export const ACTIVE_SCHOOL_COOKIE = "nsei_active_school_id";
 
@@ -30,6 +35,100 @@ export const SUPER_ADMIN_ROLE_DEF: Role = {
  * within the same server render lifecycle.
  */
 export const getTenantContext = cache(async function getTenantContext(): Promise<ActiveTenantContext | null> {
+  // Check for local School Hub Admin Session first (Offline on-premise Station)
+  const cookieStore = await cookies();
+  const hubToken = cookieStore.get(HUB_SESSION_COOKIE)?.value;
+  if (hubToken) {
+    const verifiedHub = verifyHubSessionToken(hubToken);
+    if (verifiedHub) {
+      const allPermCodes = [
+        "students.manage",
+        "students.import_export",
+        "students.view_all",
+        "academics.manage",
+        "schemes.manage",
+        "assignments.manage",
+        "school.settings.manage",
+        "staff.manage",
+        "marks.view_all",
+        "marks.enter_assigned",
+        "marks.approve_hod",
+        "results.approve_school",
+        "results.publish",
+        "id_cards.print",
+        "reports.view_school",
+        "school.manage_settings",
+        "report_cards.view",
+        "attendance.take_assigned",
+        "attendance.view_all",
+      ];
+
+      const permissions: Permission[] = allPermCodes.map((code) => ({
+        id: `perm-${code}`,
+        code,
+        category: code.split(".")[0],
+        description: code,
+        created_at: new Date().toISOString(),
+      }));
+
+      const activeSchool = {
+        id: verifiedHub.schoolId,
+        name: verifiedHub.schoolName,
+        code: verifiedHub.schoolCode,
+        slug: verifiedHub.schoolSlug || "local-school",
+        logo_url: verifiedHub.schoolLogoUrl || "/app-icon.png",
+        country: "Cameroon",
+        address: "School Campus LAN Station",
+        phone: null,
+        email: null,
+        website: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as unknown as School;
+
+      const activeRole: Role = {
+        id: "role-school-admin",
+        code: "school_admin",
+        name: "School Hub Administrator",
+        description: "Local School Hub Master Station Administrator",
+        is_system: true,
+        created_at: new Date().toISOString(),
+      };
+
+      return {
+        user: {
+          id: `hub-admin-${verifiedHub.schoolId}`,
+          full_name: "School Hub Administrator",
+          email: `admin@${verifiedHub.schoolCode.toLowerCase() || "hub"}.local`,
+          phone: null,
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        school: activeSchool,
+        membershipId: `mem-hub-${verifiedHub.schoolId}`,
+        role: activeRole,
+        permissions,
+        hasPermission: () => true,
+        isClassMaster: true,
+        masteredStreamNames: [],
+        isHod: true,
+        subscription: {
+          status: "active",
+          plan: "School Hub Perpetual",
+          trialEndsAt: null,
+          currentPeriodEnd: null,
+          isExpired: false,
+          isTrial: false,
+          daysRemaining: 365,
+        },
+        isSuperAdmin: false,
+        needsPinSetup: false,
+      };
+    }
+  }
+
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -76,7 +175,6 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   }
 
   // 3. Resolve active school
-  const cookieStore = await cookies();
   const preferredSchoolId = cookieStore.get(ACTIVE_SCHOOL_COOKIE)?.value;
 
   let activeMembership: any = memberships.find((m) => m.school_id === preferredSchoolId);
@@ -423,6 +521,43 @@ export async function requireAnyPermission(
  * If user is Platform Superadmin, returns every active school on the platform.
  */
 export async function getUserSchools(): Promise<UserSchoolOption[]> {
+  const cookieStore = await cookies();
+  const hubToken = cookieStore.get(HUB_SESSION_COOKIE)?.value;
+  if (hubToken) {
+    const verifiedHub = verifyHubSessionToken(hubToken);
+    if (verifiedHub) {
+      return [
+        {
+          membershipId: `mem-hub-${verifiedHub.schoolId}`,
+          school: {
+            id: verifiedHub.schoolId,
+            name: verifiedHub.schoolName,
+            code: verifiedHub.schoolCode,
+            slug: verifiedHub.schoolSlug || "local-school",
+            logo_url: verifiedHub.schoolLogoUrl || "/app-icon.png",
+            country: "Cameroon",
+            address: "School Campus LAN Station",
+            phone: null,
+            email: null,
+            website: null,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          } as unknown as School,
+          role: {
+            id: "role-school-admin",
+            code: "school_admin",
+            name: "School Hub Administrator",
+            description: "Local School Hub Station Administrator",
+            is_system: true,
+            created_at: new Date().toISOString(),
+          },
+          status: "active",
+        },
+      ];
+    }
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

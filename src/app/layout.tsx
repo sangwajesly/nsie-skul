@@ -78,12 +78,16 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/app-icon.png", sizes: "256x256", type: "image/png" },
       { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
     ],
+    shortcut: ["/favicon.ico"],
     apple: [
+      { url: "/app-icon.png", sizes: "256x256", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
       { url: "/icons/icon-192.svg", sizes: "192x192", type: "image/svg+xml" },
@@ -108,6 +112,9 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" type="image/png" sizes="256x256" href="/app-icon.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         <OrganizationJsonLd />
         <WebSiteJsonLd />
       </head>

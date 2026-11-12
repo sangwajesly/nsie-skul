@@ -38,18 +38,49 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const pathname = request.nextUrl.pathname;
+
+  // --- School Hub On-Premise Mode Routing & Offline Access ---
+  const isHubMode =
+    process.env.HUB_MODE === "true" ||
+    process.env.NEXT_PUBLIC_HUB_MODE === "true";
+
+  const hasHubSession = Boolean(
+    request.cookies.get("nsei_hub_admin_session")?.value
+  );
+
+  if (isHubMode) {
+    // Root on School Hub redirects to station login or dashboard
+    if (pathname === "/") {
+      const url = request.nextUrl.clone();
+      url.pathname = hasHubSession ? "/dashboard" : "/hub/login";
+      return NextResponse.redirect(url);
+    }
+
+    // Already unlocked Hub station hitting /hub/login → send to dashboard
+    if (pathname.startsWith("/hub/login") && hasHubSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
+
+    // Unlocked Hub session accessing protected dashboard routes
+    if (hasHubSession && (pathname.startsWith("/dashboard") || pathname.startsWith("/onboarding"))) {
+      return supabaseResponse;
+    }
+  }
+
   // Refresh auth token
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
-
   // Routes that unauthenticated users can access
   const isPublicAuthRoute =
     pathname.startsWith("/login") ||
     pathname.startsWith("/register") ||
-    pathname.startsWith("/forgot-password");
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/hub/login");
 
   // Routes that require authentication
   const isProtectedRoute =
@@ -57,9 +88,9 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/onboarding");
 
   // --- Unauthenticated user hitting a protected page → redirect to login ---
-  if (!user && isProtectedRoute) {
+  if (!user && !hasHubSession && isProtectedRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = isHubMode ? "/hub/login" : "/login";
     url.searchParams.set("returnUrl", pathname);
     return NextResponse.redirect(url);
   }
