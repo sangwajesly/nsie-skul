@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Lock,
   Eye,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -231,14 +232,25 @@ export default async function ReportCardsHubPage({
 
             {canPrintReportCards ? (
               enrolments.length > 0 && selectedStream && (
-                <Link
-                  href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
-                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
-                  title="Print all report cards or export as one combined PDF file"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Export Class Batch (Single PDF)</span>
-                </Link>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <Link
+                    href={`/dashboard/academics/report-cards/broadsheet?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
+                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-3.5 py-2 rounded-[6px] bg-[#FAF8F2] hover:bg-[#F2ECE1] border border-[#D5CBB2] text-[#142010] font-bold text-xs shadow-2xs transition-colors shrink-0"
+                    title="Class Council Master Broad Sheet (PV de Délibération)"
+                  >
+                    <FileSpreadsheet className="w-4 h-4 text-[#2A7C13]" />
+                    <span>Master Broad Sheet (PV)</span>
+                  </Link>
+
+                  <Link
+                    href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
+                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 rounded-[6px] bg-[#2A7C13] hover:bg-[#20600E] text-white font-bold text-xs shadow-xs transition-colors shrink-0"
+                    title="Print all report cards or export as one combined PDF file"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>Export Class Batch (Single PDF)</span>
+                  </Link>
+                </div>
               )
             ) : (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-[#FFF8CF] border border-[#FBE6C2] text-[#4A3D00] text-xs font-semibold shrink-0">
@@ -262,13 +274,24 @@ export default async function ReportCardsHubPage({
                   {enrolments.length} students
                 </span>
                 {canPrintReportCards && enrolments.length > 0 && selectedStream && (
-                  <Link
-                    href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors"
-                  >
-                    <Printer className="w-3.5 h-3.5 text-[#2A7C13]" />
-                    <span>Print All</span>
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={`/dashboard/academics/report-cards/broadsheet?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#FAF8F2] hover:bg-[#F2ECE1] text-[#142010] border border-[#D5CBB2] font-bold text-xs transition-colors"
+                      title="Class Council Deliberation Broad Sheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      <span>Broad Sheet</span>
+                    </Link>
+
+                    <Link
+                      href={`/dashboard/academics/report-cards/bulk?classStreamId=${selectedStream.id}&termNumber=${selectedTermNumber}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[5px] bg-[#F5F5F0] hover:bg-[#EAEAE5] text-[#191919] border border-[#D5D5CF] font-semibold text-xs transition-colors"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-[#2A7C13]" />
+                      <span>Print All</span>
+                    </Link>
+                  </div>
                 )}
               </div>
             </div>
