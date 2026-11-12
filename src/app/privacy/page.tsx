@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { GraduationCap, ArrowLeft, ShieldCheck, Lock, EyeOff, UserCheck, Phone, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ShieldCheck, Lock, EyeOff, UserCheck, Phone, CheckCircle2 } from "lucide-react";
 import type { Metadata } from "next";
 import { BreadcrumbJsonLd } from "@/lib/seo/structured-data";
+import { NseiBrandLogo } from "@/components/brand/NseiLogo";
 
 export const metadata: Metadata = {
   title: "Data Privacy Policy (Law No. 2024/017)",
@@ -17,14 +18,8 @@ export default function PrivacyPolicyPage() {
       {/* Top Navbar */}
       <header className="border-b border-[#E8DFC9] bg-white sticky top-0 z-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-          <Link href="/login" className="inline-flex items-center gap-2.5 text-[#142010]">
-            <div className="w-9 h-9 rounded-[8px] bg-[#142010] text-white flex items-center justify-center shrink-0">
-              <GraduationCap className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-extrabold text-sm tracking-tight block">Nsei Sukul</span>
-              <span className="text-[10px] text-[#777777] block -mt-0.5">Management System</span>
-            </div>
+          <Link href="/login" className="inline-block">
+            <NseiBrandLogo size="md" priority />
           </Link>
 
           <div className="flex items-center gap-3">

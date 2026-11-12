@@ -135,7 +135,7 @@ export function SchoolSwitcher({
   if (!hasMultipleSchools) {
     return (
       <div className="flex items-center gap-2.5 overflow-hidden">
-        <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
+          <div className="w-8 h-8 rounded-[6px] bg-[#142010] text-white flex items-center justify-center font-bold text-sm shrink-0 overflow-hidden">
           {currentSchool.logo_url ? (
             <img
               src={currentSchool.logo_url}
@@ -143,7 +143,11 @@ export function SchoolSwitcher({
               className="w-full h-full object-contain p-0.5 bg-white"
             />
           ) : (
-            currentSchool.name.charAt(0)
+            <img
+              src="/app-icon.png"
+              alt="Nsei Sukul Logo"
+              className="w-full h-full object-contain"
+            />
           )}
         </div>
         <div className="overflow-hidden">
@@ -182,7 +186,11 @@ export function SchoolSwitcher({
                 className="w-full h-full object-contain p-0.5 bg-white"
               />
             ) : (
-              currentSchool.name.charAt(0)
+              <img
+                src="/app-icon.png"
+                alt="Nsei Sukul Logo"
+                className="w-full h-full object-contain"
+              />
             )}
           </div>
           <div className="overflow-hidden min-w-0">
@@ -247,7 +255,11 @@ export function SchoolSwitcher({
                           className="w-full h-full object-contain p-0.5 bg-white"
                         />
                       ) : (
-                        item.school.name.charAt(0)
+                        <img
+                          src="/app-icon.png"
+                          alt="Nsei Sukul Logo"
+                          className="w-full h-full object-contain"
+                        />
                       )}
                     </div>
                     <div className="overflow-hidden min-w-0">

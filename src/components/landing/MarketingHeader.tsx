@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  GraduationCap,
   MessageCircle,
   Menu,
   X,
@@ -17,6 +16,7 @@ import {
   LayoutDashboard,
   Sparkles,
 } from "lucide-react";
+import { NseiBrandLogo } from "@/components/brand/NseiLogo";
 import { BRAND } from "@/lib/design-tokens";
 import { createClient } from "@/lib/supabase/client";
 import { PwaInstallButton } from "@/components/pwa/PwaInstallButton";
@@ -64,18 +64,12 @@ export function MarketingHeader({ currentPath = "/" }: { currentPath?: string })
     <header className="sticky top-0 z-40 bg-[#FFFDF5] border-b border-[#E8DFC9]">
       <div className="max-w-6xl mx-auto px-3.5 sm:px-8 h-16 flex items-center justify-between gap-3 sm:gap-6">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-8 h-8 rounded-[7px] bg-[#2A7C13] text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform" aria-hidden="true">
-            <GraduationCap className="w-4.5 h-4.5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-[16px] tracking-tight text-[#142010] leading-none">
-              {BRAND.name}
-            </span>
-            <span className="text-[10px] font-semibold text-[#788470] tracking-wide uppercase mt-0.5">
-              {BRAND.systemTitle}
-            </span>
-          </div>
+        <Link href="/" className="shrink-0 group">
+          <NseiBrandLogo
+            size="sm"
+            priority
+            className="[&>div:first-child]:group-hover:scale-105 [&>div:first-child]:transition-transform"
+          />
         </Link>
 
         {/* Desktop Nav Links */}

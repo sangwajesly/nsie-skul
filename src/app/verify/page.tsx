@@ -13,6 +13,7 @@ import {
   FileText,
 } from "lucide-react";
 import { BRAND } from "@/lib/design-tokens";
+import { NseiLogoMark } from "@/components/brand/NseiLogo";
 
 interface VerifyPageProps {
   searchParams?: Promise<{
@@ -77,9 +78,7 @@ export default async function VerifyPage({ searchParams }: VerifyPageProps) {
           </Link>
 
           <div className="flex items-center gap-1.5">
-            <div className="w-6 h-6 rounded bg-[#2A7C13] text-white flex items-center justify-center font-bold text-xs">
-              S
-            </div>
+            <NseiLogoMark size="xs" />
             <span className="font-extrabold text-xs tracking-tight text-[#142010]">
               {BRAND.name} Security
             </span>

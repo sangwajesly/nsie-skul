@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { loginAction, loginWithTeacherCodeAction } from "@/app/auth/actions";
 import {
-  GraduationCap,
   ArrowRight,
   Lock,
   Mail,
@@ -20,6 +19,7 @@ import {
   Building2,
   WifiOff,
 } from "lucide-react";
+import { NseiLogoMark } from "@/components/brand/NseiLogo";
 import { GoogleSignInButton } from "@/components/auth/GoogleSignInButton";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -196,9 +196,9 @@ function LoginForm() {
       <div className="w-full max-w-sm">
         {/* Brand Header */}
         <div className="text-center mb-5">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-[10px] bg-[#142010] text-white mb-2.5 shadow-xs">
-            <GraduationCap className="w-6 h-6 text-[#86EFAC]" />
-          </div>
+          <Link href="/" className="inline-block mb-2.5 group">
+            <NseiLogoMark size="lg" priority className="mx-auto group-hover:scale-105 transition-transform" />
+          </Link>
           <h1 className="text-2xl font-black tracking-tight text-[#142010]">
             Nsei Sukul
           </h1>

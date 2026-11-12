@@ -3,7 +3,6 @@
 import { useState, useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  GraduationCap,
   School,
   UserCheck,
   Check,
@@ -29,6 +28,7 @@ import {
 import { createSchoolAction, restoreSchoolOnboardingAction, type CreateSchoolResult } from "./actions";
 import { signOutAction } from "@/app/auth/actions";
 import type { NseiSukulBackupArchive } from "@/app/dashboard/settings/data-privacy-actions";
+import { NseiBrandLogo } from "@/components/brand/NseiLogo";
 
 interface OnboardingClientProps {
   userId: string;
@@ -132,19 +132,7 @@ export function OnboardingClient({
     <div className="min-h-screen bg-[#FFFDF5] text-[#142010] py-10 px-4 sm:px-6 flex flex-col justify-between">
       {/* Top Bar */}
       <div className="max-w-4xl mx-auto w-full flex items-center justify-between pb-6 border-b border-[#E8DFC9]">
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-[8px] bg-[#142010] text-white flex items-center justify-center font-bold shadow-xs">
-            <GraduationCap className="w-5 h-5" />
-          </div>
-          <div>
-            <div className="font-extrabold text-[15px] tracking-tight text-[#142010] leading-tight">
-              Nsei Sukul
-            </div>
-            <div className="text-[10px] font-semibold text-[#788470] tracking-wide uppercase">
-              Management Systems
-            </div>
-          </div>
-        </div>
+        <NseiBrandLogo size="md" priority />
 
         <form action={signOutAction}>
           <button

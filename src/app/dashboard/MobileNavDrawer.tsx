@@ -108,7 +108,11 @@ export function MobileNavDrawer({
                           className="w-full h-full object-contain p-0.5 bg-white"
                         />
                       ) : (
-                        schoolName.charAt(0)
+                        <img
+                          src="/app-icon.png"
+                          alt="Nsei Sukul Logo"
+                          className="w-full h-full object-contain"
+                        />
                       )}
                     </div>
                     <div className="overflow-hidden">

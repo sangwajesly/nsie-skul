@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { GraduationCap, MessageCircle, ShieldCheck, Wifi, MapPin, Award, FileSpreadsheet, Wallet } from "lucide-react";
+import { MessageCircle, ShieldCheck, Wifi, MapPin, Award, FileSpreadsheet, Wallet } from "lucide-react";
 import { BRAND } from "@/lib/design-tokens";
+import { NseiBrandLogo } from "@/components/brand/NseiLogo";
 
 export function MarketingFooter() {
   return (
@@ -10,19 +11,7 @@ export function MarketingFooter() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-10 lg:gap-12 pb-14 border-b border-[#23351E]">
           {/* Brand & Identity Column (5 cols on md) */}
           <div className="md:col-span-5 space-y-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-[7px] bg-[#2A7C13] text-white flex items-center justify-center shadow-xs">
-                <GraduationCap className="w-4.5 h-4.5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-[17px] text-white tracking-tight leading-none">
-                  {BRAND.name}
-                </span>
-                <span className="text-[10px] font-semibold text-[#7FA776] tracking-wide uppercase mt-1">
-                  {BRAND.systemTitle}
-                </span>
-              </div>
-            </div>
+            <NseiBrandLogo size="sm" tone="light" />
 
             <p className="text-[12.5px] text-[#A3BCA0] leading-relaxed max-w-sm">
               Hybrid Cloud and Local Offline School Management Platform engineered specifically for secondary schools, high schools, and colleges across Cameroon.

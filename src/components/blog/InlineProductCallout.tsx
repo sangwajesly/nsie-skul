@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { GraduationCap, ArrowRight, Eye, Sparkles, CheckCircle2, ShieldCheck } from "lucide-react";
+import { ArrowRight, Eye, Sparkles, CheckCircle2, ShieldCheck } from "lucide-react";
 import { ReportCardSampleModal } from "@/components/academic/ReportCardSampleModal";
 import type { ReportCardTemplateType } from "@/components/academic/ReportCardRenderer";
+import { NseiLogoMark } from "@/components/brand/NseiLogo";
 
 interface Props {
   headline?: string;
@@ -39,9 +40,7 @@ export function InlineProductCallout({
             </p>
           </div>
 
-          <div className="w-12 h-12 rounded-[10px] bg-[#142010] text-[#4ADE80] flex items-center justify-center shrink-0 shadow-xs hidden sm:flex">
-            <GraduationCap className="w-6 h-6" />
-          </div>
+          <NseiLogoMark size="lg" className="hidden sm:flex" />
         </div>
 
         {/* Feature Pills */}

@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getUserSchools } from "@/lib/tenancy/context";
 import { setActiveSchoolAction } from "@/app/schools/actions";
 import { redirect } from "next/navigation";
-import { ArrowRight, Building2, GraduationCap, School as SchoolIcon, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Building2, School as SchoolIcon, CheckCircle2 } from "lucide-react";
+import { NseiLogoMark } from "@/components/brand/NseiLogo";
 
 interface SelectSchoolPageProps {
   searchParams: Promise<{ returnTo?: string | string[] }>;
@@ -36,9 +37,7 @@ export default async function SelectSchoolPage({ searchParams }: SelectSchoolPag
       <div className="mx-auto w-full max-w-2xl space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-[10px] bg-[#142010] text-white shadow-xs">
-            <GraduationCap className="h-6 w-6" />
-          </div>
+          <NseiLogoMark size="lg" priority />
           <div>
             <div className="flex items-center gap-2">
               <span className="text-sm font-extrabold text-[#142010]">Nsei Sukul</span>
