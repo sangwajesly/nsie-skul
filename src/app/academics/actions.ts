@@ -1930,6 +1930,7 @@ export async function saveSequenceMarksAction(payload: {
     score: number | null;
     status: "present" | "absent" | "exempt";
     remarks?: string;
+    version?: number;
   }>;
 }) {
   const context = await requireAnyPermission([
@@ -2061,33 +2062,68 @@ export async function saveSequenceMarksAction(payload: {
     return { error: "This mark sheet is locked. Only the Head of Department or School Administrator can modify approved marks." };
   }
 
-  const rowsToUpsert = payload.marks.map((m) => {
-    // If student is absent or exempt, score is null
-    const finalScore = m.status === "present" ? m.score : null;
-    return {
-      school_id: context.school.id,
-      academic_year_id: payload.academicYearId,
-      term_id: payload.termId,
-      sequence_id: payload.sequenceId,
-      class_stream_id: payload.classStreamId,
-      subject_id: payload.subjectId,
-      student_id: m.studentId,
-      score: finalScore,
-      max_marks: payload.maxMarks || 20.0,
-      status: m.status,
-      remarks: m.remarks || null,
-      entered_by: context.user?.id || null,
-      updated_by: context.user?.id || null,
-      updated_at: new Date().toISOString(),
-    };
-  });
+  // Execute atomic OCC mark submission via RPC
+  const marksPayload = payload.marks.map((m) => ({
+    student_id: m.studentId,
+    score: m.status === "present" ? m.score : null,
+    status: m.status,
+    remarks: m.remarks || null,
+    version: m.version || 1,
+  }));
 
-  const { error } = await supabase.from("assessment_marks").upsert(rowsToUpsert, {
-    onConflict: "sequence_id,class_stream_id,subject_id,student_id",
-  });
+  const { data: atomicResult, error: atomicError } = await supabase.rpc(
+    "submit_sequence_marks_atomic",
+    {
+      p_school_id: context.school.id,
+      p_academic_year_id: payload.academicYearId,
+      p_term_id: payload.termId,
+      p_sequence_id: payload.sequenceId,
+      p_class_stream_id: payload.classStreamId,
+      p_subject_id: payload.subjectId,
+      p_max_marks: payload.maxMarks || 20.0,
+      p_marks: marksPayload,
+      p_actor_id: context.user?.id || null,
+    }
+  );
 
-  if (error) {
-    return { error: error.message };
+  if (atomicError) {
+    // Fallback to legacy upsert if RPC is not present on older environment
+    const rowsToUpsert = payload.marks.map((m) => {
+      const finalScore = m.status === "present" ? m.score : null;
+      return {
+        school_id: context.school.id,
+        academic_year_id: payload.academicYearId,
+        term_id: payload.termId,
+        sequence_id: payload.sequenceId,
+        class_stream_id: payload.classStreamId,
+        subject_id: payload.subjectId,
+        student_id: m.studentId,
+        score: finalScore,
+        max_marks: payload.maxMarks || 20.0,
+        status: m.status,
+        remarks: m.remarks || null,
+        entered_by: context.user?.id || null,
+        updated_by: context.user?.id || null,
+        updated_at: new Date().toISOString(),
+      };
+    });
+
+    const { error: upsertError } = await supabase.from("assessment_marks").upsert(rowsToUpsert, {
+      onConflict: "sequence_id,class_stream_id,subject_id,student_id",
+    });
+
+    if (upsertError) {
+      return { error: upsertError.message };
+    }
+  } else if (atomicResult && !atomicResult.success) {
+    if (atomicResult.error_code === "CONCURRENCY_CONFLICT") {
+      return {
+        error: "Conflict detected: One or more marks were updated elsewhere. Please review and refresh.",
+        conflict: true,
+        conflicts: atomicResult.conflicts,
+      };
+    }
+    return { error: atomicResult.message || "Failed to save marks." };
   }
 
   // Persist class-wide CBA Competency Evaluated if provided

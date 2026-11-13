@@ -148,6 +148,15 @@ const consoleBat = [
 ].join("\r\n");
 fs.writeFileSync(path.join(DIST_DIR, "debug-console.bat"), consoleBat, "utf8");
 
+// 11b. Stage portable PostgreSQL cluster into dist-hub/pgsql/
+console.log("11b. Staging portable PostgreSQL 16 binaries...");
+try {
+  const { ensurePortablePgsql } = require("./bundle-hub-pgsql");
+  ensurePortablePgsql();
+} catch (e) {
+  console.warn("Warning: Could not bundle portable PostgreSQL:", e.message);
+}
+
 // 12. Locate Inno Setup Compiler and compile NseiSukulHubSetup.exe
 const isccCandidates = [
   path.join(require("os").tmpdir(), "is_install", "bin", "ISCC.exe"),

@@ -45,12 +45,15 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilen
 Name: "{autostartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: autostart
 
 [Run]
-; Add Windows Firewall rule for incoming Wi-Fi / LAN connections on Ports 3000-3010
+; Add Windows Firewall rule for incoming Wi-Fi / LAN connections on Ports 3000-3010 and 5432
 Filename: "netsh"; Parameters: "advfirewall firewall add rule name=""Nsei Sukul School Hub"" dir=in action=allow protocol=TCP localport=3000-3010"; Flags: runhidden
 ; Launch the application upon installation finish
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch Nsei Sukul School Hub now"; Flags: postinstall nowait skipifsilent
 
 [UninstallRun]
+; Stop and delete Windows Service if registered
+Filename: "sc"; Parameters: "stop NseiSukulHubService"; Flags: runhidden; RunOnceId: "StopHubService"
+Filename: "sc"; Parameters: "delete NseiSukulHubService"; Flags: runhidden; RunOnceId: "DelHubService"
 ; Clean up Windows Firewall rule upon uninstall
 Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""Nsei Sukul School Hub"""; Flags: runhidden; RunOnceId: "DelHubFwRule"
 

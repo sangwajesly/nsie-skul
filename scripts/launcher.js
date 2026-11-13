@@ -178,7 +178,18 @@ async function main() {
     }
   }
 
-  // 4. Determine node executable
+  // 4. Start local PostgreSQL engine before starting Next.js server
+  try {
+    const hubCore = require("./hub-service-core");
+    if (hubCore && hubCore.startLocalPostgres) {
+      log("Ensuring local PostgreSQL cluster is active...");
+      await hubCore.startLocalPostgres();
+    }
+  } catch (e) {
+    log(`Note: Local PostgreSQL check bypassed: ${e.message}`);
+  }
+
+  // 5. Determine node executable
   let nodeBin = process.execPath;
   const bundledNode = path.join(APP_DIR, "runtime", "node.exe");
   if (fs.existsSync(bundledNode)) {

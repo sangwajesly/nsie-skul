@@ -51,7 +51,8 @@ next-env.d.ts
 *.db
 *.dump
 *.bak
-/supabase/
+!supabase/migrations/*.sql
+!supabase/hub-compat/*.sql
 
 # Local agent workspace and tooling
 .agents/
