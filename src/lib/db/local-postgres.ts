@@ -1,5 +1,5 @@
-import pg, { type Pool as PgPool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
-const { Pool } = pg;
+import { Pool } from "pg";
+import type { Pool as PgPool, PoolClient, QueryResult, QueryResultRow } from "pg";
 
 let pool: PgPool | null = null;
 
@@ -9,16 +9,18 @@ export function getLocalPgPool(): PgPool {
       process.env.HUB_DATABASE_URL ||
       `postgresql://${process.env.HUB_DB_USER || "postgres"}:${process.env.HUB_DB_PASSWORD || "postgres"}@${process.env.HUB_DB_HOST || "127.0.0.1"}:${process.env.HUB_DB_PORT || "5432"}/${process.env.HUB_DB_NAME || "nsei_sukul_hub"}`;
 
-    pool = new Pool({
+    const newPool: PgPool = new Pool({
       connectionString,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
     });
 
-    pool.on("error", (err: Error) => {
+    newPool.on("error", (err: Error) => {
       console.error("[LocalPgPool] Unexpected client error:", err);
     });
+
+    pool = newPool;
   }
 
   return pool;

@@ -58,22 +58,32 @@ if (fs.existsSync(DIST_DIR)) {
 }
 fs.mkdirSync(DIST_DIR, { recursive: true });
 
-// Helper to copy directory recursively
+// Helper to copy directory recursively (dereferencing symlinks for standalone portability on Windows)
 function copyDirSync(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
   for (const entry of entries) {
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDirSync(srcPath, destPath);
-    } else if (entry.isSymbolicLink()) {
+
+    let isDir = entry.isDirectory();
+    let realPath = srcPath;
+
+    if (entry.isSymbolicLink()) {
       try {
-        const target = fs.readlinkSync(srcPath);
-        fs.symlinkSync(target, destPath);
-      } catch {}
+        realPath = fs.realpathSync(srcPath);
+        const realStat = fs.statSync(realPath);
+        isDir = realStat.isDirectory();
+      } catch (err) {
+        console.warn(`[copyDirSync] Could not dereference symlink ${srcPath}:`, err.message);
+        continue;
+      }
+    }
+
+    if (isDir) {
+      copyDirSync(realPath, destPath);
     } else {
-      fs.copyFileSync(srcPath, destPath);
+      fs.copyFileSync(realPath, destPath);
     }
   }
 }
@@ -88,6 +98,28 @@ const staticDest = path.join(DIST_DIR, ".next", "static");
 if (fs.existsSync(staticSrc)) {
   console.log("6. Copying .next/static client bundles...");
   copyDirSync(staticSrc, staticDest);
+}
+
+// 6b. Ensure .next/node_modules external aliases (e.g. pg-hash) are copied and dereferenced
+const nextModulesSrc = path.join(ROOT_DIR, ".next", "node_modules");
+const nextModulesDest = path.join(DIST_DIR, ".next", "node_modules");
+if (fs.existsSync(nextModulesSrc)) {
+  console.log("6b. Dereferencing and copying .next/node_modules aliases...");
+  copyDirSync(nextModulesSrc, nextModulesDest);
+}
+
+// Also mirror external package aliases into dist-hub/node_modules for universal Node.js resolution
+const distNodeModules = path.join(DIST_DIR, "node_modules");
+if (fs.existsSync(nextModulesDest) && fs.existsSync(distNodeModules)) {
+  const aliases = fs.readdirSync(nextModulesDest);
+  for (const alias of aliases) {
+    const aliasSrc = path.join(nextModulesDest, alias);
+    const aliasDest = path.join(distNodeModules, alias);
+    if (!fs.existsSync(aliasDest)) {
+      console.log(`Mirroring external package alias ${alias} to dist-hub/node_modules...`);
+      copyDirSync(aliasSrc, aliasDest);
+    }
+  }
 }
 
 // 7. Copy public directory assets (excluding public/downloads to avoid recursive bloat)
