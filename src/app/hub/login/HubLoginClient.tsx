@@ -55,11 +55,16 @@ export function HubLoginClient({
     formData.append("pinOrKey", pinOrKey.trim());
 
     startTransition(async () => {
-      const res = await unlockHubWithPinAction(formData);
-      if (res?.error) {
-        setError(res.error);
-      } else {
-        router.push("/dashboard");
+      try {
+        const res = await unlockHubWithPinAction(formData);
+        if (res?.error) {
+          setError(res.error);
+        } else {
+          // Hard navigation to ensure cookies are read cleanly by server middleware
+          window.location.href = "/dashboard";
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to verify. Please try again.");
       }
     });
   };
@@ -88,11 +93,15 @@ export function HubLoginClient({
     formData.append("pin", setupPin.trim());
 
     startTransition(async () => {
-      const res = await setupHubNodeAction(formData);
-      if (res?.error) {
-        setError(res.error);
-      } else {
-        router.push("/dashboard");
+      try {
+        const res = await setupHubNodeAction(formData);
+        if (res?.error) {
+          setError(res.error);
+        } else {
+          window.location.href = "/dashboard";
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to activate station.");
       }
     });
   };

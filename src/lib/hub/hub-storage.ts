@@ -2,7 +2,21 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 
-const UPLOADS_DIR = path.resolve(process.cwd(), "public", "uploads", "students");
+function getUploadsDir(): string {
+  const defaultDir = path.resolve(process.cwd(), "public", "uploads", "students");
+  try {
+    if (!fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true });
+    fs.accessSync(defaultDir, fs.constants.W_OK);
+    return defaultDir;
+  } catch {}
+
+  const baseDir = process.env.PROGRAMDATA || process.env.ALLUSERSPROFILE || process.env.LOCALAPPDATA || process.cwd();
+  const fallbackDir = path.join(baseDir, "NseiSukulHub", "uploads", "students");
+  if (!fs.existsSync(fallbackDir)) {
+    try { fs.mkdirSync(fallbackDir, { recursive: true }); } catch {}
+  }
+  return fallbackDir;
+}
 
 export interface StoredMediaResult {
   url: string;
@@ -21,7 +35,8 @@ export async function storeMediaLocally(
   buffer: Buffer,
   fileExtension: string = "jpg"
 ): Promise<StoredMediaResult> {
-  const schoolDir = path.join(UPLOADS_DIR, schoolId);
+  const uploadsDir = getUploadsDir();
+  const schoolDir = path.join(uploadsDir, schoolId);
   if (!fs.existsSync(schoolDir)) {
     fs.mkdirSync(schoolDir, { recursive: true });
   }
@@ -46,7 +61,7 @@ export async function storeMediaLocally(
  * Checks if a media asset exists in the local Hub storage.
  */
 export function hasLocalMedia(schoolId: string, fileName: string): boolean {
-  const fullPath = path.join(UPLOADS_DIR, schoolId, fileName);
+  const fullPath = path.join(getUploadsDir(), schoolId, fileName);
   return fs.existsSync(fullPath);
 }
 
@@ -54,7 +69,7 @@ export function hasLocalMedia(schoolId: string, fileName: string): boolean {
  * Reads local media file as Buffer for Cloud sync transmission.
  */
 export function readLocalMediaBuffer(schoolId: string, fileName: string): Buffer | null {
-  const fullPath = path.join(UPLOADS_DIR, schoolId, fileName);
+  const fullPath = path.join(getUploadsDir(), schoolId, fileName);
   if (!fs.existsSync(fullPath)) return null;
   return fs.readFileSync(fullPath);
 }

@@ -19,8 +19,50 @@ export interface HubNodeConfig {
 export const HUB_SESSION_COOKIE = "nsei_hub_admin_session";
 const CONFIG_FILE_NAME = "hub-node-config.json";
 
+/**
+ * Returns a guaranteed writable directory for Hub node configuration and persistent local keys.
+ */
+export function getHubDataDirectory(): string {
+  // 1. Try application directory if writable
+  try {
+    fs.accessSync(process.cwd(), fs.constants.W_OK);
+    return process.cwd();
+  } catch {}
+
+  // 2. Try Windows ProgramData (accessible machine-wide)
+  const programData = process.env.PROGRAMDATA || process.env.ALLUSERSPROFILE;
+  if (programData) {
+    const dir = path.join(programData, "NseiSukulHub");
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch {}
+  }
+
+  // 3. Fallback to LocalAppData
+  const localAppData = process.env.LOCALAPPDATA || process.env.APPDATA;
+  if (localAppData) {
+    const dir = path.join(localAppData, "NseiSukulHub");
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch {}
+  }
+
+  return process.cwd();
+}
+
 function getConfigFilePath(): string {
-  return path.join(process.cwd(), CONFIG_FILE_NAME);
+  // Check if config exists in primary or secondary location
+  const primaryPath = path.join(getHubDataDirectory(), CONFIG_FILE_NAME);
+  if (fs.existsSync(primaryPath)) return primaryPath;
+
+  const cwdPath = path.join(process.cwd(), CONFIG_FILE_NAME);
+  if (fs.existsSync(cwdPath)) return cwdPath;
+
+  return primaryPath;
 }
 
 const DEFAULT_SECRET = "nsei-sukul-local-hub-station-secret-2026";
@@ -54,10 +96,22 @@ export function getHubNodeConfig(): HubNodeConfig | null {
     }
   }
 
+  // Also check LocalAppData fallback path if not found in primary
+  const fallbackPath = path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE || ".", "NseiSukulHub", CONFIG_FILE_NAME);
+  if (fs.existsSync(fallbackPath)) {
+    try {
+      const raw = fs.readFileSync(fallbackPath, "utf8");
+      const parsed = JSON.parse(raw);
+      if (parsed.nodeKey && parsed.schoolId) {
+        return parsed as HubNodeConfig;
+      }
+    } catch {}
+  }
+
   // Fallback to environment variables if config file not yet created
   const envKey = process.env.HUB_NODE_KEY;
   if (envKey) {
-    return {
+    const config: HubNodeConfig = {
       nodeKey: envKey,
       schoolId: process.env.HUB_SCHOOL_ID || "hub-local-school",
       schoolName: process.env.HUB_SCHOOL_NAME || "Local School Station",
@@ -66,6 +120,7 @@ export function getHubNodeConfig(): HubNodeConfig | null {
       cloudSyncUrl: process.env.CLOUD_SYNC_URL || "https://nsei-sukul.klarifypath.com/api/v1/hub/sync",
       activatedAt: new Date().toISOString(),
     };
+    return config;
   }
 
   return null;
@@ -88,11 +143,18 @@ export function saveHubNodeConfig(config: Partial<HubNodeConfig>): HubNodeConfig
     activatedAt: existing.activatedAt || new Date().toISOString(),
   };
 
-  const filePath = getConfigFilePath();
+  const primaryPath = path.join(getHubDataDirectory(), CONFIG_FILE_NAME);
   try {
-    fs.writeFileSync(filePath, JSON.stringify(merged, null, 2), "utf8");
+    fs.writeFileSync(primaryPath, JSON.stringify(merged, null, 2), "utf8");
   } catch (err) {
-    console.error("[HubNodeStore] Failed to write hub-node-config.json:", err);
+    console.error("[HubNodeStore] Failed to write to primary path:", err);
+    try {
+      const fallbackDir = path.join(process.env.LOCALAPPDATA || process.env.USERPROFILE || ".", "NseiSukulHub");
+      if (!fs.existsSync(fallbackDir)) fs.mkdirSync(fallbackDir, { recursive: true });
+      fs.writeFileSync(path.join(fallbackDir, CONFIG_FILE_NAME), JSON.stringify(merged, null, 2), "utf8");
+    } catch (fallbackErr) {
+      console.error("[HubNodeStore] Fallback write failed:", fallbackErr);
+    }
   }
 
   return merged;

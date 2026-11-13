@@ -119,12 +119,15 @@ if (fs.existsSync(hostNode)) {
   console.warn("Could not find host node.exe to bundle!");
 }
 
-// 9. Copy native executable launcher and launcher engine
+// 9. Copy native executable launcher, service core, and migrator
 console.log("9. Installing launcher engine and executables...");
 if (fs.existsSync(exeTarget)) {
   fs.copyFileSync(exeTarget, path.join(DIST_DIR, "NseiSukulHub.exe"));
 }
 fs.copyFileSync(path.join(ROOT_DIR, "scripts", "launcher.js"), path.join(DIST_DIR, "launcher.js"));
+fs.copyFileSync(path.join(ROOT_DIR, "scripts", "hub-service-core.js"), path.join(DIST_DIR, "hub-service-core.js"));
+fs.copyFileSync(path.join(ROOT_DIR, "scripts", "migrate-hub-database.js"), path.join(DIST_DIR, "migrate-hub-database.js"));
+copyDirSync(path.join(ROOT_DIR, "supabase"), path.join(DIST_DIR, "supabase"));
 if (fs.existsSync(iconPath)) {
   fs.copyFileSync(iconPath, path.join(DIST_DIR, "app-icon.ico"));
 }

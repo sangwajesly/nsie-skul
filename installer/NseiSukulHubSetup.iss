@@ -26,9 +26,15 @@ SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
+CloseApplications=force
+RestartApplications=no
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Dirs]
+Name: "{app}"; Permissions: users-modify
+Name: "{app}\public\uploads"; Permissions: users-modify
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a Desktop shortcut"; GroupDescription: "Additional Icons:"
@@ -61,6 +67,15 @@ Filename: "netsh"; Parameters: "advfirewall firewall delete rule name=""Nsei Suk
 var
   NodeKeyPage: TInputQueryWizardPage;
 
+function InitializeSetup(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  // Forcefully terminate any running instance of NseiSukulHub or its bundled runtime
+  Exec('taskkill.exe', '/F /IM NseiSukulHub.exe /T', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True;
+end;
+
 procedure InitializeWizard;
 begin
   // Create custom page prompting for Hub Node Key during installation
@@ -78,6 +93,8 @@ var
   NodeKey: String;
   EnvFilePath: String;
   EnvContent: String;
+  ConfigFilePath: String;
+  ConfigContent: String;
 begin
   if CurStep = ssPostInstall then
   begin
@@ -91,6 +108,16 @@ begin
                     'PORT=3000' + #13#10 +
                     'CLOUD_SYNC_URL=https://nsei-sukul.klarifypath.com/api/v1/hub/sync' + #13#10;
       SaveStringToFile(EnvFilePath, EnvContent, False);
+
+      ConfigFilePath := ExpandConstant('{app}\hub-node-config.json');
+      ConfigContent := '{' + #13#10 +
+                       '  "nodeKey": "' + NodeKey + '",' + #13#10 +
+                       '  "schoolId": "hub-' + Copy(NodeKey, Length(NodeKey) - 7, 8) + '",' + #13#10 +
+                       '  "schoolName": "Local School Station",' + #13#10 +
+                       '  "schoolCode": "LOCAL",' + #13#10 +
+                       '  "cloudSyncUrl": "https://nsei-sukul.klarifypath.com/api/v1/hub/sync"' + #13#10 +
+                       '}';
+      SaveStringToFile(ConfigFilePath, ConfigContent, False);
     end;
   end;
 end;

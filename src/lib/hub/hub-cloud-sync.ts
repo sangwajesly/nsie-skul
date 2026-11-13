@@ -1,4 +1,5 @@
 import { getHubNodeConfig, saveHubNodeConfig, HubNodeConfig } from "./hub-node-store";
+import { getLocalPgPool } from "../db/local-postgres";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export interface CloudSyncResult {
@@ -8,6 +9,130 @@ export interface CloudSyncResult {
   itemsPulled?: number;
   lastSyncAt?: string;
   error?: string;
+}
+
+/**
+ * Persists pulled Cloud snapshot directly into the local PostgreSQL 16 cluster.
+ */
+async function upsertPulledDataToLocalDb(pulledData: any) {
+  if (!pulledData) return;
+  const pool = getLocalPgPool();
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN;");
+
+    // 1. School
+    if (pulledData.school) {
+      const s = pulledData.school;
+      await client.query(
+        `INSERT INTO schools (id, name, slug, code, logo_url, is_active)
+         VALUES ($1, $2, $3, $4, $5, true)
+         ON CONFLICT (id) DO UPDATE SET
+           name = EXCLUDED.name,
+           slug = EXCLUDED.slug,
+           code = EXCLUDED.code,
+           logo_url = COALESCE(EXCLUDED.logo_url, schools.logo_url),
+           is_active = true;`,
+        [s.id, s.name, s.slug, s.code, s.logo_url]
+      );
+    }
+
+    // 2. Academic Years
+    if (pulledData.academicYears?.length) {
+      for (const y of pulledData.academicYears) {
+        await client.query(
+          `INSERT INTO academic_years (id, school_id, name, start_date, end_date, is_current)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             start_date = EXCLUDED.start_date,
+             end_date = EXCLUDED.end_date,
+             is_current = EXCLUDED.is_current;`,
+          [y.id, y.school_id, y.name, y.start_date, y.end_date, Boolean(y.is_current)]
+        );
+      }
+    }
+
+    // 3. Students
+    if (pulledData.students?.length) {
+      for (const st of pulledData.students) {
+        await client.query(
+          `INSERT INTO students (id, school_id, matricule, first_name, last_name, gender, date_of_birth, status, version)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 1))
+           ON CONFLICT (id) DO UPDATE SET
+             matricule = EXCLUDED.matricule,
+             first_name = EXCLUDED.first_name,
+             last_name = EXCLUDED.last_name,
+             gender = EXCLUDED.gender,
+             date_of_birth = EXCLUDED.date_of_birth,
+             status = EXCLUDED.status,
+             version = EXCLUDED.version;`,
+          [
+            st.id,
+            st.school_id,
+            st.matricule || null,
+            st.first_name || "Student",
+            st.last_name || "",
+            st.gender || "M",
+            st.date_of_birth || "2010-01-01",
+            st.status || "active",
+            st.version || 1,
+          ]
+        );
+      }
+    }
+
+    // 4. Teacher Assignments
+    if (pulledData.teacherAssignments?.length) {
+      for (const ta of pulledData.teacherAssignments) {
+        await client.query(
+          `INSERT INTO teacher_assignments (id, school_id, academic_year_id, teacher_user_id, class_stream_id, subject_id)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (id) DO NOTHING;`,
+          [ta.id, ta.school_id, ta.academic_year_id, ta.teacher_user_id, ta.class_stream_id, ta.subject_id]
+        );
+      }
+    }
+
+    // 5. Remote Marks
+    if (pulledData.remoteMarks?.length) {
+      for (const rm of pulledData.remoteMarks) {
+        await client.query(
+          `INSERT INTO assessment_marks (
+             school_id, academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id, score, max_marks, status, remarks, version
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, 1))
+           ON CONFLICT (sequence_id, class_stream_id, subject_id, student_id) DO UPDATE SET
+             score = EXCLUDED.score,
+             max_marks = EXCLUDED.max_marks,
+             status = EXCLUDED.status,
+             remarks = EXCLUDED.remarks,
+             version = EXCLUDED.version;`,
+          [
+            rm.school_id,
+            rm.academic_year_id,
+            rm.term_id,
+            rm.sequence_id,
+            rm.class_stream_id,
+            rm.subject_id,
+            rm.student_id,
+            rm.score,
+            rm.max_marks || 20,
+            rm.status || "present",
+            rm.remarks || null,
+            rm.version || 1,
+          ]
+        );
+      }
+    }
+
+    await client.query("COMMIT;");
+  } catch (err) {
+    await client.query("ROLLBACK;");
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -45,7 +170,7 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
         "x-hub-key": config.nodeKey,
       },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000), // 15 second timeout
+      signal: AbortSignal.timeout(20000), // 20 second timeout
     });
 
     if (!res.ok) {
@@ -83,25 +208,31 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
       });
     }
 
-    // Upsert pulled data into local database if Supabase admin client is connected locally
+    // Upsert pulled data into local PostgreSQL database
     try {
-      const admin = createAdminClient();
-      if (data.pulledData?.students?.length > 0) {
-        await admin.from("students").upsert(data.pulledData.students, { onConflict: "id" });
+      await upsertPulledDataToLocalDb(data.pulledData);
+    } catch (pgErr) {
+      console.warn("[CloudSync] Local PG cluster upsert notice:", pgErr);
+      // Fallback to Supabase client if running in hybrid cloud mode
+      try {
+        const admin = createAdminClient();
+        if (data.pulledData?.students?.length > 0) {
+          await admin.from("students").upsert(data.pulledData.students, { onConflict: "id" });
+        }
+        if (data.pulledData?.academicYears?.length > 0) {
+          await admin.from("academic_years").upsert(data.pulledData.academicYears, { onConflict: "id" });
+        }
+        if (data.pulledData?.teacherAssignments?.length > 0) {
+          await admin.from("teacher_assignments").upsert(data.pulledData.teacherAssignments, { onConflict: "id" });
+        }
+        if (data.pulledData?.remoteMarks?.length > 0) {
+          await admin.from("assessment_marks").upsert(data.pulledData.remoteMarks, {
+            onConflict: "sequence_id,class_stream_id,subject_id,student_id",
+          });
+        }
+      } catch (dbErr) {
+        console.warn("[CloudSync] Supabase fallback notice:", dbErr);
       }
-      if (data.pulledData?.academicYears?.length > 0) {
-        await admin.from("academic_years").upsert(data.pulledData.academicYears, { onConflict: "id" });
-      }
-      if (data.pulledData?.teacherAssignments?.length > 0) {
-        await admin.from("teacher_assignments").upsert(data.pulledData.teacherAssignments, { onConflict: "id" });
-      }
-      if (data.pulledData?.remoteMarks?.length > 0) {
-        await admin.from("assessment_marks").upsert(data.pulledData.remoteMarks, {
-          onConflict: "sequence_id,class_stream_id,subject_id,student_id",
-        });
-      }
-    } catch (dbErr) {
-      console.warn("[CloudSync] Local DB cache upsert notice:", dbErr);
     }
 
     return {

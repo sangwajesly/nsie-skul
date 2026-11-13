@@ -14,32 +14,47 @@ import {
 import { executeHubCloudSync } from "@/lib/hub/hub-cloud-sync";
 
 export async function unlockHubWithPinAction(formData: FormData) {
-  const pinOrKey = (formData.get("pinOrKey") as string) || "";
-  if (!pinOrKey.trim()) {
-    return { error: "Please enter your Master PIN or Node Key." };
+  try {
+    const pinOrKey = ((formData.get("pinOrKey") as string) || "").trim();
+    if (!pinOrKey) {
+      return { error: "Please enter your Master PIN or Node Key." };
+    }
+
+    const result = verifyHubAccess(pinOrKey);
+    if (!result.success) {
+      return { error: result.reason || "Incorrect PIN or Node Key." };
+    }
+
+    const config = getHubNodeConfig();
+    if (!config) {
+      return { error: "Hub node is not configured." };
+    }
+
+    // Trigger cloud sync to update school metadata if still using default name
+    if (config.schoolName === "Local School Station" || !config.lastSyncAt) {
+      try {
+        await executeHubCloudSync();
+      } catch (e) {
+        console.warn("[HubUnlock] Background sync notice:", e);
+      }
+    }
+
+    const refreshedConfig = getHubNodeConfig() || config;
+    const token = createHubSessionToken(refreshedConfig);
+    const cookieStore = await cookies();
+    cookieStore.set(HUB_SESSION_COOKIE, token, {
+      httpOnly: true,
+      secure: false, // Local LAN Wi-Fi operates over HTTP
+      sameSite: "lax",
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+    });
+
+    return { success: true };
+  } catch (err: any) {
+    console.error("[unlockHubWithPinAction] Exception:", err);
+    return { error: err.message || "Failed to unlock School Hub." };
   }
-
-  const result = verifyHubAccess(pinOrKey);
-  if (!result.success) {
-    return { error: result.reason || "Incorrect PIN or Node Key." };
-  }
-
-  const config = getHubNodeConfig();
-  if (!config) {
-    return { error: "Hub node is not configured." };
-  }
-
-  const token = createHubSessionToken(config);
-  const cookieStore = await cookies();
-  cookieStore.set(HUB_SESSION_COOKIE, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production" && !process.env.HUB_MODE,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-  });
-
-  return { success: true };
 }
 
 export async function setupHubNodeAction(formData: FormData) {
@@ -79,7 +94,7 @@ export async function setupHubNodeAction(formData: FormData) {
   const cookieStore = await cookies();
   cookieStore.set(HUB_SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production" && !process.env.HUB_MODE,
+    secure: false, // Local LAN Wi-Fi operates over HTTP
     sameSite: "lax",
     path: "/",
     maxAge: 30 * 24 * 60 * 60,

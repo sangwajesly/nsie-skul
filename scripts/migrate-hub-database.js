@@ -2,10 +2,21 @@ const fs = require("fs");
 const path = require("path");
 const { Client } = require("pg");
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "..", "supabase", "migrations");
-const COMPAT_SHIM = path.resolve(__dirname, "..", "supabase", "hub-compat", "00000_hub_compat_shim.sql");
+function resolveMigrationsDir() {
+  const localInDist = path.join(__dirname, "supabase", "migrations");
+  if (fs.existsSync(localInDist)) return localInDist;
+  return path.resolve(__dirname, "..", "supabase", "migrations");
+}
+
+function resolveCompatShim() {
+  const localInDist = path.join(__dirname, "supabase", "hub-compat", "00000_hub_compat_shim.sql");
+  if (fs.existsSync(localInDist)) return localInDist;
+  return path.resolve(__dirname, "..", "supabase", "hub-compat", "00000_hub_compat_shim.sql");
+}
 
 async function runLocalMigrations() {
+  const migrationsDir = resolveMigrationsDir();
+  const compatShim = resolveCompatShim();
   const connectionString =
     process.env.HUB_DATABASE_URL ||
     `postgresql://${process.env.HUB_DB_USER || "postgres"}:${process.env.HUB_DB_PASSWORD || "postgres"}@${process.env.HUB_DB_HOST || "127.0.0.1"}:${process.env.HUB_DB_PORT || "5432"}/${process.env.HUB_DB_NAME || "nsei_sukul_hub"}`;
@@ -26,7 +37,7 @@ async function runLocalMigrations() {
 
     // 2. Apply 00000 compatibility shim first
     console.log("[Hub Migrator] Applying 00000_hub_compat_shim.sql...");
-    const shimSql = fs.readFileSync(COMPAT_SHIM, "utf8");
+    const shimSql = fs.readFileSync(compatShim, "utf8");
     await client.query(shimSql);
     await client.query(
       "INSERT INTO hub.schema_migrations (version) VALUES ('00000_hub_compat_shim') ON CONFLICT DO NOTHING;"
@@ -34,7 +45,7 @@ async function runLocalMigrations() {
 
     // 3. Collect and sort all existing migrations
     const migrationFiles = fs
-      .readdirSync(MIGRATIONS_DIR)
+      .readdirSync(migrationsDir)
       .filter((f) => f.endsWith(".sql"))
       .sort();
 
@@ -49,7 +60,7 @@ async function runLocalMigrations() {
       }
 
       console.log(`[Hub Migrator] Applying migration: ${file}...`);
-      const sqlContent = fs.readFileSync(path.join(MIGRATIONS_DIR, file), "utf8");
+      const sqlContent = fs.readFileSync(path.join(migrationsDir, file), "utf8");
 
       await client.query("BEGIN;");
       try {

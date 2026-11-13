@@ -2,9 +2,21 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 
-const KEYS_DIR = path.resolve(process.cwd(), ".hub-keys");
-const PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ed25519_node_private.pem");
-const PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ed25519_node_public.pem");
+function getKeysDir(): string {
+  const cwdKeys = path.resolve(process.cwd(), ".hub-keys");
+  try {
+    if (!fs.existsSync(cwdKeys)) fs.mkdirSync(cwdKeys, { recursive: true });
+    fs.accessSync(cwdKeys, fs.constants.W_OK);
+    return cwdKeys;
+  } catch {}
+
+  const baseDir = process.env.PROGRAMDATA || process.env.ALLUSERSPROFILE || process.env.LOCALAPPDATA || process.cwd();
+  const dir = path.join(baseDir, "NseiSukulHub", ".hub-keys");
+  if (!fs.existsSync(dir)) {
+    try { fs.mkdirSync(dir, { recursive: true }); } catch {}
+  }
+  return dir;
+}
 
 export interface HubKeyPair {
   publicKeyPem: string;
@@ -15,15 +27,15 @@ export interface HubKeyPair {
  * Loads or automatically generates the local Hub station's Ed25519 asymmetric identity.
  */
 export function getOrCreateHubKeyPair(): HubKeyPair {
-  if (fs.existsSync(PRIVATE_KEY_FILE) && fs.existsSync(PUBLIC_KEY_FILE)) {
-    return {
-      publicKeyPem: fs.readFileSync(PUBLIC_KEY_FILE, "utf8"),
-      privateKeyPem: fs.readFileSync(PRIVATE_KEY_FILE, "utf8"),
-    };
-  }
+  const keysDir = getKeysDir();
+  const privateKeyFile = path.join(keysDir, "ed25519_node_private.pem");
+  const publicKeyFile = path.join(keysDir, "ed25519_node_public.pem");
 
-  if (!fs.existsSync(KEYS_DIR)) {
-    fs.mkdirSync(KEYS_DIR, { recursive: true });
+  if (fs.existsSync(privateKeyFile) && fs.existsSync(publicKeyFile)) {
+    return {
+      publicKeyPem: fs.readFileSync(publicKeyFile, "utf8"),
+      privateKeyPem: fs.readFileSync(privateKeyFile, "utf8"),
+    };
   }
 
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
@@ -31,8 +43,12 @@ export function getOrCreateHubKeyPair(): HubKeyPair {
   const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }) as string;
   const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }) as string;
 
-  fs.writeFileSync(PRIVATE_KEY_FILE, privateKeyPem, "utf8");
-  fs.writeFileSync(PUBLIC_KEY_FILE, publicKeyPem, "utf8");
+  try {
+    fs.writeFileSync(privateKeyFile, privateKeyPem, "utf8");
+    fs.writeFileSync(publicKeyFile, publicKeyPem, "utf8");
+  } catch (err) {
+    console.warn("[HubIdentity] Could not write keys to disk:", err);
+  }
 
   return { publicKeyPem, privateKeyPem };
 }
