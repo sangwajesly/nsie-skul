@@ -328,6 +328,50 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // 4c. Process PUSH: Attendance Sessions and Records from Local Hub
+  if (pushData?.attendanceSessions && Array.isArray(pushData.attendanceSessions) && pushData.attendanceSessions.length > 0) {
+    for (const ses of pushData.attendanceSessions) {
+      if (!ses.id || !ses.classStreamId) continue;
+      try {
+        await supabase.from("attendance_sessions").upsert({
+          id: ses.id,
+          school_id: schoolId,
+          academic_year_id: ses.academicYearId,
+          class_stream_id: ses.classStreamId,
+          term_id: ses.termId,
+          session_date: ses.sessionDate,
+          period_type: ses.periodType || "daily",
+          recorded_by: ses.recordedBy || null,
+          created_at: ses.createdAt || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        itemsPushed++;
+      } catch {}
+    }
+  }
+
+  if (pushData?.attendanceRecords && Array.isArray(pushData.attendanceRecords) && pushData.attendanceRecords.length > 0) {
+    for (const rec of pushData.attendanceRecords) {
+      if (!rec.sessionId || !rec.studentId) continue;
+      try {
+        await supabase.from("attendance_records").upsert(
+          {
+            id: rec.id,
+            session_id: rec.sessionId,
+            school_id: schoolId,
+            student_id: rec.studentId,
+            status: rec.status || "present",
+            hours_missed: rec.hoursMissed || 0,
+            remarks: rec.remarks || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "session_id,student_id" }
+        );
+        itemsPushed++;
+      } catch {}
+    }
+  }
+
   // 5. Gather PULL: School Snapshot, Remote Teacher Marks & Class Assignments
   let marksQuery = supabase
     .from("assessment_marks")
@@ -357,6 +401,8 @@ export async function POST(req: NextRequest) {
     staffProfilesRes,
     subjectCompetenciesRes,
     termResultsRes,
+    attendanceSessionsRes,
+    attendanceRecordsRes,
   ] = await Promise.all([
     supabase.from("schools").select("*").eq("id", schoolId).single(),
     supabase.from("academic_years").select("*").eq("school_id", schoolId),
@@ -376,7 +422,27 @@ export async function POST(req: NextRequest) {
     supabase.from("user_profiles").select("id, full_name, email, phone"),
     supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
     supabase.from("term_results").select("*").eq("school_id", schoolId),
+    supabase.from("attendance_sessions").select("*").eq("school_id", schoolId).order("session_date", { ascending: false }).limit(100),
+    supabase.from("attendance_records").select("*").eq("school_id", schoolId).order("created_at", { ascending: false }).limit(1000),
   ]);
+
+  const schoolMemberships = membershipsRes.data || [];
+  const staffUserIds = schoolMemberships.map((m: any) => m.user_id).filter(Boolean);
+  let staffProfiles = staffProfilesRes.data || [];
+  if (staffUserIds.length > 0) {
+    try {
+      const { data: specificProfiles } = await supabase
+        .from("user_profiles")
+        .select("id, full_name, email, phone")
+        .in("id", staffUserIds);
+      if (specificProfiles && specificProfiles.length > 0) {
+        const existingIds = new Set(staffProfiles.map((p: any) => p.id));
+        for (const sp of specificProfiles) {
+          if (!existingIds.has(sp.id)) staffProfiles.push(sp);
+        }
+      }
+    } catch {}
+  }
 
   const remoteMarks = remoteMarksRes.data || [];
   itemsPulled =
@@ -389,6 +455,8 @@ export async function POST(req: NextRequest) {
     (subjectsRes.data?.length || 0) +
     (enrolmentsRes.data?.length || 0) +
     (teacherAssignmentsRes.data?.length || 0) +
+    (attendanceSessionsRes.data?.length || 0) +
+    (attendanceRecordsRes.data?.length || 0) +
     remoteMarks.length;
 
   // 6. Update Hub Metadata & Log Sync Session
@@ -444,6 +512,8 @@ export async function POST(req: NextRequest) {
       staffProfiles: staffProfilesRes.data || [],
       subjectCompetencies: subjectCompetenciesRes.data || [],
       termResults: termResultsRes.data || [],
+      attendanceSessions: attendanceSessionsRes.data || [],
+      attendanceRecords: attendanceRecordsRes.data || [],
       staffUsers: (membershipsRes.data || []).map((m: any) => ({
         id: m.user_id,
         email: `staff_${String(m.user_id).slice(0, 8)}@school.local`,

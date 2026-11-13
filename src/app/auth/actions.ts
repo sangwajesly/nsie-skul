@@ -152,13 +152,13 @@ async function loginTeacherOfflineWithLocalPg(
         m.status,
         COALESCE(r.code, 'teacher') as role_code,
         COALESCE(r.name, 'Subject Teacher') as role_name,
-        u.full_name,
+        COALESCE(u.full_name, m.title, 'Subject Teacher') as full_name,
         u.phone,
         u.email,
         s.name as school_name,
         s.code as school_code
       FROM public.school_memberships m
-      JOIN public.user_profiles u ON u.id = m.user_id
+      LEFT JOIN public.user_profiles u ON u.id = m.user_id
       LEFT JOIN public.roles r ON r.id = m.role_id
       LEFT JOIN public.schools s ON s.id = m.school_id
       WHERE m.status = 'active'
@@ -193,13 +193,13 @@ async function loginTeacherOfflineWithLocalPg(
           m.status,
           COALESCE(r.code, 'teacher') as role_code,
           COALESCE(r.name, 'Subject Teacher') as role_name,
-          u.full_name,
+          COALESCE(u.full_name, m.title, 'Subject Teacher') as full_name,
           u.phone,
           u.email,
           s.name as school_name,
           s.code as school_code
         FROM public.school_memberships m
-        JOIN public.user_profiles u ON u.id = m.user_id
+        LEFT JOIN public.user_profiles u ON u.id = m.user_id
         LEFT JOIN public.roles r ON r.id = m.role_id
         LEFT JOIN public.schools s ON s.id = m.school_id
         WHERE m.status = 'active'

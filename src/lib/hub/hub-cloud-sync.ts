@@ -480,6 +480,56 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       }
     }
 
+    // 17. Attendance Sessions
+    if (pulledData.attendanceSessions?.length) {
+      for (const ses of pulledData.attendanceSessions) {
+        await client.query(
+          `INSERT INTO attendance_sessions (
+             id, school_id, academic_year_id, class_stream_id, term_id, session_date, period_type, recorded_by
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           ON CONFLICT (id) DO UPDATE SET
+             session_date = EXCLUDED.session_date,
+             period_type = EXCLUDED.period_type,
+             recorded_by = EXCLUDED.recorded_by;`,
+          [
+            ses.id,
+            ses.school_id,
+            ses.academic_year_id,
+            ses.class_stream_id,
+            ses.term_id || null,
+            ses.session_date,
+            ses.period_type || "daily",
+            ses.recorded_by || null,
+          ]
+        );
+      }
+    }
+
+    // 18. Attendance Records
+    if (pulledData.attendanceRecords?.length) {
+      for (const rec of pulledData.attendanceRecords) {
+        await client.query(
+          `INSERT INTO attendance_records (
+             id, session_id, student_id, status, hours_missed, remarks
+           )
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (session_id, student_id) DO UPDATE SET
+             status = EXCLUDED.status,
+             hours_missed = EXCLUDED.hours_missed,
+             remarks = EXCLUDED.remarks;`,
+          [
+            rec.id,
+            rec.session_id,
+            rec.student_id,
+            rec.status || "present",
+            rec.hours_missed || 0,
+            rec.remarks || null,
+          ]
+        );
+      }
+    }
+
     await client.query("SET session_replication_role = 'origin';");
     await client.query("COMMIT;");
   } catch (err) {
@@ -539,6 +589,52 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
       console.warn("[CloudSync] Could not read local marks to push:", e);
     }
 
+    // 1b. Collect local attendance sessions and records to push to central cloud
+    let localAttendanceSessionsToPush: any[] = [];
+    let localAttendanceRecordsToPush: any[] = [];
+    try {
+      const pool = getLocalPgPool();
+      const sessRes = await pool.query(
+        `SELECT id, school_id, class_stream_id, academic_year_id, term_id, session_date, period_type, recorded_by, created_at
+         FROM public.attendance_sessions
+         WHERE school_id = $1
+         ORDER BY created_at DESC
+         LIMIT 200;`,
+        [config.schoolId]
+      );
+      localAttendanceSessionsToPush = sessRes.rows.map((r: any) => ({
+        id: r.id,
+        schoolId: r.school_id,
+        classStreamId: r.class_stream_id,
+        academicYearId: r.academic_year_id,
+        termId: r.term_id,
+        sessionDate: r.session_date,
+        periodType: r.period_type,
+        recordedBy: r.recorded_by,
+        createdAt: r.created_at,
+      }));
+
+      const recRes = await pool.query(
+        `SELECT ar.id, ar.session_id, ar.student_id, ar.status, ar.hours_missed, ar.remarks, ar.created_at
+         FROM public.attendance_records ar
+         JOIN public.attendance_sessions s ON ar.session_id = s.id
+         WHERE s.school_id = $1
+         LIMIT 1000;`,
+        [config.schoolId]
+      );
+      localAttendanceRecordsToPush = recRes.rows.map((r: any) => ({
+        id: r.id,
+        sessionId: r.session_id,
+        studentId: r.student_id,
+        status: r.status,
+        hoursMissed: r.hours_missed,
+        remarks: r.remarks,
+        createdAt: r.created_at,
+      }));
+    } catch (e) {
+      console.warn("[CloudSync] Could not read local attendance to push:", e);
+    }
+
     // 2. Collect durable outbox mutations
     const { getPendingOutboxBatch, markOutboxCommitted } = await import("./hub-outbox");
     let pendingMutations: any[] = [];
@@ -553,6 +649,8 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
       lastPulledAt: config.lastSyncAt || null,
       pushData: {
         marks: localMarksToPush,
+        attendanceSessions: localAttendanceSessionsToPush,
+        attendanceRecords: localAttendanceRecordsToPush,
         payments: [],
         mutations: pendingMutations,
       },
@@ -642,6 +740,9 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
           (data.pulledData?.academicYears?.length || 0) +
           (data.pulledData?.teacherAssignments?.length || 0) +
           (data.pulledData?.remoteMarks?.length || 0) +
+          (data.pulledData?.attendanceSessions?.length || 0) +
+          (data.pulledData?.attendanceRecords?.length || 0) +
+          (data.pulledData?.memberships?.length || 0) +
           (data.pulledData?.classes?.length || 0) +
           (data.pulledData?.classStreams?.length || 0) +
           (data.pulledData?.subjects?.length || 0);
