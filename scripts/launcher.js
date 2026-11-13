@@ -160,8 +160,25 @@ async function main() {
   }
   log(`Resolved server listening port: ${chosenPort}`);
 
-  // 3. Load extra environment variables from .env.local if present
+  // 3. Load environment variables from .env.production and .env.local if present
   const extraEnv = {};
+  const ENV_PROD = path.join(APP_DIR, ".env.production");
+  if (fs.existsSync(ENV_PROD)) {
+    try {
+      const content = fs.readFileSync(ENV_PROD, "utf8");
+      for (const line of content.split("\n")) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith("#")) continue;
+        const match = trimmed.match(/^([^=]+)=(.*)$/);
+        if (match) {
+          extraEnv[match[1].trim()] = match[2].trim().replace(/^["']|["']$/g, "");
+        }
+      }
+    } catch (e) {
+      log(`Warning loading .env.production: ${e.message}`);
+    }
+  }
+
   if (fs.existsSync(ENV_LOCAL)) {
     try {
       const content = fs.readFileSync(ENV_LOCAL, "utf8");

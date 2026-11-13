@@ -76,16 +76,21 @@ export function getLocalServerLanIp(): string {
  */
 export async function getSchoolHubs(schoolId: string): Promise<SchoolHubNode[]> {
   if (!schoolId) return [];
-  const adminClient = createAdminClient();
-  const { data, error } = await adminClient
-    .from("school_hubs")
-    .select("*")
-    .eq("school_id", schoolId)
-    .order("created_at", { ascending: false });
+  try {
+    const adminClient = createAdminClient();
+    const { data, error } = await adminClient
+      .from("school_hubs")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("created_at", { ascending: false });
 
-  if (error) {
-    console.warn("[HubService] Error fetching school hubs:", error.message);
+    if (error) {
+      console.warn("[HubService] Error fetching school hubs:", error.message);
+      return [];
+    }
+    return (data as SchoolHubNode[]) || [];
+  } catch (err) {
+    console.warn("[HubService] Admin client notice fetching school hubs:", err);
     return [];
   }
-  return (data as SchoolHubNode[]) || [];
 }

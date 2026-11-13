@@ -46,7 +46,20 @@ export async function GET(request: NextRequest) {
     const isHod = !isAdmin && (roleCode === "hod" || Boolean(context.isHod));
     const isTeacher = !isAdmin && !isHod && (roleCode === "teacher" || roleCode === "class_master");
 
-    const activeYear = await getActiveAcademicYear(schoolId);
+    let activeYear = await getActiveAcademicYear(schoolId);
+    if (!activeYear) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const res = await queryLocalDb(
+          `SELECT * FROM academic_years WHERE school_id = $1 ORDER BY is_current DESC, start_date DESC LIMIT 1;`,
+          [schoolId]
+        );
+        if (res.rows.length > 0) {
+          activeYear = res.rows[0];
+        }
+      } catch {}
+    }
+
     if (!activeYear) {
       return NextResponse.json(
         { error: "No active academic year configured for this school." },
@@ -54,7 +67,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [sequencesRaw, classesRaw, subjectsRaw, teacherAssignmentsRaw, hodScope] = await Promise.all([
+    let [sequencesRaw, classesRaw, subjectsRaw, teacherAssignmentsRaw, hodScope] = await Promise.all([
       getSchoolSequences(schoolId),
       getSchoolClasses(schoolId, activeYear.id),
       getSchoolSubjects(schoolId),
@@ -65,6 +78,53 @@ export async function GET(request: NextRequest) {
         ? getHodScope(schoolId, activeYear.id, userId)
         : Promise.resolve(null),
     ]);
+
+    // Local DB fallbacks if running in standalone offline hub mode
+    if (classesRaw.length === 0) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const clsRes = await queryLocalDb(
+          `SELECT id, name, level_order, cycle FROM classes WHERE school_id = $1 ORDER BY level_order ASC;`,
+          [schoolId]
+        );
+        if (clsRes.rows.length > 0) {
+          const stmRes = await queryLocalDb(
+            `SELECT id, class_id, name, stream_tag FROM class_streams WHERE school_id = $1 ORDER BY name ASC;`,
+            [schoolId]
+          );
+          classesRaw = clsRes.rows.map((c) => ({
+            ...c,
+            streams: stmRes.rows.filter((s) => s.class_id === c.id),
+          }));
+        }
+      } catch {}
+    }
+
+    if (sequencesRaw.length === 0) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const seqRes = await queryLocalDb(
+          `SELECT id, term_id, sequence_number, name FROM evaluation_sequences WHERE school_id = $1 ORDER BY sequence_number ASC;`,
+          [schoolId]
+        );
+        if (seqRes.rows.length > 0) {
+          sequencesRaw = seqRes.rows as any;
+        }
+      } catch {}
+    }
+
+    if (subjectsRaw.length === 0) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const subRes = await queryLocalDb(
+          `SELECT id, school_id, department_id, name, code, default_coefficient, default_max_marks FROM subjects WHERE school_id = $1 ORDER BY name ASC;`,
+          [schoolId]
+        );
+        if (subRes.rows.length > 0) {
+          subjectsRaw = subRes.rows as any;
+        }
+      } catch {}
+    }
 
     // Format sequences
     const sequences = sequencesRaw.map((seq) => ({

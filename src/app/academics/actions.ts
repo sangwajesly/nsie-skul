@@ -425,6 +425,16 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
     return { error: error.message };
   }
 
+  // Also write to local PostgreSQL cluster if active
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    await queryLocalDb(
+      `INSERT INTO subjects (school_id, department_id, name, code, default_coefficient, default_max_marks) 
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING;`,
+      [context.school.id, parsed.data.departmentId || null, cleanName, subjectCode, parsed.data.defaultCoefficient, parsed.data.defaultMaxMarks]
+    );
+  } catch {}
+
   revalidatePath("/dashboard/academics");
   return { success: true as const, message: `Subject "${cleanName}" (${subjectCode}) created.` };
 }
@@ -571,6 +581,15 @@ export async function createClassAction(_state: unknown, formData: FormData) {
     return { error: error.message };
   }
 
+  // Also write to local PostgreSQL cluster if active
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    await queryLocalDb(
+      `INSERT INTO classes (school_id, name, level_order, cycle) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING;`,
+      [context.school.id, parsed.data.name, parsed.data.levelOrder, parsed.data.cycle]
+    );
+  } catch {}
+
   revalidatePath("/dashboard/academics");
   return { success: true as const, message: `Class "${parsed.data.name}" created.` };
 }
@@ -631,6 +650,16 @@ export async function createClassStreamAction(
     }
     return { error: error.message };
   }
+
+  // Also write to local PostgreSQL cluster if active
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    await queryLocalDb(
+      `INSERT INTO class_streams (school_id, class_id, academic_year_id, name, stream_tag) 
+       VALUES ($1, $2, $3, $4, $5) ON CONFLICT DO NOTHING;`,
+      [context.school.id, parsed.data.classId, effectiveYearId, parsed.data.name, parsed.data.streamTag || null]
+    );
+  } catch {}
 
   revalidatePath("/dashboard/academics");
   return { success: true as const, message: `Class group "${parsed.data.name}" created.` };
@@ -1627,6 +1656,23 @@ export async function registerStudentAction(
   );
 
   if (enrolError) return { error: enrolError.message };
+
+  // Also write to local PostgreSQL cluster if active
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    await queryLocalDb(
+      `INSERT INTO students (id, school_id, matricule, first_name, last_name, gender, status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active')
+       ON CONFLICT (school_id, matricule) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name;`,
+      [student.id, context.school.id, matricule, parsed.data.firstName.trim().toUpperCase(), parsed.data.lastName.trim().toUpperCase(), parsed.data.gender]
+    );
+    await queryLocalDb(
+      `INSERT INTO enrolments (school_id, student_id, academic_year_id, class_stream_id, status)
+       VALUES ($1, $2, $3, $4, 'active')
+       ON CONFLICT (academic_year_id, student_id) DO NOTHING;`,
+      [context.school.id, student.id, parsed.data.academicYearId, parsed.data.classStreamId]
+    );
+  } catch {}
 
   // Calculate next sequential matricule for immediate seamless form continuation
   const nextMatricule = await generateNextStudentMatricule(

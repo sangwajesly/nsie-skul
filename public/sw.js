@@ -1,6 +1,6 @@
 // Service Worker for Nsei Sukul Offline Support & Sukul Hub LAN Sync
-const STATIC_CACHE = "nsei-static-v6";
-const PAGES_CACHE = "nsei-pages-v6";
+const STATIC_CACHE = "nsei-static-v7";
+const PAGES_CACHE = "nsei-pages-v7";
 
 // Essential standalone assets pre-cached on service worker install
 const PRECACHE_ASSETS = [
@@ -64,7 +64,7 @@ self.addEventListener("fetch", (event) => {
         if (cachedResponse) {
           // Revalidate in background if online
           fetch(event.request).then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
+            if (networkResponse && networkResponse.status === 200 && event.request.url.startsWith("http")) {
               cache.put(event.request, networkResponse.clone());
             }
           }).catch(() => {});
@@ -73,7 +73,7 @@ self.addEventListener("fetch", (event) => {
 
         // Not in cache, fetch from network and store
         return fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          if (networkResponse && networkResponse.status === 200 && event.request.url.startsWith("http")) {
             cache.put(event.request, networkResponse.clone());
           }
           return networkResponse;
@@ -109,7 +109,9 @@ self.addEventListener("fetch", (event) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();
             caches.open(PAGES_CACHE).then((cache) => {
-              cache.put(event.request, copy);
+              if (event.request.url.startsWith("http")) {
+                cache.put(event.request, copy);
+              }
             });
           }
           return networkResponse;

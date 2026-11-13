@@ -204,15 +204,47 @@ export const getActiveAcademicYear = cache(async function getActiveAcademicYear(
 ): Promise<AcademicYear | null> {
   if (!schoolId) return null;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("academic_years")
-    .select("*")
-    .eq("school_id", schoolId)
-    .eq("is_current", true)
-    .maybeSingle();
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("academic_years")
+      .select("*")
+      .eq("school_id", schoolId)
+      .eq("is_current", true)
+      .maybeSingle();
 
-  return (data as AcademicYear | null) || null;
+    if (data) return data as AcademicYear;
+
+    // Fallback: If no year is explicitly marked is_current, select the latest by start_date
+    const { data: latest } = await supabase
+      .from("academic_years")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("start_date", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (latest) return latest as AcademicYear;
+  } catch (err) {
+    console.warn("[AcademicService] Cloud academic year query notice:", err);
+  }
+
+  // Edge / Local Hub fallback: query local PostgreSQL cluster directly
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb<AcademicYear>(
+      `SELECT * FROM academic_years 
+       WHERE school_id = $1 
+       ORDER BY is_current DESC, start_date DESC 
+       LIMIT 1;`,
+      [schoolId]
+    );
+    if (res.rows.length > 0) {
+      return res.rows[0];
+    }
+  } catch {}
+
+  return null;
 });
 
 /**

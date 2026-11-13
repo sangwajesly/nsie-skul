@@ -165,6 +165,26 @@ if (fs.existsSync(iconPath)) {
 }
 
 // 10. Create production environment template (.env.production)
+let localEnvVars = {};
+const localEnvPath = path.join(ROOT_DIR, ".env.local");
+if (fs.existsSync(localEnvPath)) {
+  try {
+    const lines = fs.readFileSync(localEnvPath, "utf8").split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const m = trimmed.match(/^([^=]+)=(.*)$/);
+      if (m) {
+        localEnvVars[m[1].trim()] = m[2].trim().replace(/^["']|["']$/g, "");
+      }
+    }
+  } catch {}
+}
+
+const supabaseUrl = localEnvVars.SUPABASE_URL || localEnvVars.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnon = localEnvVars.SUPABASE_ANON_KEY || localEnvVars.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabaseService = localEnvVars.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
 const envContent = [
   "# Nsei Sukul School Hub Production Configuration",
   "NODE_ENV=production",
@@ -173,6 +193,11 @@ const envContent = [
   "HUB_MODE=true",
   "HUB_NAME=School LAN Hub",
   "CLOUD_SYNC_URL=https://nsei-sukul.klarifypath.com/api/v1/hub/sync",
+  `SUPABASE_URL=${supabaseUrl}`,
+  `NEXT_PUBLIC_SUPABASE_URL=${supabaseUrl}`,
+  `SUPABASE_ANON_KEY=${supabaseAnon}`,
+  `NEXT_PUBLIC_SUPABASE_ANON_KEY=${supabaseAnon}`,
+  `SUPABASE_SERVICE_ROLE_KEY=${supabaseService}`,
   "",
 ].join("\n");
 fs.writeFileSync(path.join(DIST_DIR, ".env.production"), envContent, "utf8");

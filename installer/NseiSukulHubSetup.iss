@@ -102,11 +102,7 @@ begin
     if NodeKey <> '' then
     begin
       EnvFilePath := ExpandConstant('{app}\.env.local');
-      EnvContent := 'NEXT_PUBLIC_HUB_MODE=true' + #13#10 +
-                    'HUB_MODE=true' + #13#10 +
-                    'HUB_NODE_KEY=' + NodeKey + #13#10 +
-                    'PORT=3000' + #13#10 +
-                    'CLOUD_SYNC_URL=https://nsei-sukul.klarifypath.com/api/v1/hub/sync' + #13#10;
+      EnvContent := 'HUB_NODE_KEY=' + NodeKey + #13#10;
       SaveStringToFile(EnvFilePath, EnvContent, False);
 
       ConfigFilePath := ExpandConstant('{app}\hub-node-config.json');
