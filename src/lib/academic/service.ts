@@ -273,16 +273,30 @@ export const getSchoolSequences = cache(async function getSchoolSequences(
 ): Promise<EvaluationSequence[]> {
   if (!schoolId) return [];
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("evaluation_sequences")
-    .select("*")
-    .eq("school_id", schoolId)
-    .order("sequence_number", { ascending: true });
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("evaluation_sequences")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("sequence_number", { ascending: true });
 
-  if (data && data.length > 0) {
-    return data as EvaluationSequence[];
-  }
+    if (data && data.length > 0) {
+      return data as EvaluationSequence[];
+    }
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb(
+      "SELECT * FROM public.evaluation_sequences WHERE school_id = $1 ORDER BY sequence_number ASC",
+      [schoolId]
+    );
+    if (res.rows.length > 0) {
+      return res.rows as EvaluationSequence[];
+    }
+  } catch {}
 
   // Auto-provision standard sequences if not found
   return await ensureStandardSequences(schoolId);
@@ -316,19 +330,37 @@ export async function getSchoolDepartments(schoolId: string): Promise<Department
  * Lists all subjects in a school.
  */
 export async function getSchoolSubjects(schoolId: string): Promise<Subject[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("subjects")
-    .select(
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("subjects")
+      .select(
+        `
+        *,
+        department:departments (*)
       `
-      *,
-      department:departments (*)
-    `
-    )
-    .eq("school_id", schoolId)
-    .order("name", { ascending: true });
+      )
+      .eq("school_id", schoolId)
+      .order("name", { ascending: true });
 
-  return (data as Subject[]) || [];
+    if (data && data.length > 0) return data as Subject[];
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb(
+      `SELECT s.*, json_build_object('id', d.id, 'name', d.name) as department
+       FROM public.subjects s
+       LEFT JOIN public.departments d ON d.id = s.department_id
+       WHERE s.school_id = $1
+       ORDER BY s.name ASC`,
+      [schoolId]
+    );
+    return res.rows as Subject[];
+  } catch {}
+
+  return [];
 }
 
 /**
@@ -339,71 +371,141 @@ export async function getSchoolClasses(
   academicYearId?: string,
   classMasterUserId?: string
 ): Promise<(SchoolClass & { streams: ClassStream[] })[]> {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
 
-  const { data: classes } = await supabase
-    .from("classes")
-    .select("*")
-    .eq("school_id", schoolId)
-    .order("level_order", { ascending: true });
+    const { data: classes } = await supabase
+      .from("classes")
+      .select("*")
+      .eq("school_id", schoolId)
+      .order("level_order", { ascending: true });
 
-  if (!classes) return [];
+    if (classes && classes.length > 0) {
+      let query = supabase
+        .from("class_streams")
+        .select(
+          `
+          *,
+          class_master:user_profiles (*)
+        `
+        )
+        .eq("school_id", schoolId);
 
-  let query = supabase
-    .from("class_streams")
-    .select(
-      `
-      *,
-      class_master:user_profiles (*)
-    `
-    )
-    .eq("school_id", schoolId);
+      if (academicYearId) {
+        query = query.eq("academic_year_id", academicYearId);
+      }
 
-  if (academicYearId) {
-    query = query.eq("academic_year_id", academicYearId);
+      if (classMasterUserId) {
+        query = query.eq("class_master_id", classMasterUserId);
+      }
+
+      const { data: streams } = await query;
+
+      return classes.map((c) => ({
+        ...c,
+        streams: (streams?.filter((s) => s.class_id === c.id) as ClassStream[]) || [],
+      }));
+    }
+  } catch (err) {
+    console.warn("[AcademicService] Cloud getSchoolClasses notice:", err);
   }
 
-  if (classMasterUserId) {
-    query = query.eq("class_master_id", classMasterUserId);
+  // Edge / Local Hub fallback: query local PostgreSQL cluster directly
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const classRes = await queryLocalDb(
+      "SELECT * FROM public.classes WHERE school_id = $1 ORDER BY level_order ASC",
+      [schoolId]
+    );
+
+    let streamQuery =
+      "SELECT cs.*, json_build_object('id', u.id, 'full_name', u.full_name) as class_master FROM public.class_streams cs LEFT JOIN public.user_profiles u ON u.id = cs.class_master_id WHERE cs.school_id = $1";
+    const streamParams: any[] = [schoolId];
+
+    if (academicYearId) {
+      streamParams.push(academicYearId);
+      streamQuery += ` AND cs.academic_year_id = $${streamParams.length}`;
+    }
+    if (classMasterUserId) {
+      streamParams.push(classMasterUserId);
+      streamQuery += ` AND cs.class_master_id = $${streamParams.length}`;
+    }
+
+    const streamRes = await queryLocalDb(streamQuery, streamParams);
+    return classRes.rows.map((c: any) => ({
+      ...c,
+      streams: streamRes.rows.filter((s: any) => s.class_id === c.id) as ClassStream[],
+    }));
+  } catch (localErr) {
+    console.warn("[AcademicService] Local getSchoolClasses error:", localErr);
   }
 
-  const { data: streams } = await query;
-
-  return classes.map((c) => ({
-    ...c,
-    streams: (streams?.filter((s) => s.class_id === c.id) as ClassStream[]) || [],
-  }));
+  return [];
 }
 
 /**
  * Lists all subjects offered in a specific class stream, including customized coefficients and max marks.
  */
 export async function getStreamSubjects(classStreamId: string): Promise<ClassSubject[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("class_subjects")
-    .select(
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("class_subjects")
+      .select(
+        `
+        *,
+        subject:subjects (*)
       `
-      *,
-      subject:subjects (*)
-    `
-    )
-    .eq("class_stream_id", classStreamId);
+      )
+      .eq("class_stream_id", classStreamId);
 
-  return (data as ClassSubject[]) || [];
+    if (data && data.length > 0) return data as ClassSubject[];
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb(
+      `SELECT cs.*, json_build_object('id', s.id, 'name', s.name, 'code', s.code) as subject
+       FROM public.class_subjects cs
+       LEFT JOIN public.subjects s ON s.id = cs.subject_id
+       WHERE cs.class_stream_id = $1`,
+      [classStreamId]
+    );
+    return res.rows as ClassSubject[];
+  } catch {}
+
+  return [];
 }
 
 /**
  * Lists all class-subject configurations for a school.
  */
 export async function getSchoolClassSubjects(schoolId: string): Promise<ClassSubject[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("class_subjects")
-    .select("id, school_id, class_stream_id, subject_id, coefficient, max_marks, is_compulsory")
-    .eq("school_id", schoolId);
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("class_subjects")
+      .select("id, school_id, class_stream_id, subject_id, coefficient, max_marks, is_compulsory")
+      .eq("school_id", schoolId);
 
-  return (data as ClassSubject[]) || [];
+    if (data && data.length > 0) return data as ClassSubject[];
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb(
+      `SELECT cs.*, json_build_object('id', s.id, 'name', s.name, 'code', s.code) as subject
+       FROM public.class_subjects cs
+       LEFT JOIN public.subjects s ON s.id = cs.subject_id
+       WHERE cs.school_id = $1`,
+      [schoolId]
+    );
+    return res.rows as ClassSubject[];
+  } catch {}
+
+  return [];
 }
 
 export async function getClassStreamsForSubjects(
@@ -629,27 +731,53 @@ export async function getSchoolTeacherAssignments(
   academicYearId: string,
   teacherUserId?: string
 ): Promise<TeacherAssignment[]> {
-  const supabase = await createClient();
-  let query = supabase
-    .from("teacher_assignments")
-    .select(
+  try {
+    const supabase = await createClient();
+    let query = supabase
+      .from("teacher_assignments")
+      .select(
+        `
+        *,
+        teacher:user_profiles (*),
+        class_stream:class_streams (*),
+        subject:subjects (*)
       `
-      *,
-      teacher:user_profiles (*),
-      class_stream:class_streams (*),
-      subject:subjects (*)
-    `
-    )
-    .eq("school_id", schoolId)
-    .eq("academic_year_id", academicYearId);
+      )
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", academicYearId);
 
-  if (teacherUserId) {
-    query = query.eq("teacher_user_id", teacherUserId);
-  }
+    if (teacherUserId) {
+      query = query.eq("teacher_user_id", teacherUserId);
+    }
 
-  const { data } = await query;
+    const { data } = await query;
+    if (data && data.length > 0) return data as TeacherAssignment[];
+  } catch {}
 
-  return (data as TeacherAssignment[]) || [];
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    let sql = `
+      SELECT ta.*,
+        json_build_object('id', u.id, 'full_name', u.full_name) as teacher,
+        json_build_object('id', cs.id, 'name', cs.name, 'class_id', cs.class_id) as class_stream,
+        json_build_object('id', s.id, 'name', s.name, 'code', s.code) as subject
+      FROM public.teacher_assignments ta
+      LEFT JOIN public.user_profiles u ON u.id = ta.teacher_user_id
+      LEFT JOIN public.class_streams cs ON cs.id = ta.class_stream_id
+      LEFT JOIN public.subjects s ON s.id = ta.subject_id
+      WHERE ta.school_id = $1 AND ta.academic_year_id = $2
+    `;
+    const params: any[] = [schoolId, academicYearId];
+    if (teacherUserId) {
+      params.push(teacherUserId);
+      sql += ` AND ta.teacher_user_id = $3`;
+    }
+    const res = await queryLocalDb(sql, params);
+    return res.rows as TeacherAssignment[];
+  } catch {}
+
+  return [];
 }
 
 /**
@@ -665,37 +793,76 @@ export async function getEnrolledStudents(
 ): Promise<Enrolment[]> {
   if (classStreamIds && classStreamIds.length === 0) return [];
 
-  const supabase = await createClient();
-  let query = supabase
-    .from("enrolments")
-    .select(
+  try {
+    const supabase = await createClient();
+    let query = supabase
+      .from("enrolments")
+      .select(
+        `
+        *,
+        student:students (*),
+        class_stream:class_streams (*)
       `
-      *,
-      student:students (*),
-      class_stream:class_streams (*)
-    `
-    )
-    .eq("school_id", schoolId)
-    .eq("academic_year_id", academicYearId);
+      )
+      .eq("school_id", schoolId)
+      .eq("academic_year_id", academicYearId);
 
-  if (status && status !== "all") {
-    query = query.eq("status", status);
-  }
+    if (status && status !== "all") {
+      query = query.eq("status", status);
+    }
 
-  if (classStreamId) {
-    query = query.eq("class_stream_id", classStreamId);
-  }
+    if (classStreamId) {
+      query = query.eq("class_stream_id", classStreamId);
+    }
 
-  if (classStreamIds) {
-    query = query.in("class_stream_id", classStreamIds);
-  }
+    if (classStreamIds) {
+      query = query.in("class_stream_id", classStreamIds);
+    }
 
-  if (limit) {
-    query = query.limit(limit);
-  }
+    if (limit) {
+      query = query.limit(limit);
+    }
 
-  const { data } = await query;
-  return (data as Enrolment[]) || [];
+    const { data } = await query;
+    if (data && data.length > 0) return data as Enrolment[];
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    let sql = `
+      SELECT e.*,
+        json_build_object('id', st.id, 'first_name', st.first_name, 'last_name', st.last_name, 'matricule', st.matricule, 'gender', st.gender, 'date_of_birth', st.date_of_birth, 'status', st.status) as student,
+        json_build_object('id', cs.id, 'name', cs.name, 'class_id', cs.class_id) as class_stream
+      FROM public.enrolments e
+      JOIN public.students st ON st.id = e.student_id
+      JOIN public.class_streams cs ON cs.id = e.class_stream_id
+      WHERE e.school_id = $1 AND e.academic_year_id = $2
+    `;
+    const params: any[] = [schoolId, academicYearId];
+
+    if (status && status !== "all") {
+      params.push(status);
+      sql += ` AND e.status = $${params.length}`;
+    }
+    if (classStreamId) {
+      params.push(classStreamId);
+      sql += ` AND e.class_stream_id = $${params.length}`;
+    }
+    if (classStreamIds && classStreamIds.length > 0) {
+      params.push(classStreamIds);
+      sql += ` AND e.class_stream_id = ANY($${params.length}::uuid[])`;
+    }
+    if (limit) {
+      params.push(limit);
+      sql += ` LIMIT $${params.length}`;
+    }
+
+    const res = await queryLocalDb(sql, params);
+    return res.rows as Enrolment[];
+  } catch {}
+
+  return [];
 }
 
 /**

@@ -41,6 +41,122 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
   if (hubToken) {
     const verifiedHub = verifyHubSessionToken(hubToken);
     if (verifiedHub) {
+      const activeSchool = {
+        id: verifiedHub.schoolId,
+        name: verifiedHub.schoolName,
+        code: verifiedHub.schoolCode,
+        slug: verifiedHub.schoolSlug || "local-school",
+        logo_url: verifiedHub.schoolLogoUrl || "/app-icon.png",
+        country: "Cameroon",
+        address: "School Campus LAN Station",
+        phone: null,
+        email: null,
+        website: null,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      } as unknown as School;
+
+      const isTeacherOrStaff = verifiedHub.role && verifiedHub.role !== "school_admin" && verifiedHub.role !== "principal";
+
+      if (isTeacherOrStaff) {
+        // Teacher / HOD / Class Master Scoped Hub Session
+        let isClassMaster = verifiedHub.role === "class_master";
+        let masteredStreamNames: string[] = [];
+        let isHod = verifiedHub.role === "hod";
+
+        // Query local PostgreSQL for teaching scope, class master and HOD assignments
+        if (verifiedHub.userId) {
+          try {
+            const { queryLocalDb } = await import("@/lib/db/local-postgres");
+            const [cmRes, hodRes] = await Promise.all([
+              queryLocalDb(
+                "SELECT name FROM public.class_streams WHERE school_id = $1 AND class_master_id = $2",
+                [verifiedHub.schoolId, verifiedHub.userId]
+              ),
+              queryLocalDb(
+                "SELECT id FROM public.hod_assignments WHERE school_id = $1 AND hod_user_id = $2 LIMIT 1",
+                [verifiedHub.schoolId, verifiedHub.userId]
+              ),
+            ]);
+            if (cmRes.rows.length > 0) {
+              isClassMaster = true;
+              masteredStreamNames = cmRes.rows.map((r: any) => r.name);
+            }
+            if (hodRes.rows.length > 0) {
+              isHod = true;
+            }
+          } catch {}
+        }
+
+        const roleCode = verifiedHub.role || "teacher";
+        const roleName =
+          roleCode === "teacher"
+            ? "Subject Teacher"
+            : roleCode === "class_master"
+            ? "Class Master / Form Tutor"
+            : roleCode === "hod"
+            ? "Head of Department (HOD)"
+            : "Subject Teacher";
+
+        const teacherPermCodes = [
+          "marks.enter_assigned",
+          "marks.view_all",
+          "attendance.take_assigned",
+          "attendance.view_all",
+          "report_cards.view",
+        ];
+
+        const permissions: Permission[] = teacherPermCodes.map((code) => ({
+          id: `perm-${code}`,
+          code,
+          category: code.split(".")[0],
+          description: code,
+          created_at: new Date().toISOString(),
+        }));
+
+        const activeRole: Role = {
+          id: `role-${roleCode}`,
+          code: roleCode,
+          name: roleName,
+          description: "Local School Station Staff",
+          is_system: true,
+          created_at: new Date().toISOString(),
+        };
+
+        return {
+          user: {
+            id: verifiedHub.userId || `teacher-${verifiedHub.phone || "user"}`,
+            full_name: verifiedHub.fullName || "Subject Teacher",
+            email: verifiedHub.email || `teacher_${verifiedHub.phone || "staff"}@school.local`,
+            phone: verifiedHub.phone || null,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+          school: activeSchool,
+          membershipId: `mem-teacher-${verifiedHub.userId || verifiedHub.schoolId}`,
+          role: activeRole,
+          permissions,
+          hasPermission: (perm: string) => teacherPermCodes.includes(perm),
+          isClassMaster,
+          masteredStreamNames,
+          isHod,
+          subscription: {
+            status: "active",
+            plan: "School Hub Perpetual",
+            trialEndsAt: null,
+            currentPeriodEnd: null,
+            isExpired: false,
+            isTrial: false,
+            daysRemaining: 365,
+          },
+          isSuperAdmin: false,
+          needsPinSetup: false,
+        };
+      }
+
+      // School Admin Master Context
       const allPermCodes = [
         "students.manage",
         "students.import_export",
@@ -70,22 +186,6 @@ export const getTenantContext = cache(async function getTenantContext(): Promise
         description: code,
         created_at: new Date().toISOString(),
       }));
-
-      const activeSchool = {
-        id: verifiedHub.schoolId,
-        name: verifiedHub.schoolName,
-        code: verifiedHub.schoolCode,
-        slug: verifiedHub.schoolSlug || "local-school",
-        logo_url: verifiedHub.schoolLogoUrl || "/app-icon.png",
-        country: "Cameroon",
-        address: "School Campus LAN Station",
-        phone: null,
-        email: null,
-        website: null,
-        is_active: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as unknown as School;
 
       const activeRole: Role = {
         id: "role-school-admin",

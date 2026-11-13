@@ -279,55 +279,113 @@ export async function getStudentReportCard(
   studentId: string,
   sharedContext?: StreamReportCardContext
 ): Promise<ReportCardFullData | null> {
-  const supabase = await createClient();
-
   if (!schoolId || !termId || !studentId) return null;
+
+  let supabase: any = null;
+  if (!sharedContext) {
+    try {
+      supabase = await createClient();
+    } catch {}
+  }
 
   // 1. Fetch School (or use pre-batched)
   let school: School | null = sharedContext?.school || null;
   if (!school) {
-    const { data: schoolData } = await supabase
-      .from("schools")
-      .select("*")
-      .eq("id", schoolId)
-      .maybeSingle();
-    school = (schoolData as School) || null;
+    try {
+      const { data: schoolData } = await supabase
+        .from("schools")
+        .select("*")
+        .eq("id", schoolId)
+        .maybeSingle();
+      school = (schoolData as School) || null;
+    } catch {}
+    if (!school) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const res = await queryLocalDb("SELECT * FROM public.schools WHERE id = $1 LIMIT 1", [schoolId]);
+        school = res.rows[0] || null;
+      } catch {}
+    }
   }
   if (!school) return null;
 
   // 2. Fetch Term & Academic Year (or use pre-batched)
   let term: (Term & { academic_year: { name: string } }) | null = sharedContext?.term || null;
   if (!term) {
-    const { data: termData } = await supabase
-      .from("terms")
-      .select("*, academic_year:academic_years (*)")
-      .eq("id", termId)
-      .maybeSingle();
-    term = (termData as Term & { academic_year: { name: string } }) || null;
+    try {
+      const { data: termData } = await supabase
+        .from("terms")
+        .select("*, academic_year:academic_years (*)")
+        .eq("id", termId)
+        .maybeSingle();
+      term = (termData as Term & { academic_year: { name: string } }) || null;
+    } catch {}
+    if (!term) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const res = await queryLocalDb(
+          `SELECT t.*, json_build_object('id', y.id, 'name', y.name) as academic_year
+           FROM public.terms t
+           LEFT JOIN public.academic_years y ON y.id = t.academic_year_id
+           WHERE t.id = $1 LIMIT 1`,
+          [termId]
+        );
+        term = res.rows[0] || null;
+      } catch {}
+    }
   }
   if (!term) return null;
 
   // 3. Fetch Student & Enrolment (or use pre-batched map)
   let enrolmentData = sharedContext?.enrolmentsMap?.get(studentId) || null;
   if (!enrolmentData) {
-    const { data: fetchedEnrolment } = await supabase
-      .from("enrolments")
-      .select(
-        `
-        *,
-        student:students (*),
-        class_stream:class_streams (
+    try {
+      const { data: fetchedEnrolment } = await supabase
+        .from("enrolments")
+        .select(
+          `
           *,
-          class:classes (*),
-          class_master:user_profiles (*)
+          student:students (*),
+          class_stream:class_streams (
+            *,
+            class:classes (*),
+            class_master:user_profiles (*)
+          )
+        `
         )
-      `
-      )
-      .eq("school_id", schoolId)
-      .eq("academic_year_id", term.academic_year_id)
-      .eq("student_id", studentId)
-      .maybeSingle();
-    enrolmentData = fetchedEnrolment;
+        .eq("school_id", schoolId)
+        .eq("academic_year_id", term.academic_year_id)
+        .eq("student_id", studentId)
+        .maybeSingle();
+      enrolmentData = fetchedEnrolment;
+    } catch {}
+    if (!enrolmentData) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const res = await queryLocalDb(
+          `SELECT e.*,
+            json_build_object(
+              'id', st.id, 'matricule', st.matricule, 'first_name', st.first_name, 'last_name', st.last_name,
+              'gender', st.gender, 'date_of_birth', st.date_of_birth, 'place_of_birth', st.place_of_birth,
+              'guardian_name', st.guardian_name, 'guardian_phone', st.guardian_phone, 'is_repeater', st.is_repeater, 'photo_url', st.photo_url
+            ) as student,
+            json_build_object(
+              'id', cs.id, 'name', cs.name, 'class_id', cs.class_id, 'class_master_id', cs.class_master_id,
+              'class', json_build_object('id', c.id, 'name', c.name),
+              'class_master', json_build_object('id', u.id, 'full_name', u.full_name)
+            ) as class_stream
+           FROM public.enrolments e
+           JOIN public.students st ON st.id = e.student_id
+           JOIN public.class_streams cs ON cs.id = e.class_stream_id
+           JOIN public.classes c ON c.id = cs.class_id
+           LEFT JOIN public.user_profiles u ON u.id = cs.class_master_id
+           WHERE e.school_id = $1 AND e.student_id = $2
+           LIMIT 1`,
+          [schoolId, studentId]
+        );
+        enrolmentData = res.rows[0] || null;
+      } catch {}
+    }
   }
 
   if (!enrolmentData || !enrolmentData.student) return null;
@@ -338,32 +396,46 @@ export async function getStudentReportCard(
   };
 
   // 4. Fetch Sequences in this Term
-  let sequences = sharedContext?.sequences || null;
-  if (!sequences) {
-    const { data: sequencesData } = await supabase
-      .from("evaluation_sequences")
-      .select("*")
-      .eq("term_id", termId)
-      .order("sequence_number", { ascending: true });
-    sequences = sequencesData || [];
+  let sequences: any[] = sharedContext?.sequences || [];
+  if (!sequences.length && supabase) {
+    try {
+      const { data: sequencesData } = await supabase
+        .from("evaluation_sequences")
+        .select("*")
+        .eq("term_id", termId)
+        .order("sequence_number", { ascending: true });
+      sequences = sequencesData || [];
+    } catch {}
+  }
+  if (!sequences.length) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const res = await queryLocalDb(
+        "SELECT * FROM public.evaluation_sequences WHERE term_id = $1 ORDER BY sequence_number ASC",
+        [termId]
+      );
+      sequences = res.rows || [];
+    } catch {}
   }
   const seqA = sequences[0] || null;
   const seqB = sequences[1] || null;
 
   // 5. Fetch Class Enrolment count
   let classEnrolmentCount = sharedContext?.actualClassSize || null;
-  if (classEnrolmentCount === null) {
-    const { count } = await supabase
-      .from("enrolments")
-      .select("id", { count: "exact", head: true })
-      .eq("class_stream_id", classStream.id)
-      .eq("status", "active");
-    classEnrolmentCount = count || 1;
+  if (classEnrolmentCount === null && supabase) {
+    try {
+      const { count } = await supabase
+        .from("enrolments")
+        .select("id", { count: "exact", head: true })
+        .eq("class_stream_id", classStream.id)
+        .eq("status", "active");
+      classEnrolmentCount = count || 1;
+    } catch {}
   }
 
   // 6. Fetch All Marks for this Term in this Stream (needed to determine evaluated subjects & class stats)
   let streamMarks = sharedContext?.streamMarks || null;
-  if (!streamMarks) {
+  if (!streamMarks && supabase) {
     const seqIds = sequences.map((s) => s.id);
     const { data: streamMarksData } = await supabase
       .from("assessment_marks")
@@ -374,107 +446,109 @@ export async function getStudentReportCard(
   }
 
   // 7. Fetch Subjects strictly assigned to this class group (by class curriculum, teacher assignment, or recorded marks)
-  let allSubjects = sharedContext?.allSubjects || null;
+  let allSubjects: any[] = sharedContext?.allSubjects || [];
   let teacherNameMap = sharedContext?.teacherNameMap || new Map<string, string>();
   let classSubjectMap = sharedContext?.classSubjectMap || null;
 
   // 7a. Ensure classSubjectMap is resolved first so subjects configured via class_subjects
   // (with or without an assigned teacher account) are recognized as part of this class stream
-  if (!classSubjectMap) {
-    const { data: classSubjectsData } = await supabase
-      .from("class_subjects")
-      .select("subject_id, coefficient, max_marks")
-      .eq("class_stream_id", classStream.id);
+  if (!classSubjectMap && supabase) {
+    try {
+      const { data: classSubjectsData } = await supabase
+        .from("class_subjects")
+        .select("subject_id, coefficient, max_marks")
+        .eq("class_stream_id", classStream.id);
 
-    classSubjectMap = new Map<string, { coefficient: number; max_marks: number }>();
-    (classSubjectsData || []).forEach((cs) => {
-      classSubjectMap!.set(cs.subject_id, {
-        coefficient: Number(cs.coefficient),
-        max_marks: Number(cs.max_marks),
+      classSubjectMap = new Map<string, { coefficient: number; max_marks: number }>();
+      (classSubjectsData || []).forEach((cs: any) => {
+        classSubjectMap!.set(cs.subject_id, {
+          coefficient: Number(cs.coefficient),
+          max_marks: Number(cs.max_marks),
+        });
       });
-    });
+    } catch {}
   }
 
-  if (!allSubjects) {
-    const [
-      { data: subjectsData },
-      { data: teacherAssignmentsData },
-    ] = await Promise.all([
-      supabase
-        .from("subjects")
-        .select(
+  if (!allSubjects.length && supabase) {
+    try {
+      const [
+        { data: subjectsData },
+        { data: teacherAssignmentsData },
+      ] = await Promise.all([
+        supabase
+          .from("subjects")
+          .select(
+            `
+            *,
+            department:departments (*)
           `
-          *,
-          department:departments (*)
-        `
-        )
-        .eq("school_id", schoolId)
-        .order("name", { ascending: true }),
-      supabase
-        .from("teacher_assignments")
-        .select(
+          )
+          .eq("school_id", schoolId)
+          .order("name", { ascending: true }),
+        supabase
+          .from("teacher_assignments")
+          .select(
+            `
+            subject_id,
+            academic_year_id,
+            teacher:user_profiles (full_name)
           `
-          subject_id,
-          academic_year_id,
-          teacher:user_profiles (full_name)
-        `
-        )
-        .eq("school_id", schoolId)
-        .eq("class_stream_id", classStream.id),
-    ]);
+          )
+          .eq("school_id", schoolId)
+          .eq("class_stream_id", classStream.id),
+      ]);
 
-    const rawSubjects = subjectsData || [];
-    const assignedSubjectIds = new Set<string>();
+      const rawSubjects = subjectsData || [];
+      const assignedSubjectIds = new Set<string>();
 
-    // 7b. Subjects configured for this class stream curriculum in class_subjects
-    // (Enables teachers without accounts to have marks entered from the admin desk)
-    if (classSubjectMap) {
-      for (const [subjectId, config] of classSubjectMap.entries()) {
-        if (config.coefficient > 0) {
-          assignedSubjectIds.add(subjectId);
-        }
-      }
-    }
-
-    // 7c. Subjects assigned to a teacher for this class
-    (teacherAssignmentsData || []).forEach((ta: any) => {
-      if (ta.subject_id) {
-        if (!ta.academic_year_id || !term.academic_year_id || ta.academic_year_id === term.academic_year_id) {
-          assignedSubjectIds.add(ta.subject_id);
-        }
-        const teacher = ta.teacher as { full_name?: string } | null;
-        if (teacher?.full_name) {
-          const existing = teacherNameMap.get(ta.subject_id);
-          if (existing) {
-            if (!existing.split(" / ").includes(teacher.full_name)) {
-              teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
-            }
-          } else {
-            teacherNameMap.set(ta.subject_id, teacher.full_name);
+      // 7b. Subjects configured for this class stream curriculum in class_subjects
+      if (classSubjectMap) {
+        for (const [subjectId, config] of classSubjectMap.entries()) {
+          if (config.coefficient > 0) {
+            assignedSubjectIds.add(subjectId);
           }
         }
       }
-    });
 
-    // If year filter yielded 0, include any teacher assignment for this class stream
-    if (assignedSubjectIds.size === 0 && teacherAssignmentsData && teacherAssignmentsData.length > 0) {
-      teacherAssignmentsData.forEach((ta: any) => {
-        if (ta.subject_id) assignedSubjectIds.add(ta.subject_id);
+      // 7c. Subjects assigned to a teacher for this class
+      (teacherAssignmentsData || []).forEach((ta: any) => {
+        if (ta.subject_id) {
+          if (!ta.academic_year_id || !term.academic_year_id || ta.academic_year_id === term.academic_year_id) {
+            assignedSubjectIds.add(ta.subject_id);
+          }
+          const teacher = ta.teacher as { full_name?: string } | null;
+          if (teacher?.full_name) {
+            const existing = teacherNameMap.get(ta.subject_id);
+            if (existing) {
+              if (!existing.split(" / ").includes(teacher.full_name)) {
+                teacherNameMap.set(ta.subject_id, `${existing} / ${teacher.full_name}`);
+              }
+            } else {
+              teacherNameMap.set(ta.subject_id, teacher.full_name);
+            }
+          }
+        }
       });
-    }
 
-    // 7d. Subjects that have assessment marks entered for this class stream
-    (streamMarks || []).forEach((m) => {
-      if (m.subject_id) {
-        assignedSubjectIds.add(m.subject_id);
+      // If year filter yielded 0, include any teacher assignment for this class stream
+      if (assignedSubjectIds.size === 0 && teacherAssignmentsData && teacherAssignmentsData.length > 0) {
+        teacherAssignmentsData.forEach((ta: any) => {
+          if (ta.subject_id) assignedSubjectIds.add(ta.subject_id);
+        });
       }
-    });
 
-    // CRITICAL: Strictly include ONLY subjects assigned to this class!
-    // NEVER fall back to all school subjects (rawSubjects).
-    allSubjects = assignedSubjectIds.size > 0
-      ? rawSubjects.filter((s) => assignedSubjectIds.has(s.id))
-      : [];
+      // 7d. Subjects that have assessment marks entered for this class stream
+      (streamMarks || []).forEach((m) => {
+        if (m.subject_id) {
+          assignedSubjectIds.add(m.subject_id);
+        }
+      });
+
+      // CRITICAL: Strictly include ONLY subjects assigned to this class!
+      allSubjects = assignedSubjectIds.size > 0
+        ? rawSubjects.filter((s: any) => assignedSubjectIds.has(s.id))
+        : [];
+    } catch {}
   }
 
   // 8. Fetch stored competencies if any
@@ -729,7 +803,7 @@ export async function getStudentReportCard(
       .eq("class_stream_id", classStream.id)
       .eq("status", "active");
 
-    const enrolledStudentIds = allStreamEnrolments?.map((e) => e.student_id) || [student.id];
+    const enrolledStudentIds = allStreamEnrolments?.map((e: any) => e.student_id) || [student.id];
     actualClassSize = Math.max(enrolledStudentIds.length, classEnrolmentCount || 1);
 
     studentAverages = [];
@@ -738,7 +812,7 @@ export async function getStudentReportCard(
       let sCoef = 0;
       let sWeighted = 0;
 
-      for (const sub of allSubjects) {
+      for (const sub of (allSubjects || [])) {
         const markA = streamMarks!.find(
           (m) => m.student_id === sId && m.subject_id === sub.id && m.sequence_id === seqA?.id
         );
@@ -871,7 +945,7 @@ export async function getStudentReportCard(
       totalWeightedScore,
       studentAverage,
       subjectsPassed,
-      totalSubjects: allSubjects.length,
+      totalSubjects: (allSubjects || []).length,
       letterGrade: overallGrade.letter,
       cbaAppreciation: overallGrade.cba,
       rank: calculatedRank,
@@ -903,27 +977,186 @@ export async function getClassStreamReportCards(
   termId: string,
   classStreamId: string
 ): Promise<ReportCardFullData[]> {
-  const supabase = await createClient();
+  let enrolments: any[] = [];
+  let schoolData: any = null;
+  let termData: any = null;
+  let sequencesData: any[] = [];
+  let subjectsData: any[] = [];
+  let classSubjectsData: any[] = [];
+  let teacherAssignmentsData: any[] = [];
+  let dbCompetenciesData: any[] = [];
+  let termResultsData: any[] = [];
+  let attendanceRecordsData: any[] = [];
+  let disciplinaryRecordsData: any[] = [];
+  let streamMarksData: any[] = [];
 
-  // 1. Fetch all active enrolments for this stream
-  const { data: enrolments } = await supabase
-    .from("enrolments")
-    .select(
-      `
-      *,
-      student:students (*),
-      class_stream:class_streams (
+  try {
+    const supabase = await createClient();
+
+    // 1. Fetch all active enrolments for this stream
+    const { data: cloudEnrolments } = await supabase
+      .from("enrolments")
+      .select(
+        `
         *,
-        class:classes (*),
-        class_master:user_profiles (*)
+        student:students (*),
+        class_stream:class_streams (
+          *,
+          class:classes (*),
+          class_master:user_profiles (*)
+        )
+      `
       )
-    `
-    )
-    .eq("school_id", schoolId)
-    .eq("class_stream_id", classStreamId)
-    .eq("status", "active");
+      .eq("school_id", schoolId)
+      .eq("class_stream_id", classStreamId)
+      .eq("status", "active");
 
-  if (!enrolments || enrolments.length === 0) return [];
+    if (cloudEnrolments && cloudEnrolments.length > 0) {
+      enrolments = cloudEnrolments;
+      const enrolledStudentIds = enrolments.map((e) => e.student_id);
+
+      // 2. Fetch shared context in parallel
+      const [
+        sRes,
+        tRes,
+        seqRes,
+        subRes,
+        csRes,
+        taRes,
+        compRes,
+        trRes,
+        attRes,
+        discRes,
+      ] = await Promise.all([
+        supabase.from("schools").select("*").eq("id", schoolId).maybeSingle(),
+        supabase.from("terms").select("*, academic_year:academic_years (*)").eq("id", termId).maybeSingle(),
+        supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
+        supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
+        supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
+        supabase.from("teacher_assignments").select("subject_id, academic_year_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
+        supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
+        supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
+        supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
+        supabase.from("disciplinary_records").select("student_id, sanction_type, punishment_hours").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("term_id", termId).eq("status", "active"),
+      ]);
+
+      schoolData = sRes.data;
+      termData = tRes.data;
+      sequencesData = seqRes.data || [];
+      subjectsData = subRes.data || [];
+      classSubjectsData = csRes.data || [];
+      teacherAssignmentsData = taRes.data || [];
+      dbCompetenciesData = compRes.data || [];
+      termResultsData = trRes.data || [];
+      attendanceRecordsData = attRes.data || [];
+      disciplinaryRecordsData = discRes.data || [];
+
+      const seqIds = sequencesData.map((s) => s.id);
+      const { data: marks } = await supabase
+        .from("assessment_marks")
+        .select("*")
+        .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
+        .eq("class_stream_id", classStreamId);
+      streamMarksData = marks || [];
+    }
+  } catch (cloudErr) {
+    console.warn("[AcademicService] Cloud report card query notice:", cloudErr);
+  }
+
+  // 1b. Edge / Local Hub Fallback (100% Offline Report Card Generation)
+  if (!enrolments || enrolments.length === 0 || !schoolData || !termData) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+
+      const [
+        enrolRes,
+        sRes,
+        tRes,
+        seqRes,
+        subRes,
+        csRes,
+        taRes,
+        compRes,
+      ] = await Promise.all([
+        queryLocalDb(
+          `SELECT e.*,
+            json_build_object(
+              'id', st.id, 'matricule', st.matricule, 'first_name', st.first_name, 'last_name', st.last_name,
+              'gender', st.gender, 'date_of_birth', st.date_of_birth, 'place_of_birth', st.place_of_birth,
+              'guardian_name', st.guardian_name, 'guardian_phone', st.guardian_phone, 'is_repeater', st.is_repeater, 'photo_url', st.photo_url
+            ) as student,
+            json_build_object(
+              'id', cs.id, 'name', cs.name, 'class_id', cs.class_id, 'class_master_id', cs.class_master_id,
+              'class', json_build_object('id', c.id, 'name', c.name),
+              'class_master', json_build_object('id', u.id, 'full_name', u.full_name)
+            ) as class_stream
+           FROM public.enrolments e
+           JOIN public.students st ON st.id = e.student_id
+           JOIN public.class_streams cs ON cs.id = e.class_stream_id
+           JOIN public.classes c ON c.id = cs.class_id
+           LEFT JOIN public.user_profiles u ON u.id = cs.class_master_id
+           WHERE e.school_id = $1 AND e.class_stream_id = $2 AND e.status = 'active'`,
+          [schoolId, classStreamId]
+        ),
+        queryLocalDb("SELECT * FROM public.schools WHERE id = $1 LIMIT 1", [schoolId]),
+        queryLocalDb(
+          `SELECT t.*, json_build_object('id', y.id, 'name', y.name) as academic_year
+           FROM public.terms t
+           LEFT JOIN public.academic_years y ON y.id = t.academic_year_id
+           WHERE t.id = $1 LIMIT 1`,
+          [termId]
+        ),
+        queryLocalDb("SELECT * FROM public.evaluation_sequences WHERE term_id = $1 ORDER BY sequence_number ASC", [termId]),
+        queryLocalDb(
+          `SELECT s.*, json_build_object('id', d.id, 'name', d.name) as department
+           FROM public.subjects s
+           LEFT JOIN public.departments d ON d.id = s.department_id
+           WHERE s.school_id = $1 ORDER BY s.name ASC`,
+          [schoolId]
+        ),
+        queryLocalDb("SELECT subject_id, coefficient, max_marks FROM public.class_subjects WHERE class_stream_id = $1", [classStreamId]),
+        queryLocalDb(
+          `SELECT ta.subject_id, ta.academic_year_id, json_build_object('full_name', u.full_name) as teacher
+           FROM public.teacher_assignments ta
+           LEFT JOIN public.user_profiles u ON u.id = ta.teacher_user_id
+           WHERE ta.school_id = $1 AND ta.class_stream_id = $2`,
+          [schoolId, classStreamId]
+        ),
+        queryLocalDb("SELECT * FROM public.subject_competencies WHERE school_id = $1", [schoolId]),
+      ]);
+
+      enrolments = enrolRes.rows;
+      schoolData = sRes.rows[0];
+      termData = tRes.rows[0];
+      sequencesData = seqRes.rows;
+      subjectsData = subRes.rows;
+      classSubjectsData = csRes.rows;
+      teacherAssignmentsData = taRes.rows;
+      dbCompetenciesData = compRes.rows;
+
+      if (enrolments.length > 0 && sequencesData.length > 0) {
+        const enrolledStudentIds = enrolments.map((e) => e.student_id);
+        const seqIds = sequencesData.map((s) => s.id);
+
+        const [marksRes, trRes] = await Promise.all([
+          queryLocalDb(
+            "SELECT * FROM public.assessment_marks WHERE class_stream_id = $1 AND sequence_id = ANY($2::uuid[])",
+            [classStreamId, seqIds]
+          ),
+          queryLocalDb(
+            "SELECT * FROM public.term_results WHERE term_id = $1 AND student_id = ANY($2::uuid[])",
+            [termId, enrolledStudentIds]
+          ),
+        ]);
+        streamMarksData = marksRes.rows;
+        termResultsData = trRes.rows;
+      }
+    } catch (localErr) {
+      console.warn("[AcademicService] Local report card query error:", localErr);
+    }
+  }
+
+  if (!enrolments || enrolments.length === 0 || !schoolData || !termData) return [];
 
   // Sort alphabetically by last_name, first_name
   const sorted = [...enrolments].sort((a, b) => {
@@ -935,46 +1168,9 @@ export async function getClassStreamReportCards(
   });
 
   const enrolledStudentIds = sorted.map((e) => e.student_id);
-
-  // 2. Fetch shared context in parallel (school, term, sequences, subjects, stream marks, competencies, assignments)
-  const [
-    { data: schoolData },
-    { data: termData },
-    { data: sequencesData },
-    { data: subjectsData },
-    { data: classSubjectsData },
-    { data: teacherAssignmentsData },
-    { data: dbCompetenciesData },
-    { data: termResultsData },
-    { data: attendanceRecordsData },
-    { data: disciplinaryRecordsData },
-  ] = await Promise.all([
-    supabase.from("schools").select("*").eq("id", schoolId).maybeSingle(),
-    supabase.from("terms").select("*, academic_year:academic_years (*)").eq("id", termId).maybeSingle(),
-    supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
-    supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
-    supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
-    supabase.from("teacher_assignments").select("subject_id, academic_year_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
-    supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
-    supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
-    supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
-    supabase.from("disciplinary_records").select("student_id, sanction_type, punishment_hours").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("term_id", termId).eq("status", "active"),
-  ]);
-
-  if (!schoolData || !termData) return [];
-
   const school = schoolData as School;
   const term = termData as Term & { academic_year: { name: string } };
   const sequences = sequencesData || [];
-  const seqIds = sequences.map((s) => s.id);
-
-  // Fetch assessment marks for this stream and sequences
-  const { data: streamMarksData } = await supabase
-    .from("assessment_marks")
-    .select("*")
-    .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
-    .eq("class_stream_id", classStreamId);
-
   const streamMarks = (streamMarksData as AssessmentMark[]) || [];
 
   // 2b. Filter strictly to subjects assigned to this class group (by class curriculum, teacher assignment, or entered marks)

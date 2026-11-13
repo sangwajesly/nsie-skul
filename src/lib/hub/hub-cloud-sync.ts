@@ -241,8 +241,41 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       }
     }
 
+    // 9b. System Roles
+    if (pulledData.roles?.length) {
+      for (const r of pulledData.roles) {
+        await client.query(
+          `INSERT INTO roles (id, code, name, description, is_system)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (code) DO UPDATE SET
+             name = EXCLUDED.name,
+             description = EXCLUDED.description;`,
+          [r.id, r.code, r.name, r.description || null, Boolean(r.is_system)]
+        );
+      }
+    }
+
     // 10. Staff Users / User Profiles
-    if (pulledData.staffUsers?.length) {
+    if (pulledData.staffProfiles?.length) {
+      for (const u of pulledData.staffProfiles) {
+        const userEmail = u.email || `staff_${String(u.id).slice(0, 8)}@school.local`;
+        await client.query(
+          `INSERT INTO auth.users (id, email)
+           VALUES ($1::uuid, $2)
+           ON CONFLICT (id) DO NOTHING;`,
+          [u.id, userEmail]
+        );
+        await client.query(
+          `INSERT INTO user_profiles (id, full_name, email, phone)
+           VALUES ($1::uuid, $2, $3, $4)
+           ON CONFLICT (id) DO UPDATE SET
+             full_name = EXCLUDED.full_name,
+             email = EXCLUDED.email,
+             phone = EXCLUDED.phone;`,
+          [u.id, u.full_name || "Staff Member", userEmail, u.phone || null]
+        );
+      }
+    } else if (pulledData.staffUsers?.length) {
       for (const u of pulledData.staffUsers) {
         await client.query(
           `INSERT INTO auth.users (id, email)
@@ -272,6 +305,22 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
          ON CONFLICT (id) DO NOTHING;`,
         [uId, email]
       );
+    }
+
+    // 10b. School Memberships (Teacher codes & access roles)
+    if (pulledData.memberships?.length) {
+      for (const m of pulledData.memberships) {
+        await client.query(
+          `INSERT INTO school_memberships (id, school_id, user_id, role_id, title, access_code, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             role_id = EXCLUDED.role_id,
+             title = EXCLUDED.title,
+             access_code = EXCLUDED.access_code,
+             status = EXCLUDED.status;`,
+          [m.id, m.school_id, m.user_id, m.role_id, m.title || null, m.access_code || null, m.status || "active"]
+        );
+      }
     }
 
     // 11. Students
@@ -358,7 +407,7 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
              remarks = EXCLUDED.remarks,
              version = EXCLUDED.version;`,
           [
-            rm.school_id,
+            rm.school_id || schoolId,
             rm.academic_year_id,
             rm.term_id,
             rm.sequence_id,
@@ -370,6 +419,62 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
             rm.status || "present",
             rm.remarks || null,
             rm.version || 1,
+          ]
+        );
+      }
+    }
+
+    // 15. Subject Competencies
+    if (pulledData.subjectCompetencies?.length) {
+      for (const sc of pulledData.subjectCompetencies) {
+        await client.query(
+          `INSERT INTO subject_competencies (id, school_id, subject_id, sequence_id, term_id, title, description)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             title = EXCLUDED.title,
+             description = EXCLUDED.description;`,
+          [sc.id, sc.school_id, sc.subject_id, sc.sequence_id || null, sc.term_id || null, sc.title, sc.description || null]
+        );
+      }
+    }
+
+    // 16. Term Results
+    if (pulledData.termResults?.length) {
+      for (const tr of pulledData.termResults) {
+        await client.query(
+          `INSERT INTO term_results (
+             id, school_id, term_id, student_id, class_stream_id, total_weighted_marks, total_coefficients,
+             term_average, rank, class_average, class_min_average, class_max_average, pass_rate,
+             cba_competence_acquired, general_appreciation
+           )
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+           ON CONFLICT (id) DO UPDATE SET
+             total_weighted_marks = EXCLUDED.total_weighted_marks,
+             total_coefficients = EXCLUDED.total_coefficients,
+             term_average = EXCLUDED.term_average,
+             rank = EXCLUDED.rank,
+             class_average = EXCLUDED.class_average,
+             class_min_average = EXCLUDED.class_min_average,
+             class_max_average = EXCLUDED.class_max_average,
+             pass_rate = EXCLUDED.pass_rate,
+             cba_competence_acquired = EXCLUDED.cba_competence_acquired,
+             general_appreciation = EXCLUDED.general_appreciation;`,
+          [
+            tr.id,
+            tr.school_id,
+            tr.term_id,
+            tr.student_id,
+            tr.class_stream_id,
+            tr.total_weighted_marks,
+            tr.total_coefficients,
+            tr.term_average,
+            tr.rank,
+            tr.class_average,
+            tr.class_min_average,
+            tr.class_max_average,
+            tr.pass_rate,
+            tr.cba_competence_acquired,
+            tr.general_appreciation,
           ]
         );
       }

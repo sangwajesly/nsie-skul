@@ -331,7 +331,7 @@ export async function POST(req: NextRequest) {
   // 5. Gather PULL: School Snapshot, Remote Teacher Marks & Class Assignments
   let marksQuery = supabase
     .from("assessment_marks")
-    .select("academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id, score, max_marks, status, remarks, updated_at")
+    .select("school_id, academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id, score, max_marks, status, remarks, updated_at")
     .eq("school_id", schoolId);
 
   if (lastPulledAt) {
@@ -353,6 +353,10 @@ export async function POST(req: NextRequest) {
     teacherAssignmentsRes,
     remoteMarksRes,
     membershipsRes,
+    rolesRes,
+    staffProfilesRes,
+    subjectCompetenciesRes,
+    termResultsRes,
   ] = await Promise.all([
     supabase.from("schools").select("*").eq("id", schoolId).single(),
     supabase.from("academic_years").select("*").eq("school_id", schoolId),
@@ -367,7 +371,11 @@ export async function POST(req: NextRequest) {
     supabase.from("enrolments").select("*").eq("school_id", schoolId),
     supabase.from("teacher_assignments").select("*").eq("school_id", schoolId),
     marksQuery.limit(500),
-    supabase.from("school_memberships").select("user_id, role_id, status").eq("school_id", schoolId),
+    supabase.from("school_memberships").select("id, school_id, user_id, role_id, title, access_code, status").eq("school_id", schoolId),
+    supabase.from("roles").select("*"),
+    supabase.from("user_profiles").select("id, full_name, email, phone"),
+    supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
+    supabase.from("term_results").select("*").eq("school_id", schoolId),
   ]);
 
   const remoteMarks = remoteMarksRes.data || [];
@@ -431,6 +439,11 @@ export async function POST(req: NextRequest) {
       enrolments: enrolmentsRes.data || [],
       teacherAssignments: teacherAssignmentsRes.data || [],
       remoteMarks,
+      memberships: membershipsRes.data || [],
+      roles: rolesRes.data || [],
+      staffProfiles: staffProfilesRes.data || [],
+      subjectCompetencies: subjectCompetenciesRes.data || [],
+      termResults: termResultsRes.data || [],
       staffUsers: (membershipsRes.data || []).map((m: any) => ({
         id: m.user_id,
         email: `staff_${String(m.user_id).slice(0, 8)}@school.local`,

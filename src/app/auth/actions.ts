@@ -114,6 +114,157 @@ export async function loginAction(
   return { redirectTo: safePath };
 }
 
+async function loginTeacherOfflineWithLocalPg(
+  identifier: string,
+  schoolCodeInput: string,
+  pin: string,
+  returnUrl: string
+): Promise<ActionResult | null> {
+  try {
+    const { isSchoolHubMode, getHubNodeConfig, createHubUserSessionToken, HUB_SESSION_COOKIE } = await import("@/lib/hub/hub-node-store");
+    if (!isSchoolHubMode()) return null;
+
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const config = getHubNodeConfig();
+
+    const cleanDigits = identifier.replace(/\D/g, "");
+    const isLikelyPhone =
+      (cleanDigits.length === 9 && (cleanDigits.startsWith("6") || cleanDigits.startsWith("2"))) ||
+      (cleanDigits.startsWith("237") && cleanDigits.length === 12);
+    const phone9 = cleanDigits.startsWith("237") ? cleanDigits.slice(3) : cleanDigits;
+
+    let targetSchoolCode = schoolCodeInput || config?.schoolCode || "";
+    let targetStaffCode = identifier;
+    if (!schoolCodeInput && identifier.includes("-")) {
+      const parts = identifier.split("-");
+      targetSchoolCode = parts[0].toUpperCase();
+      targetStaffCode = parts.slice(1).join("-");
+    }
+    const cleanStaff = targetStaffCode.replace(/^[-_]+/, "");
+
+    let queryText = `
+      SELECT 
+        m.id as membership_id,
+        m.school_id,
+        m.user_id,
+        m.access_code,
+        m.title,
+        m.status,
+        COALESCE(r.code, 'teacher') as role_code,
+        COALESCE(r.name, 'Subject Teacher') as role_name,
+        u.full_name,
+        u.phone,
+        u.email,
+        s.name as school_name,
+        s.code as school_code
+      FROM public.school_memberships m
+      JOIN public.user_profiles u ON u.id = m.user_id
+      LEFT JOIN public.roles r ON r.id = m.role_id
+      LEFT JOIN public.schools s ON s.id = m.school_id
+      WHERE m.status = 'active'
+    `;
+    const params: any[] = [];
+
+    if (isLikelyPhone) {
+      params.push(phone9, `+237${phone9}`, `teacher_${phone9}@staff.nseisukul.internal`);
+      queryText += ` AND (u.phone = $1 OR u.phone = $2 OR u.email = $3)`;
+    } else {
+      params.push(identifier, cleanStaff, `%-${cleanStaff}`);
+      queryText += ` AND (m.access_code ILIKE $1 OR m.access_code ILIKE $2 OR m.access_code ILIKE $3)`;
+    }
+
+    if (targetSchoolCode) {
+      params.push(targetSchoolCode);
+      queryText += ` AND (s.code ILIKE $${params.length} OR s.slug ILIKE $${params.length})`;
+    }
+
+    queryText += ` LIMIT 1`;
+
+    const res = await queryLocalDb(queryText, params);
+    if (res.rows.length === 0) {
+      // Fallback search: try matching anywhere in access_code or phone without strict school code constraint
+      const fallbackRes = await queryLocalDb(
+        `SELECT 
+          m.id as membership_id,
+          m.school_id,
+          m.user_id,
+          m.access_code,
+          m.title,
+          m.status,
+          COALESCE(r.code, 'teacher') as role_code,
+          COALESCE(r.name, 'Subject Teacher') as role_name,
+          u.full_name,
+          u.phone,
+          u.email,
+          s.name as school_name,
+          s.code as school_code
+        FROM public.school_memberships m
+        JOIN public.user_profiles u ON u.id = m.user_id
+        LEFT JOIN public.roles r ON r.id = m.role_id
+        LEFT JOIN public.schools s ON s.id = m.school_id
+        WHERE m.status = 'active'
+          AND (m.access_code ILIKE $1 OR u.phone LIKE $2 OR u.email ILIKE $1)
+        LIMIT 1`,
+        [`%${cleanStaff || identifier}%`, `%${phone9 || cleanDigits}%`]
+      );
+      if (fallbackRes.rows.length > 0) {
+        res.rows.push(fallbackRes.rows[0]);
+      }
+    }
+
+    if (res.rows.length === 0) {
+      return {
+        error: "No teacher account found matching those details on the local School Hub. Ask your administrator for your access code or slip.",
+      };
+    }
+
+    const member = res.rows[0];
+
+    // Hub Session Token scoped to this specific teacher
+    const hubToken = createHubUserSessionToken({
+      userId: member.user_id,
+      fullName: member.full_name || "Subject Teacher",
+      phone: member.phone,
+      email: member.email,
+      role: member.role_code || "teacher",
+      accessCode: member.access_code,
+      config: {
+        nodeKey: config?.nodeKey || "",
+        schoolId: member.school_id,
+        schoolName: member.school_name || config?.schoolName || "School Station",
+        schoolCode: member.school_code || config?.schoolCode || "CAMPUS",
+      },
+    });
+
+    try {
+      const cookieStore = await cookies();
+      cookieStore.delete("nsei_is_demo");
+      cookieStore.delete("nsei_demo_school_id");
+      cookieStore.set(HUB_SESSION_COOKIE, hubToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+      cookieStore.set(ACTIVE_SCHOOL_COOKIE, member.school_id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+    } catch (cookieErr) {
+      // Non-blocking in headless unit test runners
+    }
+
+    return { redirectTo: returnUrl || "/dashboard" };
+  } catch (err) {
+    console.warn("[loginTeacherOfflineWithLocalPg] Error:", err);
+    return null;
+  }
+}
+
 export async function loginWithTeacherCodeAction(
   prevState: unknown,
   formData: FormData
@@ -135,6 +286,24 @@ export async function loginWithTeacherCodeAction(
     return {
       error: `Too many failed attempts. For security, please wait ${rateCheck.retryAfterSeconds || 60} seconds before trying again.`,
     };
+  }
+
+  // ── SCHOOL HUB 100% OFFLINE AUTHENTICATION ────────────────────────────────
+  try {
+    const { isSchoolHubMode } = await import("@/lib/hub/hub-node-store");
+    if (isSchoolHubMode()) {
+      const offlineRes = await loginTeacherOfflineWithLocalPg(
+        identifier,
+        schoolCodeInput,
+        pin,
+        returnUrl
+      );
+      if (offlineRes) {
+        return offlineRes;
+      }
+    }
+  } catch (hubErr) {
+    console.warn("[loginWithTeacherCodeAction] Local Hub check notice:", hubErr);
   }
 
   let supabase;

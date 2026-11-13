@@ -61,6 +61,7 @@ skills-lock.json
 # Hub standalone build artifacts
 /dist-hub/
 /public/downloads/*.exe
+hub-node-config.json
 
 
 

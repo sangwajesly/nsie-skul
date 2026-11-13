@@ -194,28 +194,42 @@ export function verifyHubAccess(input: string): { success: boolean; reason?: str
   const cleanInput = input.trim();
   const config = getHubNodeConfig();
 
-  if (!config || !config.nodeKey) {
-    return { success: false, reason: "School Hub is not configured with a Node Key." };
+  // 1. Direct match or pairing of Hub Node Key (Master recovery & initial linking)
+  if (cleanInput.toLowerCase().startsWith("hub_")) {
+    saveHubNodeConfig({ nodeKey: cleanInput });
+    return { success: true };
   }
 
-  // 1. Direct match with Node Key (Master recovery fallback)
-  if (cleanInput.toLowerCase() === config.nodeKey.toLowerCase()) {
+  if (config?.nodeKey && cleanInput.toLowerCase() === config.nodeKey.toLowerCase()) {
     return { success: true };
   }
 
   // 2. If no PIN is configured yet, accept any 4+ digit PIN on first run and save it
-  if (!config.pinHash || !config.pinSalt) {
-    setHubMasterPin(cleanInput);
-    return { success: true };
+  if (!config?.pinHash || !config?.pinSalt) {
+    if (cleanInput.length >= 4) {
+      setHubMasterPin(cleanInput);
+      return { success: true };
+    }
   }
 
   // 3. Verify against hashed PIN
-  const computed = hashHubPin(cleanInput, config.pinSalt);
-  if (computed === config.pinHash) {
-    return { success: true };
+  if (config?.pinHash && config?.pinSalt) {
+    const computed = hashHubPin(cleanInput, config.pinSalt);
+    if (computed === config.pinHash) {
+      return { success: true };
+    }
   }
 
   return { success: false, reason: "Incorrect Master PIN or Node Key." };
+}
+
+export interface HubSessionPayload extends HubNodeConfig {
+  role?: string;
+  userId?: string;
+  fullName?: string;
+  email?: string;
+  phone?: string | null;
+  accessCode?: string | null;
 }
 
 /**
@@ -224,6 +238,8 @@ export function verifyHubAccess(input: string): { success: boolean; reason?: str
 export function createHubSessionToken(config: HubNodeConfig): string {
   const payload = {
     role: "school_admin",
+    userId: `hub-admin-${config.schoolId}`,
+    fullName: "School Hub Administrator",
     schoolId: config.schoolId,
     schoolName: config.schoolName,
     schoolCode: config.schoolCode,
@@ -240,9 +256,44 @@ export function createHubSessionToken(config: HubNodeConfig): string {
 }
 
 /**
+ * Creates an HMAC signed session token for a specific authenticated teacher or staff member.
+ */
+export function createHubUserSessionToken(user: {
+  userId: string;
+  fullName: string;
+  email?: string;
+  phone?: string | null;
+  role: string;
+  accessCode?: string | null;
+  config?: HubNodeConfig | null;
+}): string {
+  const config = user.config || getHubNodeConfig();
+  const payload = {
+    role: user.role || "teacher",
+    userId: user.userId,
+    fullName: user.fullName,
+    email: user.email || `teacher_${user.phone || user.userId.slice(0, 8)}@school.local`,
+    phone: user.phone || null,
+    accessCode: user.accessCode || null,
+    schoolId: config?.schoolId || "",
+    schoolName: config?.schoolName || "School Station",
+    schoolCode: config?.schoolCode || "CAMPUS",
+    nodeKey: config?.nodeKey || "",
+    iat: Date.now(),
+    exp: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days offline lease
+  };
+
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const secret = config?.nodeKey || DEFAULT_SECRET;
+  const signature = crypto.createHmac("sha256", secret).update(payloadB64).digest("base64url");
+
+  return `${payloadB64}.${signature}`;
+}
+
+/**
  * Verifies an HMAC signed Hub session token.
  */
-export function verifyHubSessionToken(token: string): HubNodeConfig | null {
+export function verifyHubSessionToken(token: string): HubSessionPayload | null {
   if (!token || !token.includes(".")) return null;
   const [payloadB64, signature] = token.split(".");
   if (!payloadB64 || !signature) return null;
@@ -264,6 +315,12 @@ export function verifyHubSessionToken(token: string): HubNodeConfig | null {
     }
 
     return {
+      role: payload.role || "school_admin",
+      userId: payload.userId,
+      fullName: payload.fullName,
+      email: payload.email,
+      phone: payload.phone,
+      accessCode: payload.accessCode,
       nodeKey: payload.nodeKey || config?.nodeKey || "",
       schoolId: payload.schoolId,
       schoolName: payload.schoolName,

@@ -86,8 +86,8 @@ export async function updateSession(request: NextRequest) {
       return supabaseResponse;
     }
 
-    // 3. Station not unlocked yet: allow /hub/login
-    if (pathname.startsWith("/hub/login")) {
+    // 3. Station not unlocked yet: allow /hub/login and /login
+    if (pathname.startsWith("/hub/login") || pathname.startsWith("/login")) {
       return supabaseResponse;
     }
 

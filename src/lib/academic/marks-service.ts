@@ -12,22 +12,42 @@ export async function getMarksForSequence(
   classStreamId: string,
   subjectId: string
 ): Promise<AssessmentMark[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("assessment_marks")
-    .select(
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("assessment_marks")
+      .select(
+        `
+        *,
+        student:students (*),
+        subject:subjects (*)
       `
-      *,
-      student:students (*),
-      subject:subjects (*)
-    `
-    )
-    .eq("school_id", schoolId)
-    .eq("sequence_id", sequenceId)
-    .eq("class_stream_id", classStreamId)
-    .eq("subject_id", subjectId);
+      )
+      .eq("school_id", schoolId)
+      .eq("sequence_id", sequenceId)
+      .eq("class_stream_id", classStreamId)
+      .eq("subject_id", subjectId);
 
-  return (data as AssessmentMark[]) || [];
+    if (data && data.length > 0) return data as AssessmentMark[];
+  } catch {}
+
+  // Local Hub fallback
+  try {
+    const { queryLocalDb } = await import("@/lib/db/local-postgres");
+    const res = await queryLocalDb(
+      `SELECT am.*,
+        json_build_object('id', st.id, 'first_name', st.first_name, 'last_name', st.last_name, 'matricule', st.matricule, 'gender', st.gender) as student,
+        json_build_object('id', s.id, 'name', s.name, 'code', s.code) as subject
+       FROM public.assessment_marks am
+       LEFT JOIN public.students st ON st.id = am.student_id
+       LEFT JOIN public.subjects s ON s.id = am.subject_id
+       WHERE am.school_id = $1 AND am.sequence_id = $2 AND am.class_stream_id = $3 AND am.subject_id = $4`,
+      [schoolId, sequenceId, classStreamId, subjectId]
+    );
+    return res.rows as AssessmentMark[];
+  } catch {}
+
+  return [];
 }
 
 /**
