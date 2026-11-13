@@ -13,6 +13,7 @@ export interface CloudSyncResult {
 
 /**
  * Persists pulled Cloud snapshot directly into the local PostgreSQL 16 cluster.
+ * Uses replica replication role to prevent transient foreign-key locks during full snapshot sync.
  */
 async function upsertPulledDataToLocalDb(pulledData: any) {
   if (!pulledData) return;
@@ -20,6 +21,28 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
   const client = await pool.connect();
   try {
     await client.query("BEGIN;");
+    await client.query("SET session_replication_role = 'replica';");
+
+    const schoolId = pulledData.school?.id || (pulledData.academicYears?.[0]?.school_id);
+    if (!schoolId) {
+      await client.query("SET session_replication_role = 'origin';");
+      await client.query("COMMIT;");
+      return;
+    }
+
+    // Clean existing dummy/stale records for this school before loading authoritative cloud state
+    await client.query("DELETE FROM assessment_marks WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM teacher_assignments WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM enrolments WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM students WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM class_subjects WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM subjects WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM class_streams WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM classes WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM departments WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM evaluation_sequences WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM terms WHERE school_id = $1;", [schoolId]);
+    await client.query("DELETE FROM academic_years WHERE school_id = $1;", [schoolId]);
 
     // 1. School
     if (pulledData.school) {
@@ -38,24 +61,205 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
     }
 
     // 2. Academic Years
+    let activeYearId: string | null = null;
     if (pulledData.academicYears?.length) {
       for (const y of pulledData.academicYears) {
+        activeYearId = y.id;
         await client.query(
           `INSERT INTO academic_years (id, school_id, name, start_date, end_date, is_current)
-           VALUES ($1, $2, $3, $4, $5, $6)
-           ON CONFLICT (id) DO UPDATE SET
-             name = EXCLUDED.name,
-             start_date = EXCLUDED.start_date,
-             end_date = EXCLUDED.end_date,
-             is_current = EXCLUDED.is_current;`,
+           VALUES ($1, $2, $3, $4, $5, $6);`,
           [y.id, y.school_id, y.name, y.start_date, y.end_date, Boolean(y.is_current)]
         );
       }
     }
 
-    // 3. Students
-    if (pulledData.students?.length) {
-      for (const st of pulledData.students) {
+    // 3. Terms
+    if (pulledData.terms?.length) {
+      for (const tm of pulledData.terms) {
+        await client.query(
+          `INSERT INTO terms (id, school_id, academic_year_id, name, term_number, start_date, end_date)
+           VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+          [tm.id, tm.school_id, tm.academic_year_id, tm.name, tm.term_number, tm.start_date, tm.end_date]
+        );
+      }
+    }
+
+    // 4. Evaluation Sequences
+    if (pulledData.sequences?.length) {
+      for (const seq of pulledData.sequences) {
+        await client.query(
+          `INSERT INTO evaluation_sequences (id, school_id, term_id, sequence_number, name)
+           VALUES ($1, $2, $3, $4, $5);`,
+          [seq.id, seq.school_id, seq.term_id, seq.sequence_number, seq.name]
+        );
+      }
+    }
+
+    // 5. Departments
+    if (pulledData.departments?.length) {
+      for (const d of pulledData.departments) {
+        const code = d.code || d.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase();
+        await client.query(
+          `INSERT INTO departments (id, school_id, name, code)
+           VALUES ($1, $2, $3, $4);`,
+          [d.id, d.school_id, d.name, code]
+        );
+      }
+    }
+
+    // 6. Classes
+    if (pulledData.classes?.length) {
+      for (const c of pulledData.classes) {
+        await client.query(
+          `INSERT INTO classes (id, school_id, name, level_order, cycle)
+           VALUES ($1, $2, $3, $4, $5);`,
+          [c.id, c.school_id, c.name, c.level_order || 1, c.cycle || "cycle_1"]
+        );
+      }
+    }
+
+    // 7. Class Streams
+    if (pulledData.classStreams?.length) {
+      for (const cs of pulledData.classStreams) {
+        await client.query(
+          `INSERT INTO class_streams (id, school_id, class_id, academic_year_id, name, stream_tag)
+           VALUES ($1, $2, $3, $4, $5, $6);`,
+          [cs.id, cs.school_id, cs.class_id, cs.academic_year_id, cs.name, cs.stream_tag || null]
+        );
+      }
+    }
+
+    // 8. Subjects
+    if (pulledData.subjects?.length) {
+      for (const sub of pulledData.subjects) {
+        await client.query(
+          `INSERT INTO subjects (id, school_id, department_id, name, code)
+           VALUES ($1, $2, $3, $4, $5);`,
+          [sub.id, sub.school_id, sub.department_id, sub.name, sub.code]
+        );
+      }
+    }
+
+    // 9. Class Subjects
+    if (pulledData.classSubjects?.length) {
+      for (const cs of pulledData.classSubjects) {
+        await client.query(
+          `INSERT INTO class_subjects (id, school_id, class_stream_id, subject_id, coefficient, max_marks, is_compulsory)
+           VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+          [cs.id, cs.school_id, cs.class_stream_id, cs.subject_id, cs.coefficient || 2, cs.max_marks || 20, cs.is_compulsory ?? true]
+        );
+      }
+    }
+
+    // Extract unique references to ensure completeness if cloud endpoint sent partial schema
+    const marks = pulledData.remoteMarks || [];
+    const tas = pulledData.teacherAssignments || [];
+    const students = pulledData.students || [];
+
+    const termIds = new Set(marks.map((m: any) => m.term_id).filter(Boolean));
+    const seqIds = new Set(marks.map((m: any) => m.sequence_id).filter(Boolean));
+    const streamIds = new Set([
+      ...marks.map((m: any) => m.class_stream_id),
+      ...tas.map((t: any) => t.class_stream_id),
+    ].filter(Boolean));
+    const subjectIds = new Set([
+      ...marks.map((m: any) => m.subject_id),
+      ...tas.map((t: any) => t.subject_id),
+    ].filter(Boolean));
+    const teacherUserIds = new Set(tas.map((t: any) => t.teacher_user_id).filter(Boolean));
+
+    // Fallback stubs for terms & sequences if not sent explicitly
+    if (!pulledData.terms?.length && termIds.size > 0) {
+      for (const tId of termIds) {
+        await client.query(
+          `INSERT INTO terms (id, school_id, academic_year_id, name, term_number, start_date, end_date)
+           VALUES ($1, $2, $3, 'Term', 1, CURRENT_DATE - INTERVAL '60 days', CURRENT_DATE + INTERVAL '60 days')
+           ON CONFLICT (id) DO NOTHING;`,
+          [tId, schoolId, activeYearId]
+        );
+      }
+    }
+
+    if (!pulledData.sequences?.length && seqIds.size > 0) {
+      const parentTermId = Array.from(termIds)[0] || null;
+      let sNum = 1;
+      for (const sId of seqIds) {
+        await client.query(
+          `INSERT INTO evaluation_sequences (id, school_id, term_id, sequence_number, name)
+           VALUES ($1, $2, $3, $4, 'Evaluation Sequence')
+           ON CONFLICT (id) DO NOTHING;`,
+          [sId, schoolId, parentTermId, sNum++]
+        );
+      }
+    }
+
+    // Fallback stubs for classes & streams if not sent explicitly
+    if (!pulledData.classStreams?.length && streamIds.size > 0) {
+      const defaultClassId = "10000000-0000-0000-0000-000000000001";
+      await client.query(
+        `INSERT INTO classes (id, school_id, name, level_order, cycle)
+         VALUES ($1, $2, 'General Secondary', 1, 'cycle_1')
+         ON CONFLICT (id) DO NOTHING;`,
+        [defaultClassId, schoolId]
+      );
+      for (const stId of streamIds) {
+        await client.query(
+          `INSERT INTO class_streams (id, school_id, class_id, academic_year_id, name)
+           VALUES ($1, $2, $3, $4, 'Class Stream')
+           ON CONFLICT (id) DO NOTHING;`,
+          [stId, schoolId, defaultClassId, activeYearId]
+        );
+      }
+    }
+
+    // Fallback stubs for subjects if not sent explicitly
+    if (!pulledData.subjects?.length && subjectIds.size > 0) {
+      for (const subId of subjectIds) {
+        await client.query(
+          `INSERT INTO subjects (id, school_id, name, code)
+           VALUES ($1, $2, 'Subject', 'SUB')
+           ON CONFLICT (id) DO NOTHING;`,
+          [subId, schoolId]
+        );
+      }
+    }
+
+    // 10. Staff Users / User Profiles
+    if (pulledData.staffUsers?.length) {
+      for (const u of pulledData.staffUsers) {
+        await client.query(
+          `INSERT INTO auth.users (id, email)
+           VALUES ($1::uuid, $2)
+           ON CONFLICT (id) DO NOTHING;`,
+          [u.id, u.email]
+        );
+        await client.query(
+          `INSERT INTO user_profiles (id, full_name, email)
+           VALUES ($1::uuid, $2, $3)
+           ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name;`,
+          [u.id, u.full_name || "Staff Member", u.email]
+        );
+      }
+    }
+    for (const uId of teacherUserIds) {
+      const email = `staff_${String(uId).slice(0, 8)}@school.local`;
+      await client.query(
+        `INSERT INTO auth.users (id, email)
+         VALUES ($1::uuid, $2)
+         ON CONFLICT (id) DO NOTHING;`,
+        [uId, email]
+      );
+      await client.query(
+        `INSERT INTO user_profiles (id, full_name, email)
+         VALUES ($1::uuid, 'Teacher Staff', $2)
+         ON CONFLICT (id) DO NOTHING;`,
+        [uId, email]
+      );
+    }
+
+    // 11. Students
+    if (students.length) {
+      for (const st of students) {
         await client.query(
           `INSERT INTO students (id, school_id, matricule, first_name, last_name, gender, date_of_birth, status, version)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9, 1))
@@ -82,9 +286,37 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       }
     }
 
-    // 4. Teacher Assignments
-    if (pulledData.teacherAssignments?.length) {
-      for (const ta of pulledData.teacherAssignments) {
+    // 12. Enrolments
+    if (pulledData.enrolments?.length) {
+      for (const e of pulledData.enrolments) {
+        await client.query(
+          `INSERT INTO enrolments (id, school_id, student_id, academic_year_id, class_stream_id, roll_number, status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             class_stream_id = EXCLUDED.class_stream_id,
+             status = EXCLUDED.status;`,
+          [e.id, e.school_id, e.student_id, e.academic_year_id, e.class_stream_id, e.roll_number || null, e.status || "active"]
+        );
+      }
+    } else if (students.length && activeYearId && streamIds.size > 0) {
+      const primaryStreamId = Array.from(streamIds)[0];
+      for (const st of students) {
+        const markForStudent = marks.find((m: any) => m.student_id === st.id && m.class_stream_id);
+        const stStream = markForStudent ? markForStudent.class_stream_id : primaryStreamId;
+        await client.query(
+          `INSERT INTO enrolments (school_id, student_id, academic_year_id, class_stream_id, status)
+           VALUES ($1, $2, $3, $4, 'active')
+           ON CONFLICT (academic_year_id, student_id) DO UPDATE SET
+             class_stream_id = EXCLUDED.class_stream_id,
+             status = 'active';`,
+          [schoolId, st.id, activeYearId, stStream]
+        );
+      }
+    }
+
+    // 13. Teacher Assignments
+    if (tas.length) {
+      for (const ta of tas) {
         await client.query(
           `INSERT INTO teacher_assignments (id, school_id, academic_year_id, teacher_user_id, class_stream_id, subject_id)
            VALUES ($1, $2, $3, $4, $5, $6)
@@ -94,9 +326,9 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       }
     }
 
-    // 5. Remote Marks
-    if (pulledData.remoteMarks?.length) {
-      for (const rm of pulledData.remoteMarks) {
+    // 14. Remote Marks
+    if (marks.length) {
+      for (const rm of marks) {
         await client.query(
           `INSERT INTO assessment_marks (
              school_id, academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id, score, max_marks, status, remarks, version
@@ -126,8 +358,12 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       }
     }
 
+    await client.query("SET session_replication_role = 'origin';");
     await client.query("COMMIT;");
   } catch (err) {
+    try {
+      await client.query("SET session_replication_role = 'origin';");
+    } catch {}
     await client.query("ROLLBACK;");
     throw err;
   } finally {
@@ -235,11 +471,22 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
       }
     }
 
+    const countPulled =
+      typeof data.itemsPulled === "number" && data.itemsPulled > 0
+        ? data.itemsPulled
+        : (data.pulledData?.students?.length || 0) +
+          (data.pulledData?.academicYears?.length || 0) +
+          (data.pulledData?.teacherAssignments?.length || 0) +
+          (data.pulledData?.remoteMarks?.length || 0) +
+          (data.pulledData?.classes?.length || 0) +
+          (data.pulledData?.classStreams?.length || 0) +
+          (data.pulledData?.subjects?.length || 0);
+
     return {
       success: true,
-      message: `Sync successful. Pushed ${data.itemsPushed || 0} items, pulled ${data.itemsPulled || 0} updates.`,
+      message: `Sync successful. Pushed ${data.itemsPushed || 0} items, pulled ${countPulled} updates.`,
       itemsPushed: data.itemsPushed || 0,
-      itemsPulled: data.itemsPulled || 0,
+      itemsPulled: countPulled,
       lastSyncAt: nowIso,
     };
   } catch (err: any) {

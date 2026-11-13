@@ -12,8 +12,8 @@ test('Nsei Sukul Phase 2: All-or-Nothing Mark Submission & OCC Rollback Suite', 
   await client.connect();
 
   const testSchoolId = '11111111-1111-1111-1111-111111111111';
-  const testYearId = '9202412a-6125-4411-b355-3146e7ea3a53';
-  const testTermId = '3c242c47-062b-4378-8eb5-a1a8d9bba14f';
+  const testYearId = '00000000-0000-0000-0000-000000000098';
+  const testTermId = '00000000-0000-0000-0000-000000000099';
   const testSequenceId = '00000000-0000-0000-0000-000000000001';
   const testStreamId = '00000000-0000-0000-0000-000000000002';
   const testSubjectId = '00000000-0000-0000-0000-000000000003';
@@ -22,6 +22,11 @@ test('Nsei Sukul Phase 2: All-or-Nothing Mark Submission & OCC Rollback Suite', 
 
   t.after(async () => {
     await client.query("DELETE FROM public.assessment_marks WHERE sequence_id = $1;", [testSequenceId]);
+    await client.query("DELETE FROM public.evaluation_sequences WHERE id = $1;", [testSequenceId]);
+    await client.query("DELETE FROM public.terms WHERE id = $1;", [testTermId]);
+    await client.query("DELETE FROM public.class_streams WHERE id = $1;", [testStreamId]);
+    await client.query("DELETE FROM public.classes WHERE id = '00000000-0000-0000-0000-000000000020';");
+    await client.query("DELETE FROM public.academic_years WHERE id = $1;", [testYearId]);
     await client.end();
     await closeLocalPgPool();
   });
@@ -32,11 +37,11 @@ test('Nsei Sukul Phase 2: All-or-Nothing Mark Submission & OCC Rollback Suite', 
   // Seed prerequisites in local database inside test setup
   await client.query(`
     INSERT INTO public.schools (id, name, slug) VALUES ('${testSchoolId}', 'Test School', 'test-school') ON CONFLICT DO NOTHING;
-    INSERT INTO public.academic_years (id, school_id, name, start_date, end_date) VALUES ('${testYearId}', '${testSchoolId}', '2026/2027', '2026-09-01', '2027-06-30') ON CONFLICT DO NOTHING;
-    INSERT INTO public.terms (id, school_id, academic_year_id, term_number, name, start_date, end_date) VALUES ('${testTermId}', '${testSchoolId}', '${testYearId}', 1, 'First Term', '2026-09-01', '2026-12-15') ON CONFLICT DO NOTHING;
+    INSERT INTO public.academic_years (id, school_id, name, start_date, end_date) VALUES ('${testYearId}', '${testSchoolId}', '2026/2027 (Test)', '2026-09-01', '2027-06-30') ON CONFLICT DO NOTHING;
+    INSERT INTO public.terms (id, school_id, academic_year_id, term_number, name, start_date, end_date) VALUES ('${testTermId}', '${testSchoolId}', '${testYearId}', 1, 'First Term (Test)', '2026-09-01', '2026-12-15') ON CONFLICT DO NOTHING;
     INSERT INTO public.evaluation_sequences (id, school_id, term_id, sequence_number, name) VALUES ('${testSequenceId}', '${testSchoolId}', '${testTermId}', 1, 'Sequence 1') ON CONFLICT DO NOTHING;
-    INSERT INTO public.classes (id, school_id, name, level_order, cycle) VALUES ('00000000-0000-0000-0000-000000000020', '${testSchoolId}', 'Form 1', 1, 'cycle_1') ON CONFLICT DO NOTHING;
-    INSERT INTO public.class_streams (id, school_id, class_id, academic_year_id, name) VALUES ('${testStreamId}', '${testSchoolId}', '00000000-0000-0000-0000-000000000020', '${testYearId}', 'Form 1A') ON CONFLICT DO NOTHING;
+    INSERT INTO public.classes (id, school_id, name, level_order, cycle) VALUES ('00000000-0000-0000-0000-000000000020', '${testSchoolId}', 'Form 1 (Test)', 1, 'cycle_1') ON CONFLICT DO NOTHING;
+    INSERT INTO public.class_streams (id, school_id, class_id, academic_year_id, name) VALUES ('${testStreamId}', '${testSchoolId}', '00000000-0000-0000-0000-000000000020', '${testYearId}', 'Form 1A (Test)') ON CONFLICT DO NOTHING;
     INSERT INTO public.departments (id, school_id, name, code) VALUES ('00000000-0000-0000-0000-000000000030', '${testSchoolId}', 'Computer Science', 'CS') ON CONFLICT DO NOTHING;
     INSERT INTO public.subjects (id, school_id, department_id, name, code) VALUES ('${testSubjectId}', '${testSchoolId}', '00000000-0000-0000-0000-000000000030', 'Maths', 'MAT') ON CONFLICT DO NOTHING;
     INSERT INTO public.students (id, school_id, matricule, first_name, last_name, gender, date_of_birth) VALUES ('${student1}', '${testSchoolId}', 'MAT-01', 'Alice', 'Fon', 'F', '2012-01-01') ON CONFLICT DO NOTHING;

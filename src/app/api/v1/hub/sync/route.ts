@@ -200,18 +200,48 @@ export async function POST(req: NextRequest) {
     marksQuery = marksQuery.gt("updated_at", lastPulledAt);
   }
 
-  const [schoolRes, studentsRes, yearsRes, teacherAssignmentsRes, remoteMarksRes] = await Promise.all([
+  const [
+    schoolRes,
+    yearsRes,
+    termsRes,
+    sequencesRes,
+    departmentsRes,
+    classesRes,
+    classStreamsRes,
+    subjectsRes,
+    classSubjectsRes,
+    studentsRes,
+    enrolmentsRes,
+    teacherAssignmentsRes,
+    remoteMarksRes,
+    membershipsRes,
+  ] = await Promise.all([
     supabase.from("schools").select("*").eq("id", schoolId).single(),
-    supabase.from("students").select("*").eq("school_id", schoolId).eq("status", "active"),
     supabase.from("academic_years").select("*").eq("school_id", schoolId),
+    supabase.from("terms").select("*").eq("school_id", schoolId),
+    supabase.from("evaluation_sequences").select("*").eq("school_id", schoolId),
+    supabase.from("departments").select("*").eq("school_id", schoolId),
+    supabase.from("classes").select("*").eq("school_id", schoolId),
+    supabase.from("class_streams").select("*").eq("school_id", schoolId),
+    supabase.from("subjects").select("*").eq("school_id", schoolId),
+    supabase.from("class_subjects").select("*").eq("school_id", schoolId),
+    supabase.from("students").select("*").eq("school_id", schoolId).eq("status", "active"),
+    supabase.from("enrolments").select("*").eq("school_id", schoolId),
     supabase.from("teacher_assignments").select("*").eq("school_id", schoolId),
     marksQuery.limit(500),
+    supabase.from("school_memberships").select("user_id, role_id, status").eq("school_id", schoolId),
   ]);
 
   const remoteMarks = remoteMarksRes.data || [];
   itemsPulled =
     (studentsRes.data?.length || 0) +
     (yearsRes.data?.length || 0) +
+    (termsRes.data?.length || 0) +
+    (sequencesRes.data?.length || 0) +
+    (classesRes.data?.length || 0) +
+    (classStreamsRes.data?.length || 0) +
+    (subjectsRes.data?.length || 0) +
+    (enrolmentsRes.data?.length || 0) +
     (teacherAssignmentsRes.data?.length || 0) +
     remoteMarks.length;
 
@@ -248,12 +278,25 @@ export async function POST(req: NextRequest) {
     leaseExpiresAt: newLeaseExpiresAt,
     isSubscriptionActive: isSubActive,
     itemsPushed,
+    itemsPulled,
     pulledData: {
       school: schoolRes.data,
       students: studentsRes.data || [],
       academicYears: yearsRes.data || [],
+      terms: termsRes.data || [],
+      sequences: sequencesRes.data || [],
+      departments: departmentsRes.data || [],
+      classes: classesRes.data || [],
+      classStreams: classStreamsRes.data || [],
+      subjects: subjectsRes.data || [],
+      classSubjects: classSubjectsRes.data || [],
+      enrolments: enrolmentsRes.data || [],
       teacherAssignments: teacherAssignmentsRes.data || [],
       remoteMarks,
+      staffUsers: (membershipsRes.data || []).map((m: any) => ({
+        id: m.user_id,
+        email: `staff_${String(m.user_id).slice(0, 8)}@school.local`,
+      })),
     },
     syncCursor: new Date().toISOString(),
     durationMs,

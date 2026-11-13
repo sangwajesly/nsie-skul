@@ -41,14 +41,19 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  // 1. Never intercept local School Hub API calls or local Wi-Fi IP calls
+  // 0. Only cache standard http/https schemes (ignore chrome-extension:, moz-extension:, etc.)
+  if (!url.protocol.startsWith("http")) return;
+
+  // 1. Never intercept local School Hub API calls, LAN IP calls, or dynamic manifests
   if (
-    url.pathname.startsWith("/api/v1/hub/") ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname === "/manifest.json" ||
+    url.pathname === "/manifest.webmanifest" ||
     url.hostname.startsWith("192.168.") ||
     url.hostname.startsWith("10.") ||
     url.hostname.endsWith(".local")
   ) {
-    return; // Pass through to local LAN router directly
+    return; // Pass through to server directly
   }
 
   // 2. Cache-First / Stale-While-Revalidate for Next.js Static Assets & Chunks (_next/static/**)

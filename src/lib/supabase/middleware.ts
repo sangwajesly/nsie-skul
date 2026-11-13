@@ -50,18 +50,23 @@ export async function updateSession(request: NextRequest) {
   );
 
   if (isHubMode) {
-    // 1. Static assets, Next internals, and Hub APIs pass straight through
+    // 1. Static assets, API endpoints, manifests, and workers pass straight through
     if (
       pathname.startsWith("/_next") ||
-      pathname.startsWith("/api/v1/hub") ||
+      pathname.startsWith("/api/") ||
+      pathname === "/manifest.json" ||
+      pathname === "/manifest.webmanifest" ||
+      pathname === "/sw.js" ||
       pathname.startsWith("/favicon") ||
       pathname.startsWith("/app-icon") ||
       pathname.endsWith(".ico") ||
       pathname.endsWith(".png") ||
       pathname.endsWith(".svg") ||
       pathname.endsWith(".jpg") ||
+      pathname.endsWith(".jpeg") ||
       pathname.endsWith(".css") ||
-      pathname.endsWith(".js")
+      pathname.endsWith(".js") ||
+      pathname.endsWith(".json")
     ) {
       return supabaseResponse;
     }
