@@ -58,8 +58,6 @@ async function main() {
       console.error("Error creating bucket:", createError);
       process.exit(1);
     }
-  } else {
-    console.log(`Bucket '${BUCKET_NAME}' already exists.`);
   }
 
   // 2. Upload NseiSukulHubSetup.exe

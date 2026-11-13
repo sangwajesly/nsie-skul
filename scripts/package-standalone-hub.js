@@ -100,6 +100,10 @@ if (fs.existsSync(publicSrc)) {
   if (fs.existsSync(recursiveDownloads)) {
     fs.rmSync(recursiveDownloads, { recursive: true, force: true });
   }
+  const recursiveScreenshots = path.join(publicDest, "screenshots");
+  if (fs.existsSync(recursiveScreenshots)) {
+    fs.rmSync(recursiveScreenshots, { recursive: true, force: true });
+  }
 }
 
 // 8. Bundle portable Node.js runtime into dist-hub/runtime/node.exe
