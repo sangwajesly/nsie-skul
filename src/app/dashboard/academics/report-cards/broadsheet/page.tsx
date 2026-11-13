@@ -9,6 +9,7 @@ import {
 import { getClassStreamReportCards } from "@/lib/academic/report-card-service";
 import { getStudentBills } from "@/lib/finance/service";
 import { createClient } from "@/lib/supabase/server";
+import { isSchoolHubMode } from "@/lib/hub/hub-node-store";
 import { BroadSheetViewClient } from "./BroadSheetViewClient";
 import { Lock } from "lucide-react";
 
@@ -77,16 +78,38 @@ export default async function BroadSheetPage({ searchParams }: BroadSheetPagePro
     );
   }
 
-  const supabase = await createClient();
+  let term: { id: string; name: string; term_number: number } | null = null;
 
-  // 2. Fetch Term
-  const { data: term } = await supabase
-    .from("terms")
-    .select("id, name, term_number")
-    .eq("school_id", schoolId)
-    .eq("academic_year_id", activeYear.id)
-    .eq("term_number", requestedTermNumber)
-    .maybeSingle();
+  // On-premise School Hub: query local PostgreSQL cluster directly (<1ms)
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const termRes = await queryLocalDb(
+        `SELECT id, name, term_number FROM public.terms 
+         WHERE school_id = $1 AND academic_year_id = $2 AND term_number = $3 
+         LIMIT 1`,
+        [schoolId, activeYear.id, requestedTermNumber]
+      );
+      if (termRes.rows.length > 0) {
+        term = termRes.rows[0];
+      }
+    } catch {}
+  }
+
+  // Cloud query fallback
+  if (!term) {
+    try {
+      const supabase = await createClient();
+      const { data } = await supabase
+        .from("terms")
+        .select("id, name, term_number")
+        .eq("school_id", schoolId)
+        .eq("academic_year_id", activeYear.id)
+        .eq("term_number", requestedTermNumber)
+        .maybeSingle();
+      term = data;
+    } catch {}
+  }
 
   if (!term) {
     return (

@@ -41,13 +41,14 @@ export async function updateSession(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // --- School Hub On-Premise Mode Routing & Offline Access ---
-  const isHubMode =
-    process.env.HUB_MODE === "true" ||
-    process.env.NEXT_PUBLIC_HUB_MODE === "true";
-
   const hasHubSession = Boolean(
     request.cookies.get("nsei_hub_admin_session")?.value
   );
+
+  const isHubMode =
+    process.env.HUB_MODE === "true" ||
+    process.env.NEXT_PUBLIC_HUB_MODE === "true" ||
+    hasHubSession;
 
   if (isHubMode) {
     // 1. Static assets, API endpoints, manifests, and workers pass straight through

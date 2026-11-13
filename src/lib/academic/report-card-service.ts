@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { isSchoolHubMode } from "@/lib/hub/hub-node-store";
 import { getGradeAppreciation } from "./grading";
 import { resolveDelegations, resolveSchoolCity, formatReportCardDate } from "./report-card-utils";
 export { resolveDelegations, resolveSchoolCity, formatReportCardDate };
@@ -280,6 +281,54 @@ export async function getStudentReportCard(
   sharedContext?: StreamReportCardContext
 ): Promise<ReportCardFullData | null> {
   if (!schoolId || !termId || !studentId) return null;
+
+  // On-premise School Hub: query local PostgreSQL cluster directly (<2ms)
+  if (isSchoolHubMode() && !sharedContext) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const [sRes, tRes, enrolRes] = await Promise.all([
+        queryLocalDb("SELECT * FROM public.schools WHERE id = $1 LIMIT 1", [schoolId]),
+        queryLocalDb(
+          `SELECT t.*, json_build_object('id', y.id, 'name', y.name) as academic_year
+           FROM public.terms t
+           LEFT JOIN public.academic_years y ON y.id = t.academic_year_id
+           WHERE t.id = $1 LIMIT 1`,
+          [termId]
+        ),
+        queryLocalDb(
+          `SELECT e.*,
+            json_build_object(
+              'id', st.id, 'matricule', st.matricule, 'first_name', st.first_name, 'last_name', st.last_name,
+              'gender', st.gender, 'date_of_birth', st.date_of_birth, 'place_of_birth', st.place_of_birth,
+              'guardian_name', st.guardian_name, 'guardian_phone', st.guardian_phone, 'is_repeater', st.is_repeater, 'photo_url', st.photo_url
+            ) as student,
+            json_build_object(
+              'id', cs.id, 'name', cs.name, 'class_id', cs.class_id, 'class_master_id', cs.class_master_id,
+              'class', json_build_object('id', c.id, 'name', c.name),
+              'class_master', json_build_object('id', u.id, 'full_name', u.full_name)
+            ) as class_stream
+           FROM public.enrolments e
+           JOIN public.students st ON st.id = e.student_id
+           JOIN public.class_streams cs ON cs.id = e.class_stream_id
+           JOIN public.classes c ON c.id = cs.class_id
+           LEFT JOIN public.user_profiles u ON u.id = cs.class_master_id
+           WHERE e.school_id = $1 AND e.student_id = $2
+           LIMIT 1`,
+          [schoolId, studentId]
+        ),
+      ]);
+
+      const localSchool = sRes.rows[0];
+      const localTerm = tRes.rows[0];
+      const localEnrolment = enrolRes.rows[0];
+
+      if (localSchool && localTerm && localEnrolment) {
+        // Build sub-context or delegate to batched class stream
+        return (await getClassStreamReportCards(schoolId, termId, localEnrolment.class_stream_id))
+          .find((rc) => rc.student.id === studentId) || null;
+      }
+    } catch {}
+  }
 
   let supabase: any = null;
   if (!sharedContext) {
@@ -990,81 +1039,8 @@ export async function getClassStreamReportCards(
   let disciplinaryRecordsData: any[] = [];
   let streamMarksData: any[] = [];
 
-  try {
-    const supabase = await createClient();
-
-    // 1. Fetch all active enrolments for this stream
-    const { data: cloudEnrolments } = await supabase
-      .from("enrolments")
-      .select(
-        `
-        *,
-        student:students (*),
-        class_stream:class_streams (
-          *,
-          class:classes (*),
-          class_master:user_profiles (*)
-        )
-      `
-      )
-      .eq("school_id", schoolId)
-      .eq("class_stream_id", classStreamId)
-      .eq("status", "active");
-
-    if (cloudEnrolments && cloudEnrolments.length > 0) {
-      enrolments = cloudEnrolments;
-      const enrolledStudentIds = enrolments.map((e) => e.student_id);
-
-      // 2. Fetch shared context in parallel
-      const [
-        sRes,
-        tRes,
-        seqRes,
-        subRes,
-        csRes,
-        taRes,
-        compRes,
-        trRes,
-        attRes,
-        discRes,
-      ] = await Promise.all([
-        supabase.from("schools").select("*").eq("id", schoolId).maybeSingle(),
-        supabase.from("terms").select("*, academic_year:academic_years (*)").eq("id", termId).maybeSingle(),
-        supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
-        supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
-        supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
-        supabase.from("teacher_assignments").select("subject_id, academic_year_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
-        supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
-        supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
-        supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
-        supabase.from("disciplinary_records").select("student_id, sanction_type, punishment_hours").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("term_id", termId).eq("status", "active"),
-      ]);
-
-      schoolData = sRes.data;
-      termData = tRes.data;
-      sequencesData = seqRes.data || [];
-      subjectsData = subRes.data || [];
-      classSubjectsData = csRes.data || [];
-      teacherAssignmentsData = taRes.data || [];
-      dbCompetenciesData = compRes.data || [];
-      termResultsData = trRes.data || [];
-      attendanceRecordsData = attRes.data || [];
-      disciplinaryRecordsData = discRes.data || [];
-
-      const seqIds = sequencesData.map((s) => s.id);
-      const { data: marks } = await supabase
-        .from("assessment_marks")
-        .select("*")
-        .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
-        .eq("class_stream_id", classStreamId);
-      streamMarksData = marks || [];
-    }
-  } catch (cloudErr) {
-    console.warn("[AcademicService] Cloud report card query notice:", cloudErr);
-  }
-
-  // 1b. Edge / Local Hub Fallback (100% Offline Report Card Generation)
-  if (!enrolments || enrolments.length === 0 || !schoolData || !termData) {
+  // 1. On-premise School Hub: query local PostgreSQL cluster directly (<5ms)
+  if (isSchoolHubMode()) {
     try {
       const { queryLocalDb } = await import("@/lib/db/local-postgres");
 
@@ -1153,6 +1129,82 @@ export async function getClassStreamReportCards(
       }
     } catch (localErr) {
       console.warn("[AcademicService] Local report card query error:", localErr);
+    }
+  }
+
+  // 2. Cloud Server Fallback (Only executed when running on cloud server or if local DB empty)
+  if (!enrolments || enrolments.length === 0 || !schoolData || !termData) {
+    try {
+      const supabase = await createClient();
+
+      // 1. Fetch all active enrolments for this stream
+      const { data: cloudEnrolments } = await supabase
+        .from("enrolments")
+        .select(
+          `
+          *,
+          student:students (*),
+          class_stream:class_streams (
+            *,
+            class:classes (*),
+            class_master:user_profiles (*)
+          )
+        `
+        )
+        .eq("school_id", schoolId)
+        .eq("class_stream_id", classStreamId)
+        .eq("status", "active");
+
+      if (cloudEnrolments && cloudEnrolments.length > 0) {
+        enrolments = cloudEnrolments;
+        const enrolledStudentIds = enrolments.map((e) => e.student_id);
+
+        // 2. Fetch shared context in parallel
+        const [
+          sRes,
+          tRes,
+          seqRes,
+          subRes,
+          csRes,
+          taRes,
+          compRes,
+          trRes,
+          attRes,
+          discRes,
+        ] = await Promise.all([
+          supabase.from("schools").select("*").eq("id", schoolId).maybeSingle(),
+          supabase.from("terms").select("*, academic_year:academic_years (*)").eq("id", termId).maybeSingle(),
+          supabase.from("evaluation_sequences").select("*").eq("term_id", termId).order("sequence_number", { ascending: true }),
+          supabase.from("subjects").select("*, department:departments (*)").eq("school_id", schoolId).order("name", { ascending: true }),
+          supabase.from("class_subjects").select("subject_id, coefficient, max_marks").eq("class_stream_id", classStreamId),
+          supabase.from("teacher_assignments").select("subject_id, academic_year_id, teacher:user_profiles (full_name)").eq("school_id", schoolId).eq("class_stream_id", classStreamId),
+          supabase.from("subject_competencies").select("*").eq("school_id", schoolId),
+          supabase.from("term_results").select("*").eq("term_id", termId).in("student_id", enrolledStudentIds),
+          supabase.from("attendance_records").select("student_id, status, hours_missed, session:attendance_sessions!inner(term_id)").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("session.term_id", termId),
+          supabase.from("disciplinary_records").select("student_id, sanction_type, punishment_hours").eq("school_id", schoolId).in("student_id", enrolledStudentIds).eq("term_id", termId).eq("status", "active"),
+        ]);
+
+        schoolData = sRes.data;
+        termData = tRes.data;
+        sequencesData = seqRes.data || [];
+        subjectsData = subRes.data || [];
+        classSubjectsData = csRes.data || [];
+        teacherAssignmentsData = taRes.data || [];
+        dbCompetenciesData = compRes.data || [];
+        termResultsData = trRes.data || [];
+        attendanceRecordsData = attRes.data || [];
+        disciplinaryRecordsData = discRes.data || [];
+
+        const seqIds = sequencesData.map((s) => s.id);
+        const { data: marks } = await supabase
+          .from("assessment_marks")
+          .select("*")
+          .in("sequence_id", seqIds.length > 0 ? seqIds : ["00000000-0000-0000-0000-000000000000"])
+          .eq("class_stream_id", classStreamId);
+        streamMarksData = marks || [];
+      }
+    } catch (cloudErr) {
+      console.warn("[AcademicService] Cloud report card query notice:", cloudErr);
     }
   }
 
