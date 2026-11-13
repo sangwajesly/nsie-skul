@@ -30,20 +30,6 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       return;
     }
 
-    // Clean existing dummy/stale records for this school before loading authoritative cloud state
-    await client.query("DELETE FROM assessment_marks WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM teacher_assignments WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM enrolments WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM students WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM class_subjects WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM subjects WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM class_streams WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM classes WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM departments WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM evaluation_sequences WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM terms WHERE school_id = $1;", [schoolId]);
-    await client.query("DELETE FROM academic_years WHERE school_id = $1;", [schoolId]);
-
     // 1. School
     if (pulledData.school) {
       const s = pulledData.school;
@@ -67,7 +53,12 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
         activeYearId = y.id;
         await client.query(
           `INSERT INTO academic_years (id, school_id, name, start_date, end_date, is_current)
-           VALUES ($1, $2, $3, $4, $5, $6);`,
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             start_date = EXCLUDED.start_date,
+             end_date = EXCLUDED.end_date,
+             is_current = EXCLUDED.is_current;`,
           [y.id, y.school_id, y.name, y.start_date, y.end_date, Boolean(y.is_current)]
         );
       }
@@ -78,7 +69,12 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const tm of pulledData.terms) {
         await client.query(
           `INSERT INTO terms (id, school_id, academic_year_id, name, term_number, start_date, end_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             term_number = EXCLUDED.term_number,
+             start_date = EXCLUDED.start_date,
+             end_date = EXCLUDED.end_date;`,
           [tm.id, tm.school_id, tm.academic_year_id, tm.name, tm.term_number, tm.start_date, tm.end_date]
         );
       }
@@ -89,7 +85,10 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const seq of pulledData.sequences) {
         await client.query(
           `INSERT INTO evaluation_sequences (id, school_id, term_id, sequence_number, name)
-           VALUES ($1, $2, $3, $4, $5);`,
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET
+             sequence_number = EXCLUDED.sequence_number,
+             name = EXCLUDED.name;`,
           [seq.id, seq.school_id, seq.term_id, seq.sequence_number, seq.name]
         );
       }
@@ -101,7 +100,10 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
         const code = d.code || d.name.replace(/[^A-Za-z0-9]/g, "").slice(0, 6).toUpperCase();
         await client.query(
           `INSERT INTO departments (id, school_id, name, code)
-           VALUES ($1, $2, $3, $4);`,
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             code = EXCLUDED.code;`,
           [d.id, d.school_id, d.name, code]
         );
       }
@@ -112,7 +114,11 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const c of pulledData.classes) {
         await client.query(
           `INSERT INTO classes (id, school_id, name, level_order, cycle)
-           VALUES ($1, $2, $3, $4, $5);`,
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             level_order = EXCLUDED.level_order,
+             cycle = EXCLUDED.cycle;`,
           [c.id, c.school_id, c.name, c.level_order || 1, c.cycle || "cycle_1"]
         );
       }
@@ -123,7 +129,10 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const cs of pulledData.classStreams) {
         await client.query(
           `INSERT INTO class_streams (id, school_id, class_id, academic_year_id, name, stream_tag)
-           VALUES ($1, $2, $3, $4, $5, $6);`,
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             stream_tag = EXCLUDED.stream_tag;`,
           [cs.id, cs.school_id, cs.class_id, cs.academic_year_id, cs.name, cs.stream_tag || null]
         );
       }
@@ -134,7 +143,11 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const sub of pulledData.subjects) {
         await client.query(
           `INSERT INTO subjects (id, school_id, department_id, name, code)
-           VALUES ($1, $2, $3, $4, $5);`,
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (id) DO UPDATE SET
+             name = EXCLUDED.name,
+             code = EXCLUDED.code,
+             department_id = EXCLUDED.department_id;`,
           [sub.id, sub.school_id, sub.department_id, sub.name, sub.code]
         );
       }
@@ -145,7 +158,11 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
       for (const cs of pulledData.classSubjects) {
         await client.query(
           `INSERT INTO class_subjects (id, school_id, class_stream_id, subject_id, coefficient, max_marks, is_compulsory)
-           VALUES ($1, $2, $3, $4, $5, $6, $7);`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (id) DO UPDATE SET
+             coefficient = EXCLUDED.coefficient,
+             max_marks = EXCLUDED.max_marks,
+             is_compulsory = EXCLUDED.is_compulsory;`,
           [cs.id, cs.school_id, cs.class_stream_id, cs.subject_id, cs.coefficient || 2, cs.max_marks || 20, cs.is_compulsory ?? true]
         );
       }
@@ -390,12 +407,49 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
     "https://nsei-sukul.klarifypath.com/api/v1/hub/sync";
 
   try {
+    // 1. Collect pending local marks to push to central cloud
+    let localMarksToPush: any[] = [];
+    try {
+      const pool = getLocalPgPool();
+      const markRes = await pool.query(
+        `SELECT academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id, score, max_marks, status, remarks
+         FROM public.assessment_marks
+         WHERE school_id = $1
+         LIMIT 1000;`,
+        [config.schoolId]
+      );
+      localMarksToPush = markRes.rows.map((r: any) => ({
+        academicYearId: r.academic_year_id,
+        termId: r.term_id,
+        sequenceId: r.sequence_id,
+        classStreamId: r.class_stream_id,
+        subjectId: r.subject_id,
+        studentId: r.student_id,
+        score: r.score !== null ? Number(r.score) : null,
+        maxMarks: r.max_marks ? Number(r.max_marks) : 20,
+        status: r.status || "present",
+        remarks: r.remarks || null,
+      }));
+    } catch (e) {
+      console.warn("[CloudSync] Could not read local marks to push:", e);
+    }
+
+    // 2. Collect durable outbox mutations
+    const { getPendingOutboxBatch, markOutboxCommitted } = await import("./hub-outbox");
+    let pendingMutations: any[] = [];
+    try {
+      pendingMutations = await getPendingOutboxBatch(200);
+    } catch (e) {
+      console.warn("[CloudSync] Could not read outbox mutations:", e);
+    }
+
     const payload = {
       localIp: "127.0.0.1",
       lastPulledAt: config.lastSyncAt || null,
       pushData: {
-        marks: [],
+        marks: localMarksToPush,
         payments: [],
+        mutations: pendingMutations,
       },
     };
 
@@ -426,6 +480,11 @@ export async function executeHubCloudSync(): Promise<CloudSyncResult> {
 
     const data = await res.json();
     const nowIso = new Date().toISOString();
+
+    // Mark pushed outbox mutations as committed
+    if (pendingMutations.length > 0) {
+      await markOutboxCommitted(pendingMutations.map((m) => m.id!)).catch(() => {});
+    }
 
     // If cloud response returns school metadata, update local node config
     if (data.pulledData?.school) {

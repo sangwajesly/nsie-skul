@@ -6,6 +6,7 @@ import { getActiveAcademicYear, generateNextStudentMatricule, getHodScope, ensur
 import { uuidSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { isSchoolHubMode } from "@/lib/hub/hub-node-store";
 
 const DepartmentSchema = z.object({
   name: z.string().min(2, "Department name is required"),
@@ -355,22 +356,7 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
     };
   }
 
-  const supabase = await createClient();
-
-  // Prevent duplicate subjects with the same name (case-insensitive) in this school
   const cleanName = parsed.data.name.trim();
-  const { data: existingName } = await supabase
-    .from("subjects")
-    .select("id, name, code")
-    .eq("school_id", context.school.id)
-    .ilike("name", cleanName)
-    .maybeSingle();
-
-  if (existingName) {
-    return {
-      error: `A subject named "${existingName.name}" (Code: ${existingName.code}) already exists in the school catalog. You do not need to create it again; you can assign this subject to classes under the Class Subjects tab.`,
-    };
-  }
 
   // Auto-generate code from subject name if not provided
   let subjectCode = parsed.data.code ? parsed.data.code.trim().toUpperCase() : "";
@@ -387,26 +373,80 @@ export async function createSubjectAction(_state: unknown, formData: FormData) {
     } else if (words.length === 1) {
       baseCode = words[0].slice(0, 4);
     }
-
     subjectCode = baseCode;
+  }
 
-    let exists = true;
-    let counter = 1;
-    while (exists && counter < 100) {
-      const { data: existingCode } = await supabase
-        .from("subjects")
-        .select("id")
-        .eq("school_id", context.school.id)
-        .eq("code", subjectCode)
-        .maybeSingle();
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
 
-      if (!existingCode) {
-        exists = false;
-      } else {
-        counter++;
-        subjectCode = `${baseCode}${counter}`;
+      const existingSub = await queryLocalDb(
+        "SELECT id, name, code FROM public.subjects WHERE school_id = $1 AND LOWER(name) = LOWER($2) LIMIT 1;",
+        [context.school.id, cleanName]
+      );
+      if (existingSub.rows.length > 0) {
+        return {
+          error: `A subject named "${existingSub.rows[0].name}" (Code: ${existingSub.rows[0].code}) already exists in the school catalog.`,
+        };
       }
+
+      const subjectId = crypto.randomUUID();
+      await queryLocalDb(
+        `INSERT INTO public.subjects (id, school_id, department_id, name, code, default_coefficient, default_max_marks)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         ON CONFLICT (school_id, code) DO NOTHING;`,
+        [subjectId, context.school.id, parsed.data.departmentId || null, cleanName, subjectCode, parsed.data.defaultCoefficient, parsed.data.defaultMaxMarks]
+      );
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "subjects",
+        entityId: subjectId,
+        mutationType: "INSERT",
+        payload: {
+          id: subjectId,
+          school_id: context.school.id,
+          department_id: parsed.data.departmentId || null,
+          name: cleanName,
+          code: subjectCode,
+          default_coefficient: parsed.data.defaultCoefficient,
+          default_max_marks: parsed.data.defaultMaxMarks,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("subjects").insert({
+        id: subjectId,
+        school_id: context.school.id,
+        department_id: parsed.data.departmentId || null,
+        name: cleanName,
+        code: subjectCode,
+        default_coefficient: parsed.data.defaultCoefficient,
+        default_max_marks: parsed.data.defaultMaxMarks,
+      })).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: `Subject "${cleanName}" (${subjectCode}) created.` };
+    } catch (localErr: any) {
+      console.warn("[createSubjectAction] Local DB subject notice:", localErr);
     }
+  }
+
+  const supabase = await createClient();
+
+  // Prevent duplicate subjects with the same name (case-insensitive) in this school
+  const { data: existingName } = await supabase
+    .from("subjects")
+    .select("id, name, code")
+    .eq("school_id", context.school.id)
+    .ilike("name", cleanName)
+    .maybeSingle();
+
+  if (existingName) {
+    return {
+      error: `A subject named "${existingName.name}" (Code: ${existingName.code}) already exists in the school catalog. You do not need to create it again; you can assign this subject to classes under the Class Subjects tab.`,
+    };
   }
 
   const { error } = await supabase.from("subjects").insert({
@@ -455,6 +495,60 @@ export async function updateSubjectAction(_state: unknown, formData: FormData) {
 
   if (!name) return { error: "Subject name is required." };
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      let finalCode = code;
+      if (!finalCode) {
+        const existRes = await queryLocalDb(
+          "SELECT code FROM public.subjects WHERE id = $1 AND school_id = $2 LIMIT 1;",
+          [subjectId, context.school.id]
+        );
+        finalCode = existRes.rows[0]?.code || name.slice(0, 4).toUpperCase();
+      }
+
+      await queryLocalDb(
+        `UPDATE public.subjects
+         SET name = $1, code = $2, department_id = $3, default_coefficient = $4, default_max_marks = $5
+         WHERE id = $6 AND school_id = $7;`,
+        [name, finalCode, departmentId || null, defaultCoefficient, isNaN(defaultMaxMarks) ? 20 : defaultMaxMarks, subjectId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "subjects",
+        entityId: subjectId,
+        mutationType: "UPDATE",
+        payload: {
+          id: subjectId,
+          school_id: context.school.id,
+          name,
+          code: finalCode,
+          department_id: departmentId || null,
+          default_coefficient: defaultCoefficient,
+          default_max_marks: isNaN(defaultMaxMarks) ? 20 : defaultMaxMarks,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("subjects").update({
+        name,
+        code: finalCode,
+        department_id: departmentId || null,
+        default_coefficient: defaultCoefficient,
+        default_max_marks: isNaN(defaultMaxMarks) ? 20 : defaultMaxMarks,
+      }).eq("id", subjectId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: `Subject "${name}" updated.` };
+    } catch (localErr: any) {
+      console.warn("[updateSubjectAction] Local DB subject update notice:", localErr);
+    }
+  }
+
   const supabase = await createClient();
 
   // If code was cleared or omitted, retain existing code
@@ -502,6 +596,62 @@ export async function deleteSubjectAction(_state: unknown, formData: FormData) {
   const confirmDelete = formData.get("confirmDeleteMarks") === "true";
 
   if (!subjectId) return { error: "Subject ID is required." };
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const subRes = await queryLocalDb(
+        "SELECT id, name FROM public.subjects WHERE id = $1 AND school_id = $2 LIMIT 1;",
+        [subjectId, context.school.id]
+      );
+      if (subRes.rows.length === 0) return { error: "Subject not found." };
+      const sub = subRes.rows[0];
+
+      const marksRes = await queryLocalDb(
+        "SELECT count(*)::int AS count FROM public.assessment_marks WHERE subject_id = $1;",
+        [subjectId]
+      );
+      const marksCount = marksRes.rows[0]?.count || 0;
+
+      if (marksCount > 0 && !confirmDelete) {
+        return {
+          error: `Cannot delete "${sub.name}": ${marksCount} assessment mark(s) are recorded for this subject across the school. Confirm deletion to remove it and its marks.`,
+          needsConfirmation: true,
+          marksCount,
+        };
+      }
+
+      if (marksCount > 0 && confirmDelete) {
+        await queryLocalDb("DELETE FROM public.assessment_marks WHERE subject_id = $1;", [subjectId]);
+      }
+
+      await queryLocalDb("DELETE FROM public.class_subjects WHERE subject_id = $1;", [subjectId]);
+      await queryLocalDb("DELETE FROM public.teacher_assignments WHERE subject_id = $1;", [subjectId]);
+      await queryLocalDb("DELETE FROM public.timetable_slots WHERE subject_id = $1;", [subjectId]);
+      await queryLocalDb("DELETE FROM public.subjects WHERE id = $1 AND school_id = $2;", [subjectId, context.school.id]);
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "subjects",
+        entityId: subjectId,
+        mutationType: "DELETE",
+        payload: { id: subjectId, school_id: context.school.id },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("subjects").delete().eq("id", subjectId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      revalidatePath("/dashboard/academics/report-cards");
+      revalidatePath("/dashboard/academics/marks");
+      return { success: true as const, message: `Subject "${sub.name}" removed from school catalog.` };
+    } catch (localErr: any) {
+      console.warn("[deleteSubjectAction] Local DB subject delete notice:", localErr);
+    }
+  }
 
   const supabase = await createClient();
 
@@ -564,6 +714,50 @@ export async function createClassAction(_state: unknown, formData: FormData) {
       error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
       fieldErrors,
     };
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+      const classId = crypto.randomUUID();
+
+      await queryLocalDb(
+        `INSERT INTO public.classes (id, school_id, name, level_order, cycle)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (school_id, name) DO NOTHING;`,
+        [classId, context.school.id, parsed.data.name, parsed.data.levelOrder, parsed.data.cycle]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "classes",
+        entityId: classId,
+        mutationType: "INSERT",
+        payload: {
+          id: classId,
+          school_id: context.school.id,
+          name: parsed.data.name,
+          level_order: parsed.data.levelOrder,
+          cycle: parsed.data.cycle,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("classes").insert({
+        id: classId,
+        school_id: context.school.id,
+        name: parsed.data.name,
+        level_order: parsed.data.levelOrder,
+        cycle: parsed.data.cycle,
+      })).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: `Class "${parsed.data.name}" created.` };
+    } catch (localErr: any) {
+      console.warn("[createClassAction] Local DB insert notice:", localErr);
+    }
   }
 
   const supabase = await createClient();
@@ -635,6 +829,52 @@ export async function createClassStreamAction(
     return { error: "No active academic year found. Please set an academic year first." };
   }
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+      const streamId = crypto.randomUUID();
+
+      await queryLocalDb(
+        `INSERT INTO public.class_streams (id, school_id, class_id, academic_year_id, name, stream_tag)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (school_id, class_id, academic_year_id, name) DO NOTHING;`,
+        [streamId, context.school.id, parsed.data.classId, effectiveYearId, parsed.data.name, parsed.data.streamTag || null]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "class_streams",
+        entityId: streamId,
+        mutationType: "INSERT",
+        payload: {
+          id: streamId,
+          school_id: context.school.id,
+          class_id: parsed.data.classId,
+          academic_year_id: effectiveYearId,
+          name: parsed.data.name,
+          stream_tag: parsed.data.streamTag || null,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("class_streams").insert({
+        id: streamId,
+        school_id: context.school.id,
+        class_id: parsed.data.classId,
+        academic_year_id: effectiveYearId,
+        name: parsed.data.name,
+        stream_tag: parsed.data.streamTag,
+      })).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: `Class group "${parsed.data.name}" created.` };
+    } catch (localErr: any) {
+      console.warn("[createClassStreamAction] Local DB stream notice:", localErr);
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("class_streams").insert({
     school_id: context.school.id,
@@ -688,6 +928,45 @@ export async function updateClassAction(_state: unknown, formData: FormData) {
     };
   }
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      await queryLocalDb(
+        `UPDATE public.classes SET name = $1, level_order = $2, cycle = $3 WHERE id = $4 AND school_id = $5;`,
+        [parsed.data.name, parsed.data.levelOrder, parsed.data.cycle, parsed.data.classId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "classes",
+        entityId: parsed.data.classId,
+        mutationType: "UPDATE",
+        payload: {
+          id: parsed.data.classId,
+          school_id: context.school.id,
+          name: parsed.data.name,
+          level_order: parsed.data.levelOrder,
+          cycle: parsed.data.cycle,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("classes").update({
+        name: parsed.data.name,
+        level_order: parsed.data.levelOrder,
+        cycle: parsed.data.cycle,
+      }).eq("id", parsed.data.classId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: `Class updated to "${parsed.data.name}".` };
+    } catch (localErr: any) {
+      console.warn("[updateClassAction] Local DB update notice:", localErr);
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("classes")
@@ -734,6 +1013,45 @@ export async function deleteClassAction(_state: unknown, formData: FormData) {
       error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
       fieldErrors,
     };
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const streamCountRes = await queryLocalDb(
+        "SELECT count(*)::int AS count FROM public.class_streams WHERE school_id = $1 AND class_id = $2;",
+        [context.school.id, parsed.data.classId]
+      );
+      if (streamCountRes.rows[0]?.count > 0) {
+        return {
+          error: `Safety Lock: Cannot delete class because it contains ${streamCountRes.rows[0].count} class group(s). Please delete or move those class groups first.`,
+        };
+      }
+
+      await queryLocalDb(
+        "DELETE FROM public.classes WHERE id = $1 AND school_id = $2;",
+        [parsed.data.classId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "classes",
+        entityId: parsed.data.classId,
+        mutationType: "DELETE",
+        payload: { id: parsed.data.classId, school_id: context.school.id },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("classes").delete().eq("id", parsed.data.classId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: "Class deleted." };
+    } catch (localErr: any) {
+      console.warn("[deleteClassAction] Local DB delete notice:", localErr);
+    }
   }
 
   const supabase = await createClient();
@@ -800,6 +1118,44 @@ export async function updateClassStreamAction(_state: unknown, formData: FormDat
     };
   }
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      await queryLocalDb(
+        `UPDATE public.class_streams SET name = $1, stream_tag = $2, updated_at = clock_timestamp() WHERE id = $3 AND school_id = $4;`,
+        [parsed.data.name, parsed.data.streamTag || null, parsed.data.classStreamId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "class_streams",
+        entityId: parsed.data.classStreamId,
+        mutationType: "UPDATE",
+        payload: {
+          id: parsed.data.classStreamId,
+          school_id: context.school.id,
+          name: parsed.data.name,
+          stream_tag: parsed.data.streamTag || null,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("class_streams").update({
+        name: parsed.data.name,
+        stream_tag: parsed.data.streamTag,
+      }).eq("id", parsed.data.classStreamId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      revalidatePath("/dashboard");
+      return { success: true as const, message: `Class group updated to "${parsed.data.name}".` };
+    } catch (localErr: any) {
+      console.warn("[updateClassStreamAction] Local DB update notice:", localErr);
+    }
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("class_streams")
@@ -847,6 +1203,45 @@ export async function deleteClassStreamAction(_state: unknown, formData: FormDat
       error: parsed.error.issues[0]?.message || "Please correct the highlighted fields",
       fieldErrors,
     };
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const enrolRes = await queryLocalDb(
+        "SELECT count(*)::int AS count FROM public.enrolments WHERE school_id = $1 AND class_stream_id = $2;",
+        [context.school.id, parsed.data.classStreamId]
+      );
+      if (enrolRes.rows[0]?.count > 0) {
+        return {
+          error: `Safety Lock: Cannot delete this class group because ${enrolRes.rows[0].count} student(s) are currently enrolled in it. Reassign or withdraw the students first.`,
+        };
+      }
+
+      await queryLocalDb(
+        "DELETE FROM public.class_streams WHERE id = $1 AND school_id = $2;",
+        [parsed.data.classStreamId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "class_streams",
+        entityId: parsed.data.classStreamId,
+        mutationType: "DELETE",
+        payload: { id: parsed.data.classStreamId, school_id: context.school.id },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("class_streams").delete().eq("id", parsed.data.classStreamId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/academics");
+      return { success: true as const, message: "Class group deleted." };
+    } catch (localErr: any) {
+      console.warn("[deleteClassStreamAction] Local DB delete notice:", localErr);
+    }
   }
 
   const supabase = await createClient();
@@ -1605,13 +2000,123 @@ export async function registerStudentAction(
     };
   }
 
-  const supabase = await createClient();
-
   // If matricule was left empty or omitted, automatically generate next sequence matricule
   let matricule = (parsed.data.matricule || "").trim().toUpperCase();
   if (!matricule) {
     matricule = await generateNextStudentMatricule(context.school.id, parsed.data.academicYearId);
   }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const studentId = crypto.randomUUID();
+      const enrolId = crypto.randomUUID();
+
+      await queryLocalDb(
+        `INSERT INTO public.students (
+          id, school_id, matricule, first_name, last_name, gender, date_of_birth, place_of_birth, photo_url, residence_status, guardian_name, guardian_phone, is_repeater, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'active')
+        ON CONFLICT (school_id, matricule) DO UPDATE SET
+          first_name = EXCLUDED.first_name,
+          last_name = EXCLUDED.last_name,
+          gender = EXCLUDED.gender;`,
+        [
+          studentId,
+          context.school.id,
+          matricule,
+          parsed.data.firstName.trim().toUpperCase(),
+          parsed.data.lastName.trim().toUpperCase(),
+          parsed.data.gender,
+          parsed.data.dateOfBirth || null,
+          parsed.data.placeOfBirth ? parsed.data.placeOfBirth.trim().toUpperCase() : null,
+          parsed.data.photoUrl ? parsed.data.photoUrl.trim() : null,
+          parsed.data.residenceStatus || "day_scholar",
+          parsed.data.guardianName || null,
+          parsed.data.guardianPhone || null,
+          parsed.data.isRepeater || false,
+        ]
+      );
+
+      await queryLocalDb(
+        `INSERT INTO public.enrolments (
+          id, school_id, student_id, academic_year_id, class_stream_id, is_repeater, roll_number, status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        ON CONFLICT (academic_year_id, student_id) DO UPDATE SET
+          class_stream_id = EXCLUDED.class_stream_id,
+          status = 'active';`,
+        [
+          enrolId,
+          context.school.id,
+          studentId,
+          parsed.data.academicYearId,
+          parsed.data.classStreamId,
+          parsed.data.isRepeater || false,
+          parsed.data.rollNumber || null,
+        ]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "students",
+        entityId: studentId,
+        mutationType: "INSERT",
+        payload: {
+          id: studentId,
+          enrolment_id: enrolId,
+          school_id: context.school.id,
+          matricule,
+          first_name: parsed.data.firstName.trim().toUpperCase(),
+          last_name: parsed.data.lastName.trim().toUpperCase(),
+          gender: parsed.data.gender,
+          academic_year_id: parsed.data.academicYearId,
+          class_stream_id: parsed.data.classStreamId,
+        },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => {
+        sb.from("students").upsert({
+          id: studentId,
+          school_id: context.school.id,
+          matricule,
+          first_name: parsed.data.firstName.trim().toUpperCase(),
+          last_name: parsed.data.lastName.trim().toUpperCase(),
+          gender: parsed.data.gender,
+          status: "active",
+        }, { onConflict: "school_id,matricule" }).then(() => {
+          sb.from("enrolments").upsert({
+            id: enrolId,
+            school_id: context.school.id,
+            student_id: studentId,
+            academic_year_id: parsed.data.academicYearId,
+            class_stream_id: parsed.data.classStreamId,
+            status: "active",
+          }, { onConflict: "academic_year_id,student_id" }).then(() => {});
+        });
+      }).catch(() => {});
+
+      const nextMatricule = await generateNextStudentMatricule(
+        context.school.id,
+        parsed.data.academicYearId
+      );
+
+      revalidatePath("/dashboard/students");
+      revalidatePath("/dashboard/academics/report-cards");
+      return {
+        success: true as const,
+        message: `Student "${parsed.data.firstName} ${parsed.data.lastName}" enrolled with Matricule ${matricule}.`,
+        matricule,
+        nextMatricule,
+      };
+    } catch (localErr: any) {
+      console.warn("[registerStudentAction] Local DB student notice:", localErr);
+    }
+  }
+
+  const supabase = await createClient();
 
   // 1. Insert or update student
   const { data: student, error: studentError } = await supabase
@@ -1902,6 +2407,57 @@ export async function deleteStudentAction(formData: FormData) {
     return { error: "Student ID is required." };
   }
 
+  if (context.school.slug === "demo-bilingual-high-school") {
+    return {
+      error: "Sample demo students are protected so other teachers can explore them. However, you can add new students and delete any student you create!",
+    };
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const studentRes = await queryLocalDb(
+        "SELECT id, matricule, first_name, last_name FROM public.students WHERE id = $1 AND school_id = $2 LIMIT 1;",
+        [studentId, context.school.id]
+      );
+      if (studentRes.rows.length === 0) {
+        return { error: "Student record not found in your school." };
+      }
+      const student = studentRes.rows[0];
+
+      await queryLocalDb(
+        "DELETE FROM public.students WHERE id = $1 AND school_id = $2;",
+        [studentId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "students",
+        entityId: studentId,
+        mutationType: "DELETE",
+        payload: { id: studentId, school_id: context.school.id },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("students").delete().eq("id", studentId).eq("school_id", context.school.id)).catch(() => {});
+
+      revalidatePath("/dashboard/students");
+      revalidatePath("/dashboard/academics/marks");
+      revalidatePath("/dashboard/academics/report-cards");
+      revalidatePath("/dashboard");
+
+      return {
+        success: true,
+        message: `Student "${student.first_name} ${student.last_name}" (${student.matricule}) has been permanently deleted from the database.`,
+      };
+    } catch (localErr: any) {
+      console.warn("[deleteStudentAction] Local DB student delete notice:", localErr);
+    }
+  }
+
   const supabase = await createClient();
 
   // 1. Verify student exists in this school
@@ -1986,6 +2542,111 @@ export async function saveSequenceMarksAction(payload: {
   ]);
   if (!context?.school?.id) {
     return { error: "Authentication required or insufficient permissions." };
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      for (const m of payload.marks) {
+        const finalScore = m.status === "present" ? m.score : null;
+        await queryLocalDb(
+          `INSERT INTO public.assessment_marks (
+             school_id, academic_year_id, term_id, sequence_id, class_stream_id, subject_id, student_id,
+             score, max_marks, status, remarks, updated_by, updated_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, clock_timestamp())
+           ON CONFLICT (sequence_id, class_stream_id, subject_id, student_id)
+           DO UPDATE SET
+             score = EXCLUDED.score,
+             max_marks = EXCLUDED.max_marks,
+             status = EXCLUDED.status,
+             remarks = EXCLUDED.remarks,
+             updated_by = EXCLUDED.updated_by,
+             updated_at = clock_timestamp();`,
+          [
+            context.school.id,
+            payload.academicYearId,
+            payload.termId,
+            payload.sequenceId,
+            payload.classStreamId,
+            payload.subjectId,
+            m.studentId,
+            finalScore,
+            payload.maxMarks || 20.0,
+            m.status,
+            m.remarks || null,
+            context.user?.id || null,
+          ]
+        );
+      }
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "assessment_marks",
+        entityId: `${payload.sequenceId}:${payload.classStreamId}:${payload.subjectId}`,
+        mutationType: "UPDATE",
+        payload: {
+          academicYearId: payload.academicYearId,
+          termId: payload.termId,
+          sequenceId: payload.sequenceId,
+          classStreamId: payload.classStreamId,
+          subjectId: payload.subjectId,
+          maxMarks: payload.maxMarks,
+          marks: payload.marks,
+          actorId: context.user?.id || null,
+        },
+        clientVersion: 1,
+        actorId: context.user?.id || null,
+      }).catch(() => {});
+
+      if (payload.competencyDescription !== undefined && payload.competencyDescription.trim()) {
+        const trimmed = payload.competencyDescription.trim();
+        const streamRes = await queryLocalDb(
+          "SELECT class_id FROM public.class_streams WHERE id = $1 LIMIT 1;",
+          [payload.classStreamId]
+        );
+        const classId = streamRes.rows[0]?.class_id;
+        if (classId) {
+          await queryLocalDb(
+            `INSERT INTO public.subject_competencies (
+               school_id, subject_id, class_id, term_number, description, order_index, updated_at
+             ) VALUES ($1, $2, $3, 1, $4, 1, clock_timestamp())
+             ON CONFLICT (school_id, subject_id, class_id, term_number, order_index)
+             DO UPDATE SET description = EXCLUDED.description, updated_at = clock_timestamp();`,
+            [context.school.id, payload.subjectId, classId, trimmed]
+          ).catch(() => {});
+        }
+      }
+
+      // Background cloud push if online
+      createClient().then(sb => {
+        const rows = payload.marks.map((m) => ({
+          school_id: context.school.id,
+          academic_year_id: payload.academicYearId,
+          term_id: payload.termId,
+          sequence_id: payload.sequenceId,
+          class_stream_id: payload.classStreamId,
+          subject_id: payload.subjectId,
+          student_id: m.studentId,
+          score: m.status === "present" ? m.score : null,
+          max_marks: payload.maxMarks || 20.0,
+          status: m.status,
+          remarks: m.remarks || null,
+          updated_at: new Date().toISOString(),
+        }));
+        sb.from("assessment_marks").upsert(rows, {
+          onConflict: "sequence_id,class_stream_id,subject_id,student_id",
+        }).then(() => {});
+      }).catch(() => {});
+
+      revalidatePath("/dashboard/academics/marks");
+      revalidatePath("/dashboard/academics");
+      revalidatePath("/dashboard/academics/report-cards");
+      return { success: true };
+    } catch (localMarksErr: any) {
+      console.warn("[saveSequenceMarksAction] Local DB marks notice:", localMarksErr);
+    }
   }
 
   const supabase = await createClient();

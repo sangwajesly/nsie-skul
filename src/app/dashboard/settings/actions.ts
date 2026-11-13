@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { initiateFapshiPayment, getFapshiPaymentStatus } from "@/lib/payments/fapshi";
 import { normalizePinForAuth } from "@/lib/auth/pin-utils";
+import { isSchoolHubMode } from "@/lib/hub/hub-node-store";
 
 const AddStaffSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -112,16 +113,33 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
         const randomDigits = Math.floor(100 + Math.random() * 900);
         candidate = `${schoolCode}-${randomDigits}`;
 
-        const { data: existing } = await supabase
-          .from("school_memberships")
-          .select("id")
-          .eq("school_id", context.school.id)
-          .eq("access_code", candidate)
-          .maybeSingle();
+        if (isSchoolHubMode()) {
+          try {
+            const { queryLocalDb } = await import("@/lib/db/local-postgres");
+            const existingRes = await queryLocalDb(
+              "SELECT id FROM public.school_memberships WHERE school_id = $1 AND access_code = $2 LIMIT 1",
+              [context.school.id, candidate]
+            );
+            if (existingRes.rows.length === 0) {
+              uniqueFound = true;
+              accessCode = candidate;
+            }
+          } catch {
+            uniqueFound = true;
+            accessCode = candidate;
+          }
+        } else {
+          const { data: existing } = await supabase
+            .from("school_memberships")
+            .select("id")
+            .eq("school_id", context.school.id)
+            .eq("access_code", candidate)
+            .maybeSingle();
 
-        if (!existing) {
-          uniqueFound = true;
-          accessCode = candidate;
+          if (!existing) {
+            uniqueFound = true;
+            accessCode = candidate;
+          }
         }
       }
 
@@ -144,6 +162,167 @@ export async function registerTeacherWithCodeAction(formData: FormData): Promise
       return { success: false, error: "PIN must be 6 digits or fewer." };
     } else if (!/^\d+$/.test(effectivePin)) {
       return { success: false, error: "PIN must contain only numbers (0 to 9)." };
+    }
+
+    // ── HUB MODE 100% OFFLINE EXECUTION ─────────────────────────────────────
+    if (isSchoolHubMode()) {
+      try {
+        const { queryLocalDb } = await import("@/lib/db/local-postgres");
+        const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+        // 1. Fetch role locally if needed
+        let resolvedRoleId = role.id;
+        let resolvedRoleName = role.name;
+
+        // 2. Check if user profile exists locally
+        const existingProfRes = await queryLocalDb(
+          "SELECT id, full_name, email, phone FROM public.user_profiles WHERE phone = $1 OR phone = $2 LIMIT 1",
+          [cleanDigits, `+237${cleanDigits}`]
+        );
+
+        let userId: string;
+        let isExistingUser = false;
+
+        if (existingProfRes.rows.length > 0) {
+          userId = existingProfRes.rows[0].id;
+          isExistingUser = true;
+
+          const memCheck = await queryLocalDb(
+            "SELECT id, access_code FROM public.school_memberships WHERE school_id = $1 AND user_id = $2 LIMIT 1",
+            [context.school.id, userId]
+          );
+          if (memCheck.rows.length > 0) {
+            return {
+              success: false,
+              error: `This teacher (+237 ${cleanDigits}) is already registered in this school with access code ${memCheck.rows[0].access_code || "assigned"}.`,
+            };
+          }
+
+          if (fullName && fullName.length >= 2) {
+            await queryLocalDb(
+              "UPDATE public.user_profiles SET full_name = $1, phone = $2, updated_at = clock_timestamp() WHERE id = $3",
+              [fullName, cleanDigits, userId]
+            );
+          }
+        } else {
+          userId = crypto.randomUUID();
+          const syntheticEmail = `teacher_${cleanDigits}@staff.nseisukul.internal`;
+          await queryLocalDb(
+            `INSERT INTO public.user_profiles (id, full_name, email, phone, role, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, 'teacher', clock_timestamp(), clock_timestamp())
+             ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, phone = EXCLUDED.phone;`,
+            [userId, fullName, syntheticEmail, cleanDigits]
+          );
+        }
+
+        const membershipId = crypto.randomUUID();
+        await queryLocalDb(
+          `INSERT INTO public.school_memberships (
+             id, school_id, user_id, role_id, title, access_code, status, created_at, updated_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'active', clock_timestamp(), clock_timestamp())
+           ON CONFLICT (school_id, user_id) DO UPDATE SET
+             role_id = EXCLUDED.role_id,
+             title = EXCLUDED.title,
+             access_code = EXCLUDED.access_code,
+             status = 'active',
+             updated_at = clock_timestamp();`,
+          [membershipId, context.school.id, userId, resolvedRoleId, title || resolvedRoleName || "Teacher", accessCode]
+        );
+
+        // Audit log in local DB
+        await queryLocalDb(
+          `INSERT INTO public.audit_logs (school_id, user_id, action, resource_type, resource_id, details)
+           VALUES ($1, $2, 'REGISTER_STAFF_WITH_CODE', 'school_membership', $3, $4);`,
+          [
+            context.school.id,
+            context.user.id,
+            membershipId,
+            JSON.stringify({
+              fullName,
+              phone: cleanDigits,
+              access_code: accessCode,
+              role_id: resolvedRoleId,
+              title: title || null,
+              isExistingUser,
+            }),
+          ]
+        ).catch(() => {});
+
+        // Durable Outbox Mutation for Cloud Push
+        await enqueueOutboxMutation({
+          schoolId: context.school.id,
+          entityType: "school_memberships",
+          entityId: membershipId,
+          mutationType: "INSERT",
+          payload: {
+            id: membershipId,
+            school_id: context.school.id,
+            user_id: userId,
+            role_id: resolvedRoleId,
+            title: title || resolvedRoleName || "Teacher",
+            access_code: accessCode,
+            status: "active",
+            fullName,
+            phone: cleanDigits,
+            pin: effectivePin,
+          },
+          clientVersion: 1,
+          actorId: context.user.id,
+        }).catch(() => {});
+
+        // Fire-and-forget background cloud sync if online
+        try {
+          const admin = createAdminClient();
+          admin.auth.admin
+            .createUser({
+              email: `teacher_${cleanDigits}@staff.nseisukul.internal`,
+              password: normalizePinForAuth(effectivePin),
+              email_confirm: true,
+              user_metadata: {
+                full_name: fullName,
+                phone: cleanDigits,
+                created_by_school: context.school.id,
+              },
+            })
+            .then((res) => {
+              if (res.data?.user?.id) {
+                admin
+                  .from("school_memberships")
+                  .upsert({
+                    id: membershipId,
+                    school_id: context.school.id,
+                    user_id: res.data.user.id,
+                    role_id: resolvedRoleId,
+                    title: title || resolvedRoleName || "Teacher",
+                    access_code: accessCode,
+                    status: "active",
+                  })
+                  .then(() => {});
+              }
+            })
+            .catch(() => {});
+        } catch {}
+
+        revalidatePath("/dashboard/settings");
+        revalidatePath("/dashboard");
+
+        return {
+          success: true,
+          teacherName: fullName,
+          phone: cleanDigits,
+          accessCode,
+          pin: isExistingUser ? "(Teacher's existing PIN)" : effectivePin,
+          isExistingUser,
+          schoolName: context.school.name,
+          schoolCode,
+        };
+      } catch (localHubErr: any) {
+        console.error("[registerTeacherWithCodeAction] Local Hub failure:", localHubErr);
+        return {
+          success: false,
+          error: localHubErr.message || "Failed to register teacher in local School Hub database.",
+        };
+      }
     }
 
     const authPassword = normalizePinForAuth(effectivePin);
@@ -591,6 +770,35 @@ export async function updateStaffRoleAction(formData: FormData) {
     throw new Error(validation.error.issues[0]?.message || "Check the staff details and try again.");
   }
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      await queryLocalDb(
+        "UPDATE public.school_memberships SET role_id = $1, title = $2, updated_at = clock_timestamp() WHERE id = $3 AND school_id = $4",
+        [validation.data.roleId, validation.data.title || null, validation.data.membershipId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "school_memberships",
+        entityId: validation.data.membershipId,
+        mutationType: "UPDATE",
+        payload: { id: validation.data.membershipId, role_id: validation.data.roleId, title: validation.data.title || null },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("school_memberships").update({ role_id: validation.data.roleId, title: validation.data.title || null }).eq("id", validation.data.membershipId)).catch(() => {});
+
+      revalidatePath("/dashboard/settings");
+      return;
+    } catch (err: any) {
+      console.warn("[updateStaffRoleAction] Local DB fallback notice:", err);
+    }
+  }
+
   const supabase = await createClient();
   const { data: role, error: roleError } = await supabase
     .from("roles")
@@ -642,6 +850,36 @@ export async function toggleStaffStatusAction(formData: FormData) {
 
   if (!membershipId || !["active", "suspended"].includes(newStatus)) {
     throw new Error("Invalid staff status update request.");
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      await queryLocalDb(
+        "UPDATE public.school_memberships SET status = $1, updated_at = clock_timestamp() WHERE id = $2 AND school_id = $3",
+        [newStatus, membershipId, context.school.id]
+      );
+
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "school_memberships",
+        entityId: membershipId,
+        mutationType: "UPDATE",
+        payload: { id: membershipId, status: newStatus },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      createClient().then(sb => sb.from("school_memberships").update({ status: newStatus }).eq("id", membershipId)).catch(() => {});
+
+      revalidatePath("/dashboard/settings");
+      revalidatePath("/dashboard");
+      return;
+    } catch (err: any) {
+      console.warn("[toggleStaffStatusAction] Local DB fallback notice:", err);
+    }
   }
 
   const supabase = await createClient();
@@ -696,6 +934,68 @@ export async function removeStaffMembershipAction(formData: FormData) {
 
   if (context.school.slug === "demo-bilingual-high-school") {
     throw new Error("Demo Campus staff accounts are protected. You can add new staff members freely!");
+  }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const { enqueueOutboxMutation } = await import("@/lib/hub/hub-outbox");
+
+      const memRes = await queryLocalDb(
+        "SELECT id, user_id, title FROM public.school_memberships WHERE id = $1 AND school_id = $2 LIMIT 1",
+        [membershipId, context.school.id]
+      );
+      if (memRes.rows.length === 0) {
+        throw new Error("Staff member not found in this school.");
+      }
+      const targetUserId = memRes.rows[0].user_id;
+
+      if (targetUserId === context.user.id) {
+        throw new Error("You cannot remove your own school administrator account.");
+      }
+
+      // 1. Unassign class master duties
+      await queryLocalDb(
+        "UPDATE public.class_streams SET class_master_id = NULL, updated_at = clock_timestamp() WHERE school_id = $1 AND class_master_id = $2",
+        [context.school.id, targetUserId]
+      );
+
+      // 2. Unassign teacher subject allocations
+      await queryLocalDb(
+        "DELETE FROM public.teacher_assignments WHERE school_id = $1 AND teacher_user_id = $2",
+        [context.school.id, targetUserId]
+      );
+
+      // 3. Remove school membership
+      await queryLocalDb(
+        "DELETE FROM public.school_memberships WHERE id = $1 AND school_id = $2",
+        [membershipId, context.school.id]
+      );
+
+      // 4. Enqueue outbox mutation
+      await enqueueOutboxMutation({
+        schoolId: context.school.id,
+        entityType: "school_memberships",
+        entityId: membershipId,
+        mutationType: "DELETE",
+        payload: { id: membershipId, school_id: context.school.id, user_id: targetUserId },
+        clientVersion: 1,
+        actorId: context.user.id,
+      }).catch(() => {});
+
+      // 5. Fire-and-forget cloud delete if online
+      createClient().then(sb => sb.from("school_memberships").delete().eq("id", membershipId)).catch(() => {});
+
+      revalidatePath("/dashboard/settings");
+      revalidatePath("/dashboard/academics");
+      revalidatePath("/dashboard");
+      return;
+    } catch (err: any) {
+      console.warn("[removeStaffMembershipAction] Local Hub failure notice:", err);
+      if (err.message && !err.message.includes("fetch")) {
+        throw err;
+      }
+    }
   }
 
   const supabase = await createClient();
