@@ -269,39 +269,64 @@ export async function detectLocalHub(
 ): Promise<{ reachable: boolean; host?: string; hubName?: string }> {
   if (typeof window === "undefined") return { reachable: false };
 
+  // 1. Fast-path: Check preferred host, stored host, or current origin if already on LAN/localhost
+  const currentHost = window.location?.host;
+  const isDirectHub =
+    currentHost &&
+    !currentHost.includes("klarifypath") &&
+    !currentHost.includes("vercel") &&
+    !currentHost.includes("nsei-sukul");
+
+  const fastCandidates: string[] = [];
+  if (preferredHost) fastCandidates.push(preferredHost);
   const stored = getStoredHubHost();
-  const candidates: string[] = [];
-  if (stored) candidates.push(stored);
-  if (preferredHost) candidates.push(preferredHost);
-  if (window.location && window.location.hostname && !window.location.hostname.includes("klarifypath")) {
-    candidates.push(window.location.host);
+  if (stored) fastCandidates.push(stored);
+  if (isDirectHub && currentHost) fastCandidates.push(currentHost);
+
+  const cleanFast = Array.from(new Set(fastCandidates.filter(Boolean)));
+  for (const host of cleanFast) {
+    const clean = host.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+    try {
+      const res = await fetch(`http://${clean}/api/v1/hub/lan-ping`, {
+        method: "GET",
+        signal: AbortSignal.timeout(1200),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        saveStoredHubHost(clean);
+        return { reachable: true, host: clean, hubName: data.hubName || "School LAN Hub" };
+      }
+    } catch {}
   }
-  candidates.push(
+
+  // If already directly on the local Hub machine and it didn't respond, don't spam nonexistent subnets
+  if (isDirectHub && cleanFast.length > 0) {
+    return { reachable: false };
+  }
+
+  // 2. Only if on a cloud web URL and searching for the school hub Wi-Fi computer, probe common LAN IPs
+  const candidates = [
     "school.local:3000",
     "192.168.1.100:3000",
     "192.168.1.50:3000",
     "192.168.1.2:3000",
     "192.168.0.100:3000",
     "192.168.8.100:3000",
-    "localhost:3000"
-  );
+    "localhost:3000",
+  ];
 
-  const uniqueHosts = Array.from(new Set(candidates.filter(Boolean)));
-
-  const pingPromises = uniqueHosts.map(async (host) => {
-    const cleanHost = host.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  const pingPromises = candidates.map(async (host) => {
     try {
-      const res = await fetch(`http://${cleanHost}/api/v1/hub/lan-ping`, {
+      const res = await fetch(`http://${host}/api/v1/hub/lan-ping`, {
         method: "GET",
-        signal: AbortSignal.timeout(1800),
+        signal: AbortSignal.timeout(1500),
       });
       if (res.ok) {
         const data = await res.json();
-        return { reachable: true, host: cleanHost, hubName: data.hubName || "School LAN Hub" };
+        saveStoredHubHost(host);
+        return { reachable: true, host, hubName: data.hubName || "School LAN Hub" };
       }
-    } catch {
-      // not reachable
-    }
+    } catch {}
     throw new Error("Unreachable");
   });
 
@@ -373,9 +398,9 @@ export async function syncAllDraftsToLocalHub(
   preferredHost?: string
 ): Promise<{ success: boolean; transferredCount: number; message: string }> {
   try {
-    const drafts = await getAllLocalDrafts();
-    if (drafts.length === 0) {
-      return { success: true, transferredCount: 0, message: "No stored marks found on this device." };
+    const pendingOutbox = await getAllPendingSyncItems();
+    if (pendingOutbox.length === 0) {
+      return { success: true, transferredCount: 0, message: "No marks waiting to sync." };
     }
 
     const hub = await detectLocalHub(preferredHost);
@@ -390,24 +415,32 @@ export async function syncAllDraftsToLocalHub(
     let totalMarks = 0;
     let sheetSuccessCount = 0;
 
-    for (const draft of drafts) {
-      if (!draft.marks || draft.marks.length === 0) continue;
+    for (const item of pendingOutbox) {
+      if (!item.marks || item.marks.length === 0) {
+        await removeSyncItem(item.sheetKey);
+        continue;
+      }
       const res = await syncDirectToLocalHub(
         {
-          academicYearId: draft.academicYearId,
-          termId: draft.termId,
-          sequenceId: draft.sequenceId,
-          classStreamId: draft.classStreamId,
-          subjectId: draft.subjectId,
-          maxMarks: draft.maxMarks,
-          competencyDescription: draft.competencyDescription,
-          marks: draft.marks,
+          academicYearId: item.academicYearId,
+          termId: item.termId,
+          sequenceId: item.sequenceId,
+          classStreamId: item.classStreamId,
+          subjectId: item.subjectId,
+          maxMarks: item.maxMarks,
+          competencyDescription: item.competencyDescription,
+          marks: item.marks,
         },
         hub.host
       );
       if (res.success) {
         sheetSuccessCount++;
-        totalMarks += draft.marks.length;
+        totalMarks += item.marks.length;
+        await removeSyncItem(item.sheetKey);
+        const existingDraft = await getLocalDraft(item.sheetKey);
+        if (existingDraft) {
+          await saveLocalDraft({ ...existingDraft, isSynced: true });
+        }
       }
     }
 

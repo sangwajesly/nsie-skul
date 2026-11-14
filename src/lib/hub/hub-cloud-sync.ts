@@ -358,24 +358,11 @@ async function upsertPulledDataToLocalDb(pulledData: any) {
         await client.query(
           `INSERT INTO enrolments (id, school_id, student_id, academic_year_id, class_stream_id, roll_number, status)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
-           ON CONFLICT (id) DO UPDATE SET
-             class_stream_id = EXCLUDED.class_stream_id,
-             status = EXCLUDED.status;`,
-          [e.id, e.school_id, e.student_id, e.academic_year_id, e.class_stream_id, e.roll_number || null, e.status || "active"]
-        );
-      }
-    } else if (students.length && activeYearId && streamIds.size > 0) {
-      const primaryStreamId = Array.from(streamIds)[0];
-      for (const st of students) {
-        const markForStudent = marks.find((m: any) => m.student_id === st.id && m.class_stream_id);
-        const stStream = markForStudent ? markForStudent.class_stream_id : primaryStreamId;
-        await client.query(
-          `INSERT INTO enrolments (school_id, student_id, academic_year_id, class_stream_id, status)
-           VALUES ($1, $2, $3, $4, 'active')
            ON CONFLICT (academic_year_id, student_id) DO UPDATE SET
              class_stream_id = EXCLUDED.class_stream_id,
-             status = 'active';`,
-          [schoolId, st.id, activeYearId, stStream]
+             roll_number = EXCLUDED.roll_number,
+             status = EXCLUDED.status;`,
+          [e.id, e.school_id, e.student_id, e.academic_year_id, e.class_stream_id, e.roll_number || null, e.status || "active"]
         );
       }
     }

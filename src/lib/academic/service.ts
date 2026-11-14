@@ -350,6 +350,34 @@ export const getSchoolSequences = cache(async function getSchoolSequences(
  * Lists all departments in a school, with their assigned subjects and active HOD.
  */
 export async function getSchoolDepartments(schoolId: string): Promise<Department[]> {
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const res = await queryLocalDb(
+        `SELECT d.*, 
+          COALESCE(
+            json_agg(
+              json_build_object(
+                'id', s.id,
+                'name', s.name,
+                'code', s.code,
+                'department_id', s.department_id
+              )
+            ) FILTER (WHERE s.id IS NOT NULL),
+            '[]'
+          ) as subjects,
+          '[]'::json as hod_assignments
+         FROM public.departments d
+         LEFT JOIN public.subjects s ON s.department_id = d.id
+         WHERE d.school_id = $1
+         GROUP BY d.id
+         ORDER BY d.name ASC`,
+        [schoolId]
+      );
+      if (res.rows.length > 0) return res.rows as Department[];
+    } catch {}
+  }
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("departments")
@@ -637,6 +665,21 @@ export async function getClassStreamsForSubjects(
 ): Promise<string[]> {
   if (!schoolId || classStreamIds.length === 0 || subjectIds.length === 0) return [];
 
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      const res = await queryLocalDb(
+        `SELECT DISTINCT class_stream_id 
+         FROM public.class_subjects 
+         WHERE school_id = $1 
+           AND class_stream_id = ANY($2::uuid[]) 
+           AND subject_id = ANY($3::uuid[])`,
+        [schoolId, classStreamIds, subjectIds]
+      );
+      if (res.rows.length > 0) return res.rows.map((r: any) => r.class_stream_id);
+    } catch {}
+  }
+
   const supabase = await createClient();
   const { data } = await supabase
     .from("class_subjects")
@@ -655,6 +698,29 @@ export async function getAssignedClassStreamIds(
   roleCode: string
 ): Promise<string[]> {
   if (!schoolId || !academicYearId || !userId) return [];
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      if (roleCode === "teacher") {
+        const res = await queryLocalDb(
+          `SELECT DISTINCT class_stream_id 
+           FROM public.teacher_assignments 
+           WHERE school_id = $1 AND academic_year_id = $2 AND teacher_user_id = $3`,
+          [schoolId, academicYearId, userId]
+        );
+        return res.rows.map((r: any) => r.class_stream_id);
+      }
+      if (roleCode === "class_master") {
+        const res = await queryLocalDb(
+          `SELECT id FROM public.class_streams 
+           WHERE school_id = $1 AND academic_year_id = $2 AND class_master_id = $3`,
+          [schoolId, academicYearId, userId]
+        );
+        return res.rows.map((r: any) => r.id);
+      }
+    } catch {}
+  }
 
   const supabase = await createClient();
 
@@ -743,6 +809,30 @@ export async function getHodScope(
   if (!schoolId || !hodUserId) {
     return { departmentIds: [], subjectIds: [], departmentNames: [] };
   }
+
+  if (isSchoolHubMode()) {
+    try {
+      const { queryLocalDb } = await import("@/lib/db/local-postgres");
+      let sql = `
+        SELECT ha.department_id, ha.subject_id, d.name as department_name
+        FROM public.hod_assignments ha
+        LEFT JOIN public.departments d ON d.id = ha.department_id
+        WHERE ha.school_id = $1 AND ha.hod_user_id = $2 AND ha.status = 'active'
+      `;
+      const params: any[] = [schoolId, hodUserId];
+      if (academicYearId) {
+        params.push(academicYearId);
+        sql += ` AND ha.academic_year_id = $3`;
+      }
+      const res = await queryLocalDb(sql, params);
+      const deptIds = [...new Set(res.rows.map((r: any) => r.department_id).filter(Boolean))];
+      const subIds = [...new Set(res.rows.map((r: any) => r.subject_id).filter(Boolean))];
+      const deptNames = [...new Set(res.rows.map((r: any) => r.department_name).filter(Boolean))];
+      return { departmentIds: deptIds, subjectIds: subIds, departmentNames: deptNames };
+    } catch {}
+    return { departmentIds: [], subjectIds: [], departmentNames: [] };
+  }
+
   const supabase = await createClient();
 
   let query = supabase

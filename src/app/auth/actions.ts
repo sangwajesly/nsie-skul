@@ -142,8 +142,8 @@ async function loginTeacherOfflineWithLocalPg(
     }
     const cleanStaff = targetStaffCode.replace(/^[-_]+/, "");
 
-    let queryText = `
-      SELECT 
+    const res = await queryLocalDb(
+      `SELECT 
         m.id as membership_id,
         m.school_id,
         m.user_id,
@@ -162,55 +162,26 @@ async function loginTeacherOfflineWithLocalPg(
       LEFT JOIN public.roles r ON r.id = m.role_id
       LEFT JOIN public.schools s ON s.id = m.school_id
       WHERE m.status = 'active'
-    `;
-    const params: any[] = [];
-
-    if (isLikelyPhone) {
-      params.push(phone9, `+237${phone9}`, `teacher_${phone9}@staff.nseisukul.internal`);
-      queryText += ` AND (u.phone = $1 OR u.phone = $2 OR u.email = $3)`;
-    } else {
-      params.push(identifier, cleanStaff, `%-${cleanStaff}`);
-      queryText += ` AND (m.access_code ILIKE $1 OR m.access_code ILIKE $2 OR m.access_code ILIKE $3)`;
-    }
-
-    if (targetSchoolCode) {
-      params.push(targetSchoolCode);
-      queryText += ` AND (s.code ILIKE $${params.length} OR s.slug ILIKE $${params.length})`;
-    }
-
-    queryText += ` LIMIT 1`;
-
-    const res = await queryLocalDb(queryText, params);
-    if (res.rows.length === 0) {
-      // Fallback search: try matching anywhere in access_code or phone without strict school code constraint
-      const fallbackRes = await queryLocalDb(
-        `SELECT 
-          m.id as membership_id,
-          m.school_id,
-          m.user_id,
-          m.access_code,
-          m.title,
-          m.status,
-          COALESCE(r.code, 'teacher') as role_code,
-          COALESCE(r.name, 'Subject Teacher') as role_name,
-          COALESCE(u.full_name, m.title, 'Subject Teacher') as full_name,
-          u.phone,
-          u.email,
-          s.name as school_name,
-          s.code as school_code
-        FROM public.school_memberships m
-        LEFT JOIN public.user_profiles u ON u.id = m.user_id
-        LEFT JOIN public.roles r ON r.id = m.role_id
-        LEFT JOIN public.schools s ON s.id = m.school_id
-        WHERE m.status = 'active'
-          AND (m.access_code ILIKE $1 OR u.phone LIKE $2 OR u.email ILIKE $1)
-        LIMIT 1`,
-        [`%${cleanStaff || identifier}%`, `%${phone9 || cleanDigits}%`]
-      );
-      if (fallbackRes.rows.length > 0) {
-        res.rows.push(fallbackRes.rows[0]);
-      }
-    }
+        AND (
+          m.access_code ILIKE $1 
+          OR m.access_code ILIKE $2 
+          OR m.access_code ILIKE $3
+          OR ($4 <> '' AND (u.phone LIKE $4 OR u.phone LIKE $5 OR u.email LIKE $6))
+        )
+      ORDER BY 
+        CASE WHEN s.code ILIKE $7 OR s.slug ILIKE $7 THEN 0 ELSE 1 END,
+        m.created_at DESC
+      LIMIT 1`,
+      [
+        identifier,
+        cleanStaff,
+        `%-${cleanStaff}`,
+        phone9 ? `%${phone9}%` : "",
+        phone9 ? `+237${phone9}` : "",
+        phone9 ? `%teacher_${phone9}%` : "",
+        targetSchoolCode,
+      ]
+    );
 
     if (res.rows.length === 0) {
       return {

@@ -30,8 +30,8 @@ export async function unlockHubWithPinAction(formData: FormData) {
       return { error: "Hub node is not configured." };
     }
 
-    // Trigger cloud sync to update school metadata if still using default name
-    if (config.schoolName === "Local School Station" || !config.lastSyncAt) {
+    // Trigger cloud sync if entering a Node Key or still using default metadata
+    if (pinOrKey.toLowerCase().startsWith("hub_") || config.schoolName === "Local School Station" || !config.lastSyncAt) {
       try {
         await executeHubCloudSync();
       } catch (e) {

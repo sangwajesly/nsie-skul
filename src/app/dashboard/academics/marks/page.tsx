@@ -205,16 +205,12 @@ export default async function MarksPage({ searchParams }: MarksPageProps) {
       : [];
 
   // 3. Load existing marks if sequence, stream, and subject are selected
-  const supabase = await createClient();
-  const { data: streamSubjectConfig } =
+  const streamSubjectConfig =
     selectedStream && selectedSubject
-      ? await supabase
-          .from("class_subjects")
-          .select("coefficient, max_marks")
-          .eq("class_stream_id", selectedStream.id)
-          .eq("subject_id", selectedSubject.id)
-          .maybeSingle()
-      : { data: null };
+      ? allClassSubjects.find(
+          (cs) => cs.class_stream_id === selectedStream.id && cs.subject_id === selectedSubject.id
+        ) || null
+      : null;
 
   const effectiveCoefficient =
     streamSubjectConfig?.coefficient ?? selectedSubject?.default_coefficient ?? 2;
