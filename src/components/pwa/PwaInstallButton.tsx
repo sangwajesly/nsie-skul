@@ -12,7 +12,7 @@ export function PwaInstallButton({
   variant = "sidebar",
   className = "",
 }: PwaInstallButtonProps) {
-  const { isInstalled, installApp } = usePwa();
+  const { isInstalled, installApp, isDesktop } = usePwa();
 
   // If already installed in standalone mode, do not show button
   if (isInstalled) {
@@ -46,7 +46,7 @@ export function PwaInstallButton({
         title="Install Nsei Sukul PWA on phone, tablet, or PC"
       >
         <Download className="w-3.5 h-3.5 text-[#4ADE80] shrink-0" />
-        <span>Install App</span>
+        <span>{isDesktop ? "Install on PC" : "Install App"}</span>
       </button>
     );
   }
@@ -64,15 +64,15 @@ export function PwaInstallButton({
         </div>
         <div>
           <div className="text-[12px] font-bold text-[#142010] group-hover:text-[#2A7C13] transition-colors leading-tight">
-            Install App (PWA)
+            {isDesktop ? "Install on PC" : "Install App (PWA)"}
           </div>
           <div className="text-[10px] text-[#788470] leading-tight">
-            Offline phone &amp; desktop app
+            {isDesktop ? "Native offline desktop app" : "Offline phone & desktop app"}
           </div>
         </div>
       </div>
       <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-[3px] bg-[#EBF5E9] text-[#2A7C13] border border-[#C3E4BC]">
-        Offline
+        {isDesktop ? "PC App" : "Offline"}
       </span>
     </button>
   );

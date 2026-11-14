@@ -8,7 +8,7 @@ import { usePwa } from "./PwaProvider";
 const SESSION_MINIMIZED_KEY = "nsei_pwa_floating_minimized_session";
 
 export function FloatingPwaInstallPrompt() {
-  const { isInstalled, installApp, isIOS } = usePwa();
+  const { isInstalled, installApp, isIOS, isDesktop } = usePwa();
   const [mounted, setMounted] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -70,7 +70,7 @@ export function FloatingPwaInstallPrompt() {
           <div className="w-5 h-5 rounded-full bg-[#2A7C13] flex items-center justify-center shrink-0">
             <Download className="w-3 h-3 text-white" />
           </div>
-          <span>Install App (PWA)</span>
+          <span>{isDesktop ? "Install on PC" : "Install App (PWA)"}</span>
           <span
             onClick={(e) => {
               e.stopPropagation();
@@ -148,7 +148,7 @@ export function FloatingPwaInstallPrompt() {
           className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[6px] text-xs font-bold bg-[#2A7C13] hover:bg-[#20600E] text-white shadow-xs transition-colors cursor-pointer"
         >
           <Download className="w-3.5 h-3.5" />
-          <span>{isIOS ? "Add to Home Screen" : "Install PWA App"}</span>
+          <span>{isIOS ? "Add to Home Screen" : isDesktop ? "Install on PC" : "Install PWA App"}</span>
         </button>
 
         <button

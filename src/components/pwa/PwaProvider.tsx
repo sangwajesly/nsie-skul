@@ -50,8 +50,13 @@ export function PwaProvider({ children }: { children: React.ReactNode }) {
   const [activeGuideTab, setActiveGuideTab] = useState<"android" | "ios" | "desktop">("android");
 
   useEffect(() => {
-    // 1. Register Service Worker in production
-    if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+    // 1. Register Service Worker in production and local development/hub
+    const isLocalhost = Boolean(
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname.endsWith(".local")
+    );
+    if ("serviceWorker" in navigator && (process.env.NODE_ENV === "production" || isLocalhost)) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((reg) => {
